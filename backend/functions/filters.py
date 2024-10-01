@@ -151,14 +151,15 @@ def new_students_filters():
     subject_list = [subject.name for subject in subjects]
     language_list = [language.name for language in languages]
     filters = {
-        "subjects": {
-            "id": 1,
-            "title": "Fan boyicha",
-            "type": "btn",
-            "typeChange": "multiple",
-            "activeFilters": [],
-            "filtersList": subject_list
-        },
+        # "subjects": {
+        #     "id": 1,
+        #     "title": "Fan boyicha",
+        #     "type": "btn",
+        #     "typeChange": "multiple",
+        #     "activeFilters": [],
+        #     "filtersList": subject_list
+        # },
+
         "language": {
             "id": 2,
             "title": "Til bo'yicha",
@@ -536,6 +537,7 @@ def deleted_students_filter(location_id):
     group_list = list(day_dict.values())
 
     filters = {
+
         # "day": {
         #     "id": 1,
         #     "title": "Kun bo'yicha",
