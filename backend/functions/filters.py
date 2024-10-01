@@ -190,7 +190,7 @@ def group_filter(location_id):
     separate groups to two list : active and nonactive
     """
     teachers = db.session.query(Teachers).join(Teachers.locations).options(contains_eager(Teachers.locations)).filter(
-        Locations.id == location_id).order_by(Teachers.id).all()
+        Locations.id == location_id, Teachers.group != None, Teachers.deleted == None).order_by(Teachers.id).all()
     education_languages = EducationLanguage.query.all()
     education_languages_list = [sub.name for sub in education_languages]
 
@@ -246,7 +246,7 @@ def group_filter(location_id):
     data = {
         "status": status,
         "subjects": subjects,
-        "course_types": courses,
+        "typeOfCourse": courses,
         "languages": languages,
         "teacherName": teachers
     }
