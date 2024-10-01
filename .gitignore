@@ -2,3 +2,4 @@ venv
 migrations
 frontend
 __pycache__
+.idea
