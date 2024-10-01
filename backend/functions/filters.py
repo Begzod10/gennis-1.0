@@ -1,4 +1,5 @@
 import calendar
+import pprint
 from datetime import datetime, date
 
 from flask_jwt_extended import jwt_required
@@ -51,7 +52,7 @@ def block_information2(location_id):
         "electronic": room.electronic_board
     } for room in rooms]
 
-    days = Week.query.filter(Week.location_id == location_id).order_by(Week.id).all()
+    days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
     day_list = [{
         "id": day.id,
         "name": day.name
@@ -106,6 +107,7 @@ def teacher_filter():
         },
 
     }
+    print(filters)
     return filters
 
 
