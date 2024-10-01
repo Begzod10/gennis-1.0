@@ -5,10 +5,26 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="56b58f27-200e-460d-96e6-6a0cecd24057" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/gennis.yBiGtQ.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/gennis.yBiGtQ/schema/information_schema.FNRwLQ.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/gennis.yBiGtQ/schema/pg_catalog.0S1ZNQ.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/gennis.yBiGtQ/schema/public.abK9xQ.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/postgres.edMnLQ.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/postgres.edMnLQ/schema/information_schema.FNRwLQ.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/04d28d8e-a692-4695-ad1f-2e191a79b266/storage_v2/_src_/database/postgres.edMnLQ/schema/pg_catalog.0S1ZNQ.meta" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/gennis.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gennis.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/functions/filters.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/functions/filters.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/group/view.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/group/view.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/migrations/README" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/migrations/alembic.ini" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/migrations/env.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/migrations/script.py.mako" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/migrations/versions/7e0e55b39d5e_.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -337,7 +353,7 @@
       <workItem from="1727111693587" duration="603000" />
       <workItem from="1727514410510" duration="2697000" />
       <workItem from="1727774321398" duration="3791000" />
-      <workItem from="1727778912687" duration="1313000" />
+      <workItem from="1727778912687" duration="2959000" />
     </task>
     <servers />
   </component>
