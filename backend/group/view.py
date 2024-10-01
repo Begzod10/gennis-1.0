@@ -1,19 +1,17 @@
-import pprint
+import os
+from datetime import datetime
+
+from flask_jwt_extended import jwt_required
 
 from app import app, api, or_, db, contains_eager, extract, jsonify, request, desc
+from backend.account.models import StudentCharity
+from backend.functions.filters import old_current_dates, update_lesson_plan
+from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
+from backend.group.class_model import Group_Functions
 from backend.models.models import Groups, CalendarDay, Students, AttendanceDays, SubjectLevels, \
     AttendanceHistoryStudent, Group_Room_Week, Attendance, CalendarMonth, Week, Rooms, Teachers, Roles, \
     CertificateLinks, GroupTest
-from flask_jwt_extended import jwt_required
 from backend.student.class_model import Student_Functions
-from backend.functions.filters import old_current_dates, update_lesson_plan
-from backend.group.class_model import Group_Functions
-from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
-from datetime import datetime
-
-import os
-
-from backend.account.models import StudentCharity
 
 
 @app.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
@@ -74,6 +72,7 @@ def groups(location_id):
         "status": "True" if gr.status else "False",
         "teacherName": Teachers.query.filter(Teachers.id == gr.teacher_id).first().user.name.title(),
         "teacherSurname": Teachers.query.filter(Teachers.id == gr.teacher_id).first().user.surname.title(),
+        'languages': gr.language.name
     } for gr in groups]
 
     return jsonify({

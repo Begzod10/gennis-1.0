@@ -5,121 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="56b58f27-200e-460d-96e6-6a0cecd24057" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/QR_code/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/QR_code/qr_code.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/account.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/overhead.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/overhead_capital.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/payment.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/salary.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/test_acc.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/account/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/api.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/book_acc.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/book_orm.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/class_model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/book/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/certificate/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/certificate/certificate_empty.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/certificate/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/certificate/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/class_room/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/class_room/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/for_programmers/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/for_programmers/for_programmers.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/for_programmers/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/for_programmers/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/checks.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/debt_salary_update.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/filters.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/small_info.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/sms_key.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/functions/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/change.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/class_model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/create_group.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/group/view.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/home_page/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/home_page/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/home_page/route.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/lead/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/lead/crud.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/lead/functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/lead/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/lead/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/mobile/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/mobile/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/models/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/models/config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/models/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/models/settings.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/routes/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/routes/base_routes.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/routes/get_api.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/routes/transfer_data.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/calling_to_students.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/change_student.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/class_model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/student/student_functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/admin/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/admin/admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/models/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/models/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/attendance_tasks/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/attendance_tasks/routes/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/attendance_tasks/routes/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/debt_tasks/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/debt_tasks/functions/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/debt_tasks/functions/function.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/debt_tasks/routes/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/debt_tasks/routes/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/functions/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/functions/statistics/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/functions/statistics/create_tasks/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/functions/statistics/create_tasks/func.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/functions/statistics/update_tasks/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/functions/statistics/update_tasks/func.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/lesson_plan/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/lesson_plan/routes/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/lesson_plan/routes/select_groups.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/lesson_plan/routes/views.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tasks/teacher/urls.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/lesson_plan.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/observation.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/teacher.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/teacher_delete.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/teacher_home_page.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/teacher/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/telegram_bot/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/telegram_bot/route.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/time_table/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/time_table/models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/time_table/room.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/time_table/view.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gennis.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gennis.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/functions/filters.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/functions/filters.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/group/view.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/group/view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -167,32 +56,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "DefaultHtmlFileTemplate": "HTML File",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "ToolWindowRun.ShowToolbar": "false",
-    "WebServerToolWindowFactoryState": "false",
-    "com.codeium.enabled": "true",
-    "deletionFromPopupRequiresConfirmation": "false",
-    "git-widget-placeholder": "shahzodbeeck",
-    "grid.search.filter.rows": "true",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/shohj/PycharmProjects/gennis",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "settings.editor.selected.configurable": "preferences.lookFeel",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;ToolWindowRun.ShowToolbar&quot;: &quot;false&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;com.codeium.enabled&quot;: &quot;true&quot;,
+    &quot;deletionFromPopupRequiresConfirmation&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;shahzodbeeck&quot;,
+    &quot;grid.search.filter.rows&quot;: &quot;true&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/shohj/PycharmProjects/gennis&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "postgresql"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;postgresql&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\shohj\PycharmProjects\gennis" />
@@ -447,7 +336,8 @@
       <workItem from="1727089656541" duration="2050000" />
       <workItem from="1727111693587" duration="603000" />
       <workItem from="1727514410510" duration="2697000" />
-      <workItem from="1727774321398" duration="2750000" />
+      <workItem from="1727774321398" duration="3791000" />
+      <workItem from="1727778912687" duration="1313000" />
     </task>
     <servers />
   </component>
@@ -467,7 +357,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/gennis$request__2_.coverage" NAME="request (2) Coverage Results" MODIFIED="1723544745226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/job" />
-    <SUITE FILE_PATH="coverage/gennis$Gennis.coverage" NAME="Gennis Coverage Results" MODIFIED="1727776259464" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/gennis$Gennis.coverage" NAME="Gennis Coverage Results" MODIFIED="1727778912934" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
     <SUITE FILE_PATH="coverage/gennis$request.coverage" NAME="request Coverage Results" MODIFIED="1722862675388" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/login" />
     <SUITE FILE_PATH="coverage/gennis$reuqest.coverage" NAME="reuqest Coverage Results" MODIFIED="1722863540520" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/branch_location" />
     <SUITE FILE_PATH="coverage/gennis$request__1_.coverage" NAME="request (1) Coverage Results" MODIFIED="1723464167092" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/students" />
