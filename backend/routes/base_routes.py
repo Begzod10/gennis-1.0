@@ -1,13 +1,13 @@
-import requests
-import uuid
 from datetime import datetime
 from datetime import timedelta
+from pprint import pprint
+
+import requests
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
-from pprint import pprint
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import app, api, db, jsonify, contains_eager, request, extract
+from app import app, api, db, jsonify, contains_eager, request
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
     deleted_students_filter, debt_students, deleted_reg_students_filter
@@ -15,9 +15,8 @@ from backend.functions.utils import find_calendar_date, get_json_field, check_ex
 from backend.functions.utils import refresh_age, iterate_models, refreshdatas, hour2, update_salary
 from backend.models.models import CourseTypes, Students, Users, Staff, \
     PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, AccountingInfo, Groups, \
-    AttendanceHistoryStudent, PaymentTypes, StudentExcuses, SubjectLevels, EducationLanguage, Contract_Students, \
-    CalendarYear, StaffSalary, DeletedStudents, GroupReason, TeacherGroupStatistics, CalendarMonth, CalendarDay, \
-    Advantages, Link, TeacherData, StudentTest, GroupTest
+    AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
+    CalendarYear, TeacherData, StudentTest, GroupTest
 from backend.student.class_model import Student_Functions
 
 
@@ -976,7 +975,7 @@ def profile(user_id):
             username = teacher_get.user.username
             role = Roles.query.filter(Roles.id == user_get.role_id).first()
 
-            group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "teacherImg": "", "count":  len(gr.student) }
+            group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "teacherImg": "", "count": len(gr.student)}
                           for gr in teacher_get.group if
                           not gr.deleted]
 
@@ -1029,11 +1028,6 @@ def profile(user_id):
             "type_role": type_role,
             "location_id": user_get.location_id,
             "info": {
-                "student": {
-                    "name": "O'quvchilar soni",
-                    "value": i,
-                    "order": 8
-                },
                 "name": {
                     "name": "Ism",
                     "value": user_get.name.title(),
@@ -1108,9 +1102,18 @@ def profile(user_id):
             ],
             "location_list": location_list,
             "groups": group_list,
-            'students':i
 
         }
+        print(type_role)
+        if type_role == "Teacher":
+            if user['info'].get("students") is None:
+                user['info']["students"] = {}
+            user['info']["students"] = {
+                "name": "O'quvchilar soni",
+                "value": i,
+                "order": 8
+            }
+
     if student_get:
         st_functions = Student_Functions(student_id=student_get.id)
         st_functions.filter_charity()
