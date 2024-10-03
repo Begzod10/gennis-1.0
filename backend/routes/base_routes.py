@@ -963,6 +963,7 @@ def profile(user_id):
 
         }
     else:
+        i = 0
         location_list = [loc.id for loc in teacher_get.locations] if teacher_get else []
         if teacher_get:
             salary_status = False
@@ -978,7 +979,7 @@ def profile(user_id):
             group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "teacherImg": "", "count":  len(gr.student) }
                           for gr in teacher_get.group if
                           not gr.deleted]
-            i = 0
+
             for count in group_list:
                 i += count["count"]
 
