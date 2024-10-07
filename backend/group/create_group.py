@@ -267,22 +267,24 @@ def get_students(location_id):
                 info["color"] = "red",
                 info["error"] = True,
                 info[
-                    "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')} dan {student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
+                    "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')}" \
+                               f" dan {student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
                 student_errors.append(info)
             elif student_group_start and not student_group_end:
 
                 info["color"] = "red",
                 info["error"] = True,
                 info[
-                    "shift"] = f"{student_group_start.week.name} da soat: {student_group_start.start_time.strftime('%H:%M')} da {student_group_start.group.name} da darsi bor."
+                    "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')}" \
+                               f" dan {student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
                 student_errors.append(info)
             elif student_group_end and not student_group_start:
 
                 info["color"] = "red",
                 info["error"] = True,
                 info[
-                    "shift"] = f"{student_group_end.week.name} da soat: {student_group_end.end_time.strftime('%H:%M')} da {student_group_end.group.name} da darsi bor."
-
+                    "shift"] = f"{student_group_end.week.name} da soat: '{student_group_end.start_time.strftime('%H:%M')}" \
+                               f" dan {student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_end.group.name} da darsi bor."
                 student_errors.append(info)
             else:
                 student_errors.append(info)
@@ -608,15 +610,15 @@ def add_group_students2(group_id):
                 info["color"] = "red",
                 info["error"] = True,
                 info[
-                    "shift"] = f"{student_group_start.week.name} da soat: {student_group_start.start_time.strftime('%H:%M')} " \
-                               f"da {student_group_start.group.name} da darsi bor."
+                    "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')} dan " \
+                               f"{student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
             elif student_group_end and not student_group_start:
 
                 info["color"] = "red",
                 info["error"] = True,
                 info[
-                    "shift"] = f"{student_group_end.week.name} da soat: {student_group_end.end_time.strftime('%H:%M')} " \
-                               f"da {student_group_end.group.name} da darsi bor."
+                    "shift"] = f"{student_group_end.week.name} da soat: '{student_group_end.start_time.strftime('%H:%M')} dan " \
+                               f"{student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_end.group.name} da darsi bor."
             student_errors.append(info)
     filtered_students = remove_items_create_group(student_errors)
     return jsonify({
