@@ -28,10 +28,8 @@ def create_test(group_id):
             photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
             url = "static" + "/" + "img_folder" + "/" + photo_filename
     info = request.form.get("info")
-    
-    json_file = json.loads(info)
-    print(json_file)
     if request.method == "POST":
+        json_file = json.loads(info)
 
         year = json_file['date'][0:4]
         month = json_file['date'][5:7]
@@ -57,12 +55,15 @@ def create_test(group_id):
             "success": True
         })
     else:
+        json_file = json.loads(info)
+        print(json_file)
+        print(type(json_file))
         test_get = GroupTest.query.filter(GroupTest.id == json_file['test_id']).first()
         year = json_file['date'][0:4]
         month = json_file['date'][5:7]
         day = json_file['date'][8:]
         year, month, day = get_or_creat_datetime(year, month, day)
-        test_get.name = json_file['name']
+        test_get.name = json_file.get('name')
         test_get.level = json_file['level']
         test_get.calendar_year = year.id
         test_get.calendar_day = day.id
