@@ -59,7 +59,7 @@ class StudentResource(Resource):
         return {"message": "Student added", "student_id": student.id}, 201
 
 
-api.add_resource(StudentResource, '/students_test')
+api.add_resource(StudentResource, '/api/students_test')
 
 
 # ----- Region Resource -----
@@ -106,7 +106,7 @@ class RegionResource(Resource):
         return {"message": "Region deleted"}
 
 
-api.add_resource(RegionResource, '/regions', '/regions/<int:region_id>')
+api.add_resource(RegionResource, '/api/regions', '/api/regions/<int:region_id>')
 
 
 # ----- School Resource -----
@@ -156,7 +156,7 @@ class SchoolResource(Resource):
         return {"message": "School deleted"}
 
 
-api.add_resource(SchoolResource, '/schools', '/schools/<int:school_id>')
+api.add_resource(SchoolResource, '/api/schools', '/api/schools/<int:school_id>')
 
 
 # ----- University Resource -----
@@ -211,7 +211,7 @@ class UniversityResource(Resource):
         return {"message": "University deleted"}
 
 
-api.add_resource(UniversityResource, '/universities', '/universities/<int:university_id>')
+api.add_resource(UniversityResource, '/api/universities', '/api/universities/<int:university_id>')
 
 
 # ----- Faculty Resource -----
@@ -267,4 +267,4 @@ class FacultyResource(Resource):
         return {"message": "Faculty deleted"}
 
 
-api.add_resource(FacultyResource, '/faculties', '/faculties/<int:faculty_id>')
+api.add_resource(FacultyResource, '/api/faculties', '/api/faculties/<int:faculty_id>')
