@@ -1,6 +1,6 @@
 from flask_restful import Resource, reqparse
 
-from app import db, apis as api
+from app import db, apis as api, request
 from backend.student.register_for_tes.models import Region, University, Faculty, School, StudentTestBlock
 
 
@@ -14,15 +14,12 @@ class StudentResource(Resource):
 
         query = StudentTestBlock.query
 
-        # Filter by school_id if provided
         if filters['school_id'] is not None:
             query = query.filter(StudentTestBlock.school_id == filters['school_id'])
 
-        # Filter by university_id if provided
         if filters['university_id'] is not None:
             query = query.filter(StudentTestBlock.university_id == filters['university_id'])
 
-        # Filter by faculty_id if provided
         if filters['faculty_id'] is not None:
             query = query.filter(StudentTestBlock.faculty_id == filters['faculty_id'])
 
@@ -43,17 +40,36 @@ class StudentResource(Resource):
         ]
 
     def post(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str, required=True, help="Name is required")
-        parser.add_argument('surname', type=str, required=True, help="Surname is required")
-        parser.add_argument('father_name', type=str, required=True, help="Father name is required")
-        parser.add_argument('phone', type=str, required=True, help="Phone is required")
-        parser.add_argument('school_id', type=int, required=True, help="School ID is required")
-        parser.add_argument('university_id', type=int, required=True, help="University ID is required")
-        parser.add_argument('faculty_id', type=int, required=True, help="Faculty ID is required")
+        data = request.get_json()
+        if not data:
+            return {"error": "Request payload must be in JSON format"}, 400
 
-        data = parser.parse_args()
-        student = StudentTestBlock(**data)
+        required_fields = ['name', 'surname', 'father_name', 'phone', 'school_id', 'university_id', 'faculty_id']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return {"error": f"Missing fields in request: {', '.join(missing_fields)}"}, 400
+        import hashlib, uuid
+
+        def generate_short_hash():
+            return hashlib.sha1(uuid.uuid4().bytes).hexdigest()[:5]
+
+        def generate_unique_id():
+            while True:
+                unique_id = generate_short_hash()
+                if not StudentTestBlock.query.filter(StudentTestBlock.unique_id == unique_id).first():
+                    return unique_id
+
+        student = StudentTestBlock(
+            name=data['name'],
+            surname=data['surname'],
+            father_name=data['father_name'],
+            phone=data['phone'],
+            school_id=data['school_id'],
+            university_id=data['university_id'],
+            faculty_id=data['faculty_id'],
+            unique_id=generate_unique_id()
+        )
+
         db.session.add(student)
         db.session.commit()
         return {"message": "Student added", "student_id": student.id}, 201
@@ -61,8 +77,6 @@ class StudentResource(Resource):
 
 api.add_resource(StudentResource, '/api/students_test')
 
-
-# ----- Region Resource -----
 
 class RegionResource(Resource):
     def get(self, region_id=None):
@@ -219,11 +233,18 @@ api.add_resource(UniversityResource, '/api/universities', '/api/universities/<in
 class FacultyResource(Resource):
     def get(self, faculty_id=None):
         if faculty_id:
-            faculty = Faculty.query.get(faculty_id)
-            if not faculty:
+            faculties = Faculty.query.filter(Faculty.university_id == faculty_id).all()
+            if not faculties:
                 return {"message": "Faculty not found"}, 404
-            return {"id": faculty.id, "name": faculty.name, "university_id": faculty.university_id,
-                    "mvdir": faculty.mvdir}
+            return [
+                {
+                    "id": faculty.id,
+                    "name": faculty.name,
+                    "university_id": faculty.university_id,
+                    "mvdir": faculty.mvdir
+                }
+                for faculty in faculties
+            ]
         else:
             faculties = Faculty.query.all()
             return [
