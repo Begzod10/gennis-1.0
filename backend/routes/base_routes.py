@@ -1170,11 +1170,11 @@ def user_time_table(user_id, location_id):
                 group_info['lesson'] = week_list
             table_list.append(group_info)
     else:
-        week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.id).all()
+        week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
         for week in week_days:
             weeks.append(week.name)
         groups = db.session.query(Groups).join(Groups.teacher).options(contains_eager(Groups.teacher)).filter(
-            Teachers.id == teacher.id).order_by(Groups.id).all()
+            Teachers.id == teacher.id, Groups.deleted != True).order_by(Groups.id).all()
         for group in groups:
             group_info = {
                 "name": group.name,

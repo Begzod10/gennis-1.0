@@ -240,6 +240,22 @@ def newStudents(location_id):
     })
 
 
+@app.route(f"{api}/newStudentsDeleted/<int:location_id>", methods=["GET"])
+@jwt_required()
+def newStudentsDeleted(location_id):
+    update_week(location_id)
+    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
+                                                 Students.subject != None,
+                                                 Students.deleted_from_register != None).order_by(
+        desc(Students.id)).all()
+    list_students = [
+        st.convert_json() for st in students
+    ]
+    return jsonify({
+        "newStudents": list_students
+    })
+
+
 @app.route(f'{api}/get_filtered_students_list/<int:location_id>', methods=["GET"])
 @jwt_required()
 def get_filtered_students_list(location_id):

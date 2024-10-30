@@ -9,17 +9,21 @@ from backend.models.models import *
 app = Flask(__name__, static_folder="frontend/build", static_url_path="/")
 
 CORS(app)
+from flask_restful import Api
 
 app.config.from_object('backend.models.config')
 db = db_setup(app)
+apis = Api(app)
+
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
-classroom_server = "http://192.155.1.20:5001"
+classroom_server = "http://192.168.1.20:5001"
 #
-# classroom_server = "https://classroom.gennis.uz/"
+# classroom_server = "https://classroom.gennis.uz"
 telegram_bot_server = "http://127.0.0.1:5000"
-
+# test block
+from backend.student.register_for_tes.resources import *
 # filters
 from backend.functions.filters import *
 

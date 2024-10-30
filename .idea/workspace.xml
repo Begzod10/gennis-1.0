@@ -5,7 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="56b58f27-200e-460d-96e6-6a0cecd24057" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/backend/student/register_for_tes/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/student/register_for_tes/admin.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/student/register_for_tes/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/student/register_for_tes/populate.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/student/register_for_tes/resources.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/account/overhead.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/functions/filters.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/functions/filters.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/group/create_group.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/group/create_group.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/routes/base_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/base_routes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/student/student_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/student/student_functions.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -63,7 +74,7 @@
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;com.codeium.enabled&quot;: &quot;true&quot;,
     &quot;deletionFromPopupRequiresConfirmation&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;shahzodbeeck&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Merging shahzodbeeck&quot;,
     &quot;grid.search.filter.rows&quot;: &quot;true&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/shohj/PycharmProjects/gennis&quot;,
@@ -85,7 +96,7 @@
       <recent name="C:\Users\shohj\PycharmProjects\gennis" />
     </key>
   </component>
-  <component name="RunManager" selected="Flask server.Gennis">
+  <component name="RunManager" selected="Python.populate">
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <module name="gennis" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -124,6 +135,29 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/transfer/api.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="populate" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="gennis" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="C:\Users\shohj\PycharmProjects\gennis\venv\Scripts\python.exe" />
+      <option name="SDK_NAME" value="Python 3.9 (gennis)" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend/student/register_for_tes" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/backend/student/register_for_tes/populate.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -258,6 +292,7 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.populate" />
         <item itemvalue="Python.request (2)" />
         <item itemvalue="Python.request (1)" />
         <item itemvalue="Python.reuqest" />
@@ -343,7 +378,10 @@
       <workItem from="1727940181741" duration="1230000" />
       <workItem from="1728300781622" duration="4967000" />
       <workItem from="1728472997787" duration="2407000" />
-      <workItem from="1728557236752" duration="733000" />
+      <workItem from="1728557236752" duration="2339000" />
+      <workItem from="1729008450404" duration="1790000" />
+      <workItem from="1730279751553" duration="1899000" />
+      <workItem from="1730304950355" duration="2218000" />
     </task>
     <servers />
   </component>
@@ -363,8 +401,9 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/gennis$request__2_.coverage" NAME="request (2) Coverage Results" MODIFIED="1723544745226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/job" />
-    <SUITE FILE_PATH="coverage/gennis$Gennis.coverage" NAME="Gennis Coverage Results" MODIFIED="1728557924280" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/gennis$Gennis.coverage" NAME="Gennis Coverage Results" MODIFIED="1730306416351" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
     <SUITE FILE_PATH="coverage/gennis$request.coverage" NAME="request Coverage Results" MODIFIED="1722862675388" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/login" />
+    <SUITE FILE_PATH="coverage/gennis$populate.coverage" NAME="populate Coverage Results" MODIFIED="1730307066135" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/student/register_for_tes" />
     <SUITE FILE_PATH="coverage/gennis$reuqest.coverage" NAME="reuqest Coverage Results" MODIFIED="1722863540520" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/branch_location" />
     <SUITE FILE_PATH="coverage/gennis$request__1_.coverage" NAME="request (1) Coverage Results" MODIFIED="1723464167092" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/transfer/students" />
     <SUITE FILE_PATH="coverage/gennis$app.coverage" NAME="app Coverage Results" MODIFIED="1719393918090" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
