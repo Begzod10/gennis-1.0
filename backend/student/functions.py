@@ -4,7 +4,7 @@ from datetime import datetime
 from backend.models.models import Users, TasksStatistics, TaskDailyStatistics, db, TaskStudents, Tasks, Students, Lead, \
     Locations, desc, LeadInfos, StudentCallingInfo, StudentExcuses
 from flask_jwt_extended import get_jwt_identity
-from sqlalchemy import asc
+from sqlalchemy import asc, or_
 
 
 def update_all_ratings():
@@ -33,7 +33,6 @@ def update_all_ratings():
         'completed_tasks': completed_tasks,
         'completed_tasks_percentage': completed_tasks_percentage,
         "in_progress_tasks": tasks_daily_statistics.total_tasks - completed_tasks
-
     })
     db.session.commit()
     return {
@@ -59,7 +58,7 @@ def add_tasks():
 def change_statistics(location_id):
     add_tasks()
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
-    april = datetime.strptime("2024-03", "%Y-%m")
+    april = datetime.strptime("2024-08", "%Y-%m")
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     today = datetime.today()
     date_strptime = datetime.strptime(f"{today.year}-{today.month}-{today.day}", "%Y-%m-%d")
@@ -126,7 +125,8 @@ def change_statistics(location_id):
             students = db.session.query(Students).join(Students.user).filter(Users.balance < 0,
                                                                              Users.location_id == location_id
                                                                              ).filter(
-                Students.deleted_from_register == None).order_by(
+                Students.deleted_from_register == None,
+                or_(Students.deleted_from_group != None, Students.group != None)).order_by(
                 asc(Users.balance)).limit(100).all()
 
             if not task_student:
@@ -206,6 +206,9 @@ def change_statistics(location_id):
                 )
                 db.session.add(add_daily_statistics)
                 db.session.commit()
+            else:
+                filtered_daily_statistics.total_tasks = overall_tasks
+                db.session.commit()
             for task, count in [(task_excuses, counts['excuses']), (task_leads, counts['leads']),
                                 (task_new_students, counts['new_students'])]:
                 filtered_task_stat = TasksStatistics.query.filter(
@@ -221,6 +224,9 @@ def change_statistics(location_id):
                         total_tasks=count
                     )
                     db.session.add(add_task_stat)
+                    db.session.commit()
+                else:
+                    filtered_task_stat.total_tasks = count
                     db.session.commit()
 
 
@@ -246,8 +252,10 @@ def update_tasks_in_progress(location_id):
         students = db.session.query(Students).join(Students.user).filter(Users.balance < 0,
                                                                          Users.location_id == location_id
                                                                          ).filter(
-            Students.deleted_from_register == None).order_by(
+            Students.deleted_from_register == None,
+            or_(Students.deleted_from_group != None, Students.group != None)).order_by(
             asc(Users.balance)).limit(100).all()
+
     if not task_student:
         for st in students:
             add_task_student = TaskStudents(task_id=task.id, tasksstatistics_id=task_statistics.id,
@@ -269,8 +277,11 @@ def update_tasks_in_progress(location_id):
     completed_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                                    TaskStudents.tasksstatistics_id == task_statistics.id,
                                                    TaskStudents.status == True).count()
+
     task_statistics.completed_tasks = completed_students
     task_statistics.in_progress_tasks = task_statistics.total_tasks - completed_students
+    task_statistics.total_tasks = task_statistics.in_progress_tasks + task_statistics.completed_tasks
+
     task_statistics.completed_tasks_percentage = round(
         (task_statistics.completed_tasks / task_statistics.total_tasks) * 100)
     db.session.commit()
@@ -283,6 +294,7 @@ def get_student_info(student):
     date_strptime = datetime.strptime(f"{today.year}-{today.month}-{today.day}", "%Y-%m-%d")
     info = {
         "id": student.id,
+        "user_id": student.user.id,
         "name": student.user.name.title(),
         "surname": student.user.surname.title(),
         "status": ["green", "yellow", "red"][student.debtor] if student.debtor < 2 else ["green", "yellow", "red"][2],

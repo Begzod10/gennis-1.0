@@ -125,7 +125,9 @@ def change_student_info(user_id):
                 db.session.commit()
                 morning_shift = None
                 night_shift = None
-                time = json['shift']
+                time = None
+                if 'shift' in json:
+                    time = json['shift']
 
                 if time == "1-smen":
                     morning_shift = True

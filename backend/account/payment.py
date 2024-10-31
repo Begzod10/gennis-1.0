@@ -304,12 +304,13 @@ def get_payment(user_id):
                 TasksStatistics.calendar_day == calendar_day.id,
                 TasksStatistics.location_id == student.user.location_id
             ).first()
-            task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
-                                                     TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                     TaskStudents.student_id == student.id).first()
-            task_student.status = True
-            db.session.commit()
-            info = update_all_ratings()
+            if task_statistics:
+                task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
+                                                         TaskStudents.tasksstatistics_id == task_statistics.id,
+                                                         TaskStudents.student_id == student.id).first()
+                task_student.status = True
+                db.session.commit()
+                info = update_all_ratings()
         return jsonify({
             "success": True,
             "msg": "To'lov qabul qilindi"

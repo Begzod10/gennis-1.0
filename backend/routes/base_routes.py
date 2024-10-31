@@ -18,6 +18,7 @@ from backend.models.models import CourseTypes, Students, Users, Staff, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
     CalendarYear, TeacherData, StudentTest, GroupTest
 from backend.student.class_model import Student_Functions
+from backend.functions.functions import update_user_time_table
 
 
 @app.errorhandler(404)
@@ -514,6 +515,7 @@ def my_profile(user_id):
         links.append(link5)
         links.append(link6)
     if student_get:
+        update_user_time_table(student_get.id)
         info = {
             "username": True
         }
@@ -650,54 +652,9 @@ def profile(user_id):
     user_get = Users.query.filter(Users.id == user_id).first()
     student_get = Students.query.filter(Students.user_id == user_id).first()
     teacher_get = Teachers.query.filter(Teachers.user_id == user_id).first()
-    # if teacher_get:
-    # deleted_students = DeletedStudents.query.filter(DeletedStudents.teacher_id == teacher_get.id).order_by(
-    #     DeletedStudents.id).all()
-    # deleted_students_len = DeletedStudents.query.filter(DeletedStudents.teacher_id == teacher_get.id).order_by(
-    #     DeletedStudents.id).count()
-    # groups = Groups.query.filter(Groups.teacher_id == teacher_get.id).all()
-    # students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
-    #     Groups.id.in_([gr.id for gr in groups]), ~Students.id.in_([st.id for st in deleted_students])).all()
-    # teacher_get.total_students = len(students) + deleted_students_len
-    # db.session.commit()
-    # group_reasons = GroupReason.query.order_by(GroupReason.id).all()
-    # month_list = CalendarMonth.query.order_by(CalendarMonth.date).all()
-    #
-    # for month in month_list:
-    #     for reason in group_reasons:
-    #         deleted_students_total = DeletedStudents.query.filter(
-    #             DeletedStudents.teacher_id == teacher_get.id).join(DeletedStudents.day).filter(
-    #             extract("month", CalendarDay.date) == int(month.date.strftime("%m")),
-    #             extract("year", CalendarDay.date) == int(month.date.strftime("%Y"))).count()
-    #         deleted_students_list = DeletedStudents.query.filter(DeletedStudents.teacher_id == teacher_get.id,
-    #                                                              DeletedStudents.reason_id == reason.id,
-    #                                                              ).join(DeletedStudents.day).filter(
-    #             extract("month", CalendarDay.date) == int(month.date.strftime("%m")),
-    #             extract("year", CalendarDay.date) == int(month.date.strftime("%Y"))).count()
-    #         if deleted_students_total:
-    #             result = round((deleted_students_list / deleted_students_total) * 100)
-    #             teacher_statistics = TeacherGroupStatistics.query.filter(
-    #                 TeacherGroupStatistics.reason_id == reason.id,
-    #                 TeacherGroupStatistics.calendar_month == month.id,
-    #                 TeacherGroupStatistics.calendar_year == month.year_id,
-    #                 TeacherGroupStatistics.teacher_id == teacher_get.id).first()
-    #             if not teacher_statistics:
-    #                 teacher_statistics = TeacherGroupStatistics(
-    #                     reason_id=reason.id,
-    #                     calendar_month=month.id,
-    #                     calendar_year=month.year_id,
-    #                     percentage=result,
-    #                     number_students=deleted_students_list,
-    #                     teacher_id=teacher_get.id)
-    #                 teacher_statistics.add()
-    #             else:
-    #
-    #                 teacher_statistics.number_students = deleted_students_list
-    #                 teacher_statistics.percentage = result
-    #                 db.session.commit()
-
     staff_get = Staff.query.filter(Staff.user_id == user_id).first()
     director_get = Users.query.filter(Users.id == user_id).first()
+
     refresh_age(user_get.id)
 
     salary_status = True
@@ -726,6 +683,8 @@ def profile(user_id):
             }
 
     if student_get:
+        update_user_time_table(student_get.id)
+
         salary_status = False
         contract_yes = True if student_get.contract_pdf_url and student_get.contract_word_url else False
         type_role = "Student"
@@ -1131,12 +1090,12 @@ def profile(user_id):
 def user_time_table(user_id, location_id):
     student = Students.query.filter(Students.user_id == user_id).first()
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
-
+    print(student.user.name)
     table_list = []
     weeks = []
 
     if student:
-        week_days = Week.query.filter(Week.location_id == student.user.location_id).order_by(Week.order).all()
+        week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
         for week in week_days:
             weeks.append(week.name)
         groups = db.session.query(Groups).join(Groups.student).options(contains_eager(Groups.student)).filter(

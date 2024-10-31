@@ -4,7 +4,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from backend.models.models import AccountingPeriod, Professions, PaymentTypes, Locations, CalendarDay, CalendarYear, \
     CalendarMonth, TeacherSalary, Week, Roles, TeacherSalaries, AccountingInfo, Subjects, StaffSalary, Users, Teachers, \
-    desc, or_, contains_eager, StaffSalaries, UserBooks, GroupReason
+    desc, or_, contains_eager, StaffSalaries, UserBooks, GroupReason, Students, Group_Room_Week
 from app import app
 from backend.models.settings import *
 
@@ -642,3 +642,15 @@ def remove_items_create_group(list_block):
             filtered_teachers.append(teacher)
 
     return filtered_teachers
+
+
+def update_user_time_table(student_id):
+    student_get = Students.query.filter(Students.id == student_id).first()
+    not_student_time_table = db.session.query(Group_Room_Week).join(Group_Room_Week.student).options(
+        contains_eager(Group_Room_Week.student)).filter(
+        Group_Room_Week.group_id.in_([gr.id for gr in student_get.group])).all()
+
+    for time in not_student_time_table:
+        if time not in student_get.time_table:
+            student_get.time_table.append(time)
+            db.session.commit()

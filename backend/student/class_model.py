@@ -354,7 +354,6 @@ class Student_Functions:
         calendar_year = CalendarYear.query.filter(CalendarYear.date == year).first()
         calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date).first()
         groups = Groups.query.filter(Groups.id == group_id).first()
-        print(calendar_month.id, calendar_year.id)
         attendances = db.session.query(AttendanceDays) \
             .join(AttendanceDays.attendance) \
             .options(contains_eager(AttendanceDays.attendance)) \
@@ -362,10 +361,11 @@ class Student_Functions:
             Attendance.calendar_month == calendar_month.id,
             Attendance.calendar_year == calendar_year.id,
             Attendance.student_id == self.student_id,
-            Attendance.group_id == groups.id,
+
         ) \
             .join(AttendanceDays.day) \
             .options(contains_eager(AttendanceDays.day)) \
             .order_by(CalendarDay.date) \
             .all()
+
         return attendances

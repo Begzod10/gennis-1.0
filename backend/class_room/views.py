@@ -338,13 +338,13 @@ def make_attendance_classroom():
                 black_salary.total_salary += salary_per_day
                 db.session.commit()
 
-        requests.post(f"{classroom_server}/api/update_student_balance", json={
-            "platform_id": student.user.id,
-            "balance": student.user.balance,
-            "teacher_id": teacher.user_id,
-            "salary": teacher.user.balance,
-            "debtor": student.debtor
-        })
+        # requests.post(f"{classroom_server}/api/update_student_balance", json={
+        #     "platform_id": student.user.id,
+        #     "balance": student.user.balance,
+        #     "teacher_id": teacher.user_id,
+        #     "salary": teacher.user.balance,
+        #     "debtor": student.debtor
+        # })
     return jsonify({
         "message": "O'quvchilar davomat qilindi",
         "status": "success",

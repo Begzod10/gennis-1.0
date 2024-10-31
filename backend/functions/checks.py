@@ -1,8 +1,9 @@
-from app import app, request, jsonify
+from app import app, request, jsonify, django_server
 from backend.models.models import *
 from backend.functions.utils import api
 from flask_jwt_extended import *
 from werkzeug.security import generate_password_hash, check_password_hash
+import requests
 
 
 @app.route(f'{api}/check_username', methods=['POST'])
@@ -17,6 +18,11 @@ def check_username():
     find_username_users = Users.query.filter_by(username=username).first()
 
     body['found'] = True if find_username_users else False
+    if not body['found']:
+        response = requests.post(f"{django_server}/api/Users/username-check/", headers={
+            'Content-Type': 'application/json'
+        }, json={"username": username})
+        body['found'] = False if response.json()['exists'] else True
     return jsonify(body)
 
 
@@ -32,6 +38,11 @@ def check_exist_username(user_id):
     exist_username = Users.query.filter(and_(Users.username == username, Users.username != user.username)).first()
 
     error = True if exist_username else False
+    if not error:
+        response = requests.post(f"{django_server}/api/Users/username-check/", headers={
+            'Content-Type': 'application/json'
+        }, json={"username": username})
+        error = False if response.json()['exists'] else True
     return jsonify({
         "found": error
     })

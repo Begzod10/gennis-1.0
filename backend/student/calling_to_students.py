@@ -241,17 +241,18 @@ def search_student_in_task(location_id):
     text = data.get('text')
     list = []
     if type == 'debtors' and status == False:
-        april = datetime.strptime("2024-03", "%Y-%m")
+        avgust = datetime.strptime("2024-08", "%Y-%m")
         students = db.session.query(Students).join(Students.user).filter(Users.balance < 0,
                                                                          or_(Users.name.like('%' + text + '%'),
                                                                              Users.surname.like('%' + text + '%')),
                                                                          Users.location_id == location_id
                                                                          ).filter(
-            Students.deleted_from_register == None).order_by(Users.name, Users.surname,
-                                                             asc(Users.balance)).all()
+            Students.deleted_from_register == None,
+            or_(Students.deleted_from_group != None, Students.group != None)).order_by(Users.name, Users.surname,
+                                                                                       asc(Users.balance)).all()
         for student in students:
             if student.deleted_from_group:
-                if student.deleted_from_group[-1].day.month.date >= april:
+                if student.deleted_from_group[-1].day.month.date >= avgust:
                     if get_student_info(student) != None:
                         list.append(get_student_info(student))
             else:
@@ -265,12 +266,14 @@ def search_student_in_task(location_id):
                                                                              Users.surname.like('%' + text + '%')),
                                                                          Users.location_id == location_id
                                                                          ).filter(
-            Students.deleted_from_register == None).order_by(
+            Students.deleted_from_register == None,
+            or_(Students.deleted_from_group != None, Students.group != None)).order_by(
             asc(Users.balance)).all()
-        april = datetime.strptime("2024-03", "%Y-%m")
+
+        avgust = datetime.strptime("2024-08", "%Y-%m")
         for student in students:
             if student.deleted_from_group:
-                if student.deleted_from_group[-1].day.month.date >= april:
+                if student.deleted_from_group[-1].day.month.date >= avgust:
                     if get_completed_student_info(student) != None:
                         list.append(get_completed_student_info(student))
             else:
@@ -357,10 +360,9 @@ def search_student_in_task(location_id):
 def student_in_debts(location_id):
     today = datetime.today()
     change_statistics(location_id)
-    # date_strptime = datetime.strptime(f"{today.year}-{today.month}-{today.day}", "%Y-%m-%d")
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    print(calendar_day.date)
-    april = datetime.strptime("2024-03-01", "%Y-%m-%d")
+
+    avgust = datetime.strptime("2024-08-01", "%Y-%m-%d")
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     task_statistics = TasksStatistics.query.filter(
@@ -386,12 +388,14 @@ def student_in_debts(location_id):
             students = db.session.query(Students).join(Students.user).filter(Users.balance < 0,
                                                                              Users.location_id == location_id
                                                                              ).filter(
-                Students.deleted_from_register == None).order_by(
+                Students.deleted_from_register == None,
+                or_(Students.deleted_from_group != None, Students.group != None)).order_by(
                 asc(Users.balance)).limit(100).all()
+
         if not task_student:
             for student in students:
                 if student.deleted_from_group:
-                    if student.deleted_from_group[-1].day.month.date >= april:
+                    if student.deleted_from_group[-1].day.month.date >= avgust:
                         add_task_student = TaskStudents(task_id=task_type.id, tasksstatistics_id=task_statistics.id,
                                                         student_id=student.id)
                         add_task_student.add()
@@ -405,12 +409,13 @@ def student_in_debts(location_id):
         payments_list = []
         for student in students:
             if student.deleted_from_group:
-                if student.deleted_from_group[-1].day.month.date >= april:
+                if student.deleted_from_group[-1].day.month.date >= avgust:
                     if get_student_info(student) != None:
                         payments_list.append(get_student_info(student))
             else:
                 if get_student_info(student) != None:
                     payments_list.append(get_student_info(student))
+
         return jsonify({"students": payments_list})
     if request.method == "POST":
         data = request.get_json()
@@ -477,9 +482,8 @@ def get_completed_tasks(location_id):
     students = Students.query.filter(Students.id.in_([st.student_id for st in task_students])).all()
     completed_tasks = []
     update_tasks_in_progress(location_id)
-    april = datetime.strptime("2024-03", "%Y-%m")
+    april = datetime.strptime("2024-08", "%Y-%m")
     for student in students:
-        april = datetime.strptime("2024-03", "%Y-%m")
         calendar_year, calendar_month, calendar_day = find_calendar_date()
         today = datetime.today()
         date_strptime = datetime.strptime(f"{today.year}-{today.month}-{today.day}", "%Y-%m-%d")

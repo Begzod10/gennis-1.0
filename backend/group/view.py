@@ -13,6 +13,8 @@ from backend.models.models import Groups, CalendarDay, Students, AttendanceDays,
     CertificateLinks, GroupTest
 from backend.student.class_model import Student_Functions
 
+from backend.functions.functions import update_user_time_table
+
 
 @app.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
 @jwt_required()
@@ -279,6 +281,9 @@ def group_profile(group_id):
         msg = f"Guruhda oxirgi marta {last_test.day.date.strftime('%d')} kuni {last_test.level} leveli bo'yicha test olingan."
     else:
         msg = f"Guruh uchun {calendar_month.date.strftime('%B')} oyi uchun test kuni belgilanmagan."
+
+    for student in group.student:
+        update_user_time_table(student.id)
     return jsonify({
         "locationId": group.location_id,
         "groupName": group.name.title(),

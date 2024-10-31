@@ -142,9 +142,9 @@ def get_student_in_group(group_id):
 
 @app.route(f'{api}/get_home_info', methods=['GET'])
 def get_home_info():
-    response = requests.get(f"{classroom_server}/api/classroom_subjects", headers={
-        'Content-Type': 'application/json'
-    })
+    # response = requests.get(f"{classroom_server}/api/classroom_subjects", headers={
+    #     'Content-Type': 'application/json'
+    # })
     design = HomeDesign.query.first()
     video = HomeVideo.query.first()
     subjects = Subjects.query.order_by(Subjects.id).all()
@@ -223,7 +223,8 @@ def get_home_info():
         'design': design.convert_json() if design else {},
         'video': video.convert_json() if video else {},
         'news': list,
-        'subjects': response.json()['subjects'],
+        # 'subjects': response.json()['subjects'],
+        'subjects': [],
         'teachers': teacher_list,
         'certificates': certificate_list,
         'advantages': advantages_list,

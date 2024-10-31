@@ -19,7 +19,7 @@ jwt = JWTManager(app)
 #
 classroom_server = "https://classroom.gennis.uz"
 telegram_bot_server = "http://127.0.0.1:5000"
-
+django_server = "http://192.168.1.40:2112"
 # filters
 from backend.functions.filters import *
 

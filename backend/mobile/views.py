@@ -1613,6 +1613,7 @@ def mobile_combined_attendances(group_id):
 @jwt_required()
 def student_self_attendances(group_id):
     user = Users.query.filter_by(user_id=get_jwt_identity()).first()
+
     student = Students.query.filter(Students.user_id == user.id).first()
     st_functions = Student_Functions(student_id=student.id)
     if request.method == 'POST':
@@ -1627,6 +1628,7 @@ def student_self_attendances(group_id):
         current_year = datetime.now().year
         data = st_functions.student_self_attendances(current_year, current_month, group_id)
         serialized_data = [attendance.to_dict() for attendance in data]
+        print(serialized_data)
     return jsonify({
         'data': serialized_data
     })
