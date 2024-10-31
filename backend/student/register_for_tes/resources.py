@@ -6,24 +6,23 @@ from backend.student.register_for_tes.models import Region, University, Faculty,
 
 class StudentResource(Resource):
     def get(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('school_id', type=int, required=False, help="Filter by school ID")
-        parser.add_argument('university_id', type=int, required=False, help="Filter by university ID")
-        parser.add_argument('faculty_id', type=int, required=False, help="Filter by faculty ID")
-        filters = parser.parse_args()
+        school_id = request.args.get('school_id', None)
+        university_id = request.args.get('university_id', None)
+        faculty_id = request.args.get('faculty_id', None)
 
-        query = StudentTestBlock.query
+        students_query = StudentTestBlock.query
 
-        if filters['school_id'] is not None:
-            query = query.filter(StudentTestBlock.school_id == filters['school_id'])
+        if school_id is not None:
+            students_query = students_query.filter(StudentTestBlock.school_id == school_id)
 
-        if filters['university_id'] is not None:
-            query = query.filter(StudentTestBlock.university_id == filters['university_id'])
+        if university_id is not None:
+            students_query = students_query.filter(StudentTestBlock.university_id == university_id)
 
-        if filters['faculty_id'] is not None:
-            query = query.filter(StudentTestBlock.faculty_id == filters['faculty_id'])
+        if faculty_id is not None:
+            students_query = students_query.filter(StudentTestBlock.faculty_id == faculty_id)
 
-        students = query.all()
+        students = students_query.all()
+
         return [
             {
                 "id": student.id,
@@ -34,10 +33,13 @@ class StudentResource(Resource):
                 "school_id": student.school_id,
                 "university_id": student.university_id,
                 "faculty_id": student.faculty_id,
-                "unique_id": student.unique_id
+                "unique_id": student.unique_id,
+                'school_name': student.school.name,
+                'university_name': student.university.name,
+                'faculty_name': student.faculty.name
             }
             for student in students
-        ]
+        ], 200
 
     def post(self):
         data = request.get_json()
@@ -48,14 +50,14 @@ class StudentResource(Resource):
         missing_fields = [field for field in required_fields if field not in data]
         if missing_fields:
             return {"error": f"Missing fields in request: {', '.join(missing_fields)}"}, 400
-        import hashlib, uuid
+        import random
 
-        def generate_short_hash():
-            return hashlib.sha1(uuid.uuid4().bytes).hexdigest()[:5]
+        def generate_numeric_id(length=7):
+            return str(random.randint(10 ** (length - 1), 10 ** length - 1))
 
-        def generate_unique_id():
+        def generate_unique_numeric_id():
             while True:
-                unique_id = generate_short_hash()
+                unique_id = generate_numeric_id()
                 if not StudentTestBlock.query.filter(StudentTestBlock.unique_id == unique_id).first():
                     return unique_id
 
@@ -67,12 +69,12 @@ class StudentResource(Resource):
             school_id=data['school_id'],
             university_id=data['university_id'],
             faculty_id=data['faculty_id'],
-            unique_id=generate_unique_id()
+            unique_id=generate_unique_numeric_id()
         )
 
         db.session.add(student)
         db.session.commit()
-        return {"message": "Student added", "student_id": student.id}, 201
+        return {"message": "Student added", "student_id": student.id, 'unique_id': student.unique_id}, 201
 
 
 api.add_resource(StudentResource, '/api/students_test')
