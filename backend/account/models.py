@@ -88,6 +88,7 @@ class PaymentTypes(db.Model):
                                      order_by="CollectedBookPayments.id",
                                      lazy="select")
     capitals = relationship("Capital", backref="payment_type", order_by="Capital.id", lazy="select")
+    investment = relationship("Investment", backref="payment_type", order_by="Investment.id")
 
 
 class StudentPayments(db.Model):
@@ -618,6 +619,7 @@ class AccountingInfo(db.Model):
     all_overhead = Column(Integer, default=0)
     all_capital = Column(Integer, default=0)
     all_charity = Column(Integer, default=0)
+    all_investment = Column(Integer, default=0)
     current_cash = Column(Integer, default=0)
     old_cash = Column(Integer, default=0)
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
@@ -712,3 +714,34 @@ class StaffSalary(db.Model):
     staff_deleted_salary = relationship("DeletedStaffSalaries", backref="staff_salary",
                                         order_by="DeletedStaffSalaries.id")
     old_id = Column(Integer)
+
+
+class Investment(db.Model):
+    __tablename__ = "investment"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    amount = Column(Integer)
+    location_id = Column(Integer, ForeignKey('locations.id'))
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+    calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
+    calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
+    account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
+    payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'))
+    deleted_status = Column(Boolean, default=False)
+    reason = Column(String)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False, relationship=None):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "amount": self.amount,
+            "month": self.month.date.strftime("%Y-%m"),
+            "year": self.year.date.strftime("%Y"),
+            "date": self.day.date.strftime("%Y-%m-%d"),
+            "typePayment": self.payment_type.name,
+            "reason": self.reason
+        }

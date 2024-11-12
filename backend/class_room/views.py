@@ -34,6 +34,7 @@ def login2():
     create token
     :return: logged User datas
     """
+
     if request.method == "POST":
         username = get_json_field('username')
         password = get_json_field('password')

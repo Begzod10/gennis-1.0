@@ -617,9 +617,6 @@ def check_exist_id(user_id=None):
 
 
 def send_user_info(user):
-
     requests.post(f"{classroom_server}/api/update_user_info", json={
         "user": user.convert_json(),
     })
-
-

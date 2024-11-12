@@ -5,6 +5,7 @@ from flask_wtf.file import FileField, FileRequired
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from backend.models.models import *
+from flask_restful import Api
 
 app = Flask(__name__, static_folder="frontend/build", static_url_path="/")
 
@@ -12,6 +13,8 @@ CORS(app)
 
 app.config.from_object('backend.models.config')
 db = db_setup(app)
+apis = Api(app)
+
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
@@ -19,7 +22,11 @@ jwt = JWTManager(app)
 #
 classroom_server = "https://classroom.gennis.uz"
 telegram_bot_server = "http://127.0.0.1:5000"
-django_server = "http://192.168.1.40:2112"
+django_server = "http://school.gennis.uz"
+
+# test block
+from backend.student.register_for_tes.resources import *
+
 # filters
 from backend.functions.filters import *
 
@@ -88,6 +95,9 @@ from backend.mobile.views import *
 
 # tasks
 from backend.tasks.admin import *
+
+# investment
+from backend.account.investment import *
 
 # teacher observation, attendance, teacher_group_statistics
 if __name__ == '__main__':

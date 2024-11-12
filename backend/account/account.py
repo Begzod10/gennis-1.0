@@ -3,11 +3,11 @@ from flask_jwt_extended import jwt_required
 from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes, StudentPayments, Students, CalendarDay, \
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, \
     AccountingInfo, DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, \
-    DeletedStaffSalaries, Users, Teachers, CenterBalance, BookPayments, Capital, CapitalExpenditure
+    DeletedStaffSalaries, Users, Teachers, CenterBalance, BookPayments, Capital, CapitalExpenditure, Investment
 from backend.models.settings import sum_money
 from pprint import pprint
 from backend.functions.utils import get_json_field, api, find_calendar_date
-from backend.functions.filters import old_current_dates
+from backend.functions.filters import old_current_dates, iterate_models
 from datetime import datetime
 
 
@@ -26,6 +26,23 @@ def account_info(type_filter):
     accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     payments_list = []
     final_list = []
+    if type_account == "investments":
+        if not type_filter:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.deleted_status == False,
+                                                  # Investment.account_period_id == accounting_period,
+                                                  ).order_by(
+                desc(Investment.id)).all()
+
+        else:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.deleted_status == False
+                                                  ).order_by(
+                desc(Investment.id)).all()
+
+        type_account = "user"
+
+        payments_list = iterate_models(investments)
     if type_account == "payments":
         if not type_filter:
             payments = StudentPayments.query.filter(StudentPayments.location_id == location,
@@ -315,6 +332,21 @@ def account_info_deleted(type_filter):
     location = get_json_field('locationId')
     accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     payments_list = []
+    if type_account == "investments":
+        if not type_filter:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.account_period_id == accounting_period,
+                                                  Investment.deleted_status == True,
+                                                  ).order_by(
+                desc(Investment.id)).all()
+        else:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.deleted_status == True
+                                                  ).order_by(
+                desc(Investment.id)).all()
+
+        type_account = "user"
+        payments_list = iterate_models(investments)
     if type_account == "payments":
         if not type_filter:
             payments = DeletedStudentPayments.query.filter(DeletedStudentPayments.location_id == location,
@@ -623,6 +655,19 @@ def account_details(location_id):
                  StudentPayments.payment_type_id == payment_type.id, StudentPayments.payment == True,
                  )).first()[0] if student_payments else 0
 
+        investments = db.session.query(Investment).join(Investment.day).options(
+            contains_eager(Investment.day)).filter(
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, StudentPayments.location_id == location_id,
+                 Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
+                 )).order_by(
+            desc(StudentPayments.id)).all()
+        all_investment = db.session.query(
+            func.sum(Investment.amount)).join(CalendarDay,
+                                              CalendarDay.id == Investment.calendar_day).filter(
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Investment.location_id == location_id,
+                 Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
+                 )).first()[0] if investments else 0
+
         teacher_salaries = db.session.query(TeacherSalaries).join(TeacherSalaries.day).options(
             contains_eager(TeacherSalaries.day)).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, TeacherSalaries.location_id == location_id,
@@ -798,8 +843,8 @@ def account_details(location_id):
             "payment": salary.item_sum,
             "date": salary.day.date.strftime('%Y-%m-%d')
         } for salary in capitals]
-
-        result = all_payment - (
+        investment_list = iterate_models(investments)
+        result = (all_payment + all_investment) - (
                 all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all)
         return jsonify({
             "data": {
@@ -824,6 +869,10 @@ def account_details(location_id):
                         "list": capital_list,
                         "value": all_capital
                     },
+                    "investments": {
+                        "list": investment_list,
+                        "value": all_investment
+                    },
                     "result": result
                 },
             }
@@ -831,6 +880,7 @@ def account_details(location_id):
 
 
 @app.route(f'{api}/get_location_money/<int:location_id>')
+@jwt_required()
 def get_location_money(location_id):
     """
 
@@ -907,6 +957,9 @@ def get_location_money(location_id):
         overhead = sum_money(Overhead.item_sum, Overhead.account_period_id,
                              accounting_period.id, Overhead.location_id, location_id,
                              Overhead.payment_type_id, payment_type.id)
+        investment = sum_money(Investment.amount, Investment.account_period_id,
+                               accounting_period.id, Investment.location_id, location_id,
+                               Investment.payment_type_id, payment_type.id)
         # center_balance = CenterBalance.query.filter(CenterBalance.location_id == location_id,
         #                                             CenterBalance.account_period_id == accounting_period).first()
 
@@ -940,7 +993,7 @@ def get_location_money(location_id):
         else:
             center_balance_overhead = 0
 
-        current_cash = student_payments - (
+        current_cash = (student_payments + investment) - (
                 teacher_salaries + staff_salaries + overhead + capital + center_balance_overhead + branch_payments)
 
         account_list += [{
@@ -950,7 +1003,8 @@ def get_location_money(location_id):
             "teacher_salaries": teacher_salaries,
             "staff_salaries": staff_salaries,
             "overhead": overhead + branch_payments + center_balance_overhead,
-            "capital": capital
+            "capital": capital,
+            "investment": investment
         }]
 
         account_get = AccountingInfo.query.filter(AccountingInfo.account_period_id == accounting_period.id,
@@ -963,7 +1017,7 @@ def get_location_money(location_id):
                                  location_id=location_id, all_teacher_salaries=teacher_salaries,
                                  payment_type_id=payment_type.id, all_staff_salaries=staff_salaries,
                                  all_overhead=overhead + branch_payments + center_balance_overhead, all_capital=capital,
-                                 all_charity=student_discounts,
+                                 all_charity=student_discounts, all_investment=investment, current_cash=current_cash,
                                  calendar_year=accounting_period.year_id)
             add.add()
         else:
@@ -973,6 +1027,7 @@ def get_location_money(location_id):
             account_get.all_overhead = overhead + branch_payments + center_balance_overhead
             account_get.all_capital = capital
             account_get.all_charity = student_discounts
+            account_get.all_investment = investment
             account_get.current_cash = current_cash
             db.session.commit()
 
@@ -1013,7 +1068,8 @@ def account_history(location_id):
             "current_cash": account.current_cash,
             "old_cash": account.old_cash,
             "period_id": account.account_period_id,
-            "discount": account.all_charity
+            "discount": account.all_charity,
+            "investment": account.all_investment
         } for account in account_infos]
 
         return jsonify({

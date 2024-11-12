@@ -12,17 +12,33 @@ def check_username():
     check exist data in Users  table
     :return:
     """
+
     body = {}
     username = request.get_json()
-
+    print(username)
     find_username_users = Users.query.filter_by(username=username).first()
 
     body['found'] = True if find_username_users else False
-    if not body['found']:
-        response = requests.post(f"{django_server}/api/Users/username-check/", headers={
-            'Content-Type': 'application/json'
-        }, json={"username": username})
-        body['found'] = False if response.json()['exists'] else True
+    # if not body['found']:
+    #     response = requests.post(f"{django_server}/api/Users/username-check/", headers={
+    #         'Content-Type': 'application/json'
+    #     }, json={"username": username})
+    #     body['found'] = False if response.json()['exists'] else True
+    return jsonify(body)
+
+
+@app.route(f'{api}/check_username_turon', methods=['POST'])
+def check_username_turon():
+    """
+    check exist data in Users  table
+    :return:
+    """
+
+    body = {}
+    username = request.get_json()['username']
+    print(username)
+    find_username_users = Users.query.filter_by(username=username).first()
+    body['found'] = True if find_username_users else False
     return jsonify(body)
 
 

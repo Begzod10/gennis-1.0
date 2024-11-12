@@ -114,9 +114,20 @@ def delete_newStudent(user_id):
 @jwt_required()
 def get_back_student(user_id):
     student = Students.query.filter(Students.user_id == user_id).first()
+    if student is None:
+        return jsonify({
+            "success": False,
+            "msg": "Student not found"
+        }), 404
     del_new_student = RegisterDeletedStudents.query.filter(RegisterDeletedStudents.student_id == student.id).first()
+    if del_new_student is None:
+        return jsonify({
+            "success": False,
+            "msg": "Record not found in RegisterDeletedStudents"
+        }), 404
     db.session.delete(del_new_student)
     db.session.commit()
+
     return jsonify({
         "success": True,
         "msg": "Student ro'yxatga qaytarildi"

@@ -38,9 +38,6 @@ from backend.for_programmers.models import *
 from backend.tasks.models.models import *
 
 
-
-
-
 class CalendarYear(db.Model):
     __tablename__ = "calendaryear"
     id = Column(Integer, primary_key=True)
@@ -88,6 +85,7 @@ class CalendarYear(db.Model):
     capital_term = relationship("CapitalTerm", backref="year", order_by="CapitalTerm.id", lazy="select")
     tasks_statistics = relationship("TasksStatistics", backref="year", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="year", order_by='TaskDailyStatistics.id')
+    investment = relationship("Investment", backref="year", order_by="Investment.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
@@ -147,6 +145,7 @@ class CalendarMonth(db.Model):
     capital_term = relationship("CapitalTerm", backref="month", order_by="CapitalTerm.id", lazy="select")
     tasks_statistics = relationship("TasksStatistics", backref="month", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="month", order_by='TaskDailyStatistics.id')
+    investment = relationship("Investment", backref="month", order_by="Investment.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -188,6 +187,7 @@ class AccountingPeriod(db.Model):
                               order_by="CollectedBookPayments.id")
     capitals = relationship("Capital", backref="period", lazy="select", order_by="Capital.id")
     capital_term = relationship("CapitalTerm", backref="period", order_by="CapitalTerm.id", lazy="select")
+    investment = relationship("Investment", backref="period", order_by="Investment.id")
 
 
 class CalendarDay(db.Model):
@@ -240,6 +240,7 @@ class CalendarDay(db.Model):
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="day", order_by='TaskDailyStatistics.id')
 
     student_tests = relationship("StudentTest", backref="day", order_by="StudentTest.id")
+    investment = relationship("Investment", backref="day", order_by="Investment.id")
 
     def convert_json(self, entire=False):
         return {
