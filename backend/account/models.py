@@ -89,6 +89,10 @@ class PaymentTypes(db.Model):
                                      lazy="select")
     capitals = relationship("Capital", backref="payment_type", order_by="Capital.id", lazy="select")
     investment = relationship("Investment", backref="payment_type", order_by="Investment.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="payment_type", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="payment_type", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="payment_type", order_by="Dividend.id")
+    branch_report = relationship("BranchReport", backref="payment_type", order_by="BranchReport.id")
 
 
 class StudentPayments(db.Model):

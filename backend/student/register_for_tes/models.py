@@ -10,28 +10,6 @@ class Defenation(db.Model):
         return self.name
 
 
-class University(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
-    region = db.relationship('Region', backref=db.backref('universities', lazy=True))
-    university_id = db.Column(db.Integer, nullable=False)
-
-    def __str__(self):
-        return self.name
-
-
-class Faculty(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    university_id = db.Column(db.Integer, db.ForeignKey('university.id'), nullable=False)
-    university = db.relationship('University', backref=db.backref('faculties', lazy=True))
-    mvdir = db.Column(db.String(100))
-
-    def __str__(self):
-        return self.name
-
-
 class School(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)

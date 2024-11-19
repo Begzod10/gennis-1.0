@@ -36,6 +36,7 @@ from backend.book.models import *
 from backend.lead.models import *
 from backend.for_programmers.models import *
 from backend.tasks.models.models import *
+from backend.account.profile.models import *
 
 
 class CalendarYear(db.Model):
@@ -86,6 +87,11 @@ class CalendarYear(db.Model):
     tasks_statistics = relationship("TasksStatistics", backref="year", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="year", order_by='TaskDailyStatistics.id')
     investment = relationship("Investment", backref="year", order_by="Investment.id")
+    camp_staff_salary = relationship("CampStaffSalary", backref="year", order_by="CampStaffSalary.id")
+    branch_report = relationship("BranchReport", backref="year", order_by="BranchReport.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="year", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="year", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="year", order_by="Dividend.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
@@ -146,6 +152,11 @@ class CalendarMonth(db.Model):
     tasks_statistics = relationship("TasksStatistics", backref="month", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="month", order_by='TaskDailyStatistics.id')
     investment = relationship("Investment", backref="month", order_by="Investment.id")
+    camp_staff_salary = relationship("CampStaffSalary", backref="month", order_by="CampStaffSalary.id")
+    branch_report = relationship("BranchReport", backref="month", order_by="BranchReport.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="month", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="month", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="month", order_by="Dividend.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -188,6 +199,7 @@ class AccountingPeriod(db.Model):
     capitals = relationship("Capital", backref="period", lazy="select", order_by="Capital.id")
     capital_term = relationship("CapitalTerm", backref="period", order_by="CapitalTerm.id", lazy="select")
     investment = relationship("Investment", backref="period", order_by="Investment.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="period", order_by="CampStaffSalaries.id")
 
 
 class CalendarDay(db.Model):
@@ -241,6 +253,9 @@ class CalendarDay(db.Model):
 
     student_tests = relationship("StudentTest", backref="day", order_by="StudentTest.id")
     investment = relationship("Investment", backref="day", order_by="Investment.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="day", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="day", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
 
     def convert_json(self, entire=False):
         return {
@@ -299,6 +314,8 @@ class Locations(db.Model):
     center_balances = relationship("CenterBalance", backref="location", lazy="select", order_by="CenterBalance.id")
     tasks_statistics = relationship("TasksStatistics", backref="location", order_by="TasksStatistics.id")
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="location", order_by='TaskDailyStatistics.id')
+    account_payable = relationship("AccountPayable", backref="location", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="location", order_by="Dividend.id")
 
     def convert_json(self, entire=False):
         return {
@@ -488,7 +505,9 @@ class Users(db.Model):
                 "username": self.username,
                 "user_id": self.user_id
             }
-
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
 
 def clone_group_info(group):
     group_info = {
@@ -531,6 +550,10 @@ class PhoneList(db.Model):
     personal = Column(Boolean)
     other = Column(Boolean)
     user_id = Column(Integer, ForeignKey('users.id'))
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
 
 
 class Roles(db.Model):
