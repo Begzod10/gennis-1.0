@@ -30,8 +30,5 @@ class StudentTestBlock(db.Model):
     unique_id = db.Column(db.String(300), unique=True, nullable=True)
     location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
     language = db.Column(db.String(100), nullable=False)
-    school = db.relationship('School')
-    university = db.relationship('University')
-    faculty = db.relationship('Faculty')
     location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
     defenation = db.relationship('Defenation')

@@ -20,6 +20,7 @@ def block_information2(location_id):
     :param location_id: Locations primary key
     :return: data list by location id
     """
+
     locations = Locations.query.order_by(Locations.id).all()
     locations_list = [{'id': location.id, "name": location.name} for location in locations]
 

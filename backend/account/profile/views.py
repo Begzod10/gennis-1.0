@@ -150,3 +150,11 @@ def register_camp_staff():
         roles = Roles.query.order_by(Roles.id).all()
         professions = Professions.query.order_by(Professions.id).all()
         return jsonify({'roles': roles, 'professions': professions}), 201
+
+
+@app.route(f'{api}/roles', methods=['GET'])
+@jwt_required()
+def get_roles():
+    roles = Roles.query.order_by(Roles.id).all()
+    roles = [{'id': location.id, "name": location.type_role} for location in roles]
+    return jsonify({'roles': roles}), 201
