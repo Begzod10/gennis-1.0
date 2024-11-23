@@ -412,6 +412,7 @@ class Users(db.Model):
     observer = Column(Boolean, default=False)
     tasks_statistics = relationship("TasksStatistics", backref="user", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="user", order_by='TaskDailyStatistics.id')
+    camp_staffs = relationship("CampStaff", backref="user", order_by='CampStaff.id')
 
     def convert_json(self, entire=False):
         if not entire:
@@ -505,9 +506,11 @@ class Users(db.Model):
                 "username": self.username,
                 "user_id": self.user_id
             }
+
     def add(self):
         db.session.add(self)
         db.session.commit()
+
 
 def clone_group_info(group):
     group_info = {
@@ -562,6 +565,7 @@ class Roles(db.Model):
     role = Column(String)
     type_role = Column(String)
     users_link = relationship("Users", backref="role_info", order_by="Users.id")
+    camp_staff = relationship("CampStaff", backref="role_info", order_by="CampStaff.id")
     old_id = Column(Integer)
 
     def add(self):

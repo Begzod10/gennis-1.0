@@ -6,8 +6,8 @@ class CampStaff(db.Model):
     __tablename__ = "camp_staff"
     id = db.Column(db.BigInteger, primary_key=True)
     user_id = db.Column(db.BigInteger, ForeignKey("users.id"), nullable=False)
-    profession_id = db.Column(db.BigInteger, ForeignKey("professions.id"), nullable=False)
     salaries = db.relationship('CampStaffSalary', backref='camp_staff', lazy=True)
+    role_id = Column(Integer, ForeignKey("roles.id"))
     staff_salaries = db.relationship('CampStaffSalaries', backref='camp_staff', lazy=True)
     salary = Column(Integer)
     deleted = Column(Boolean, default=False)
@@ -114,6 +114,8 @@ class AccountPayable(db.Model):
     day_id = db.Column(db.Integer, ForeignKey("calendarday.id"), nullable=False)
     month_id = db.Column(db.Integer, ForeignKey("calendarmonth.id"), nullable=False)
     year_id = db.Column(db.Integer, ForeignKey("calendaryear.id"), nullable=False)
+    deleted = Column(Boolean, default=False)
+    deleted_comment = Column(String)
 
     def convert_json(self, entire=False):
         return {
@@ -141,6 +143,8 @@ class Dividend(db.Model):
     amount_sum = db.Column(db.BigInteger, nullable=False)
     payment_type_id = db.Column(db.Integer, ForeignKey("paymenttypes.id"), nullable=False)
     desc = Column(String)
+    deleted = Column(Boolean, default=False)
+    deleted_comment = Column(String)
 
     def convert_json(self, entire=False):
         return {
