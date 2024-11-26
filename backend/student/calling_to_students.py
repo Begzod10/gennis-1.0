@@ -423,6 +423,9 @@ def student_in_debts(location_id):
         select = data.get('select')
         to_date = data.get('date')
         user_id = data.get('id')
+        print(select)
+        print(reason)
+        print(select == "tel ko'tardi")
         if to_date:
             to_date = datetime.strptime(to_date, "%Y-%m-%d")
         else:
@@ -433,10 +436,17 @@ def student_in_debts(location_id):
             exist_excuse = StudentExcuses.query.filter(StudentExcuses.added_date == calendar_day.date,
                                                        StudentExcuses.student_id == student.id).first()
             if not exist_excuse:
-                new_excuse = StudentExcuses(reason=reason if select == "tel ko'tardi" else "tel ko'tarmadi",
-                                            to_date=to_date,
-                                            added_date=calendar_day.date,
-                                            student_id=student.id)
+                if select == "tel ko'tardi":
+
+                    new_excuse = StudentExcuses(reason=reason,
+                                                to_date=to_date,
+                                                added_date=calendar_day.date,
+                                                student_id=student.id)
+                else:
+                    new_excuse = StudentExcuses(reason="tel ko'tarmadi",
+                                                to_date=to_date,
+                                                added_date=calendar_day.date,
+                                                student_id=student.id)
                 db.session.add(new_excuse)
                 db.session.commit()
 
