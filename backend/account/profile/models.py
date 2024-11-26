@@ -32,7 +32,9 @@ class CampStaff(db.Model):
 class CampStaffSalary(db.Model):
     __tablename__ = "camp_staff_salary"
     id = db.Column(db.BigInteger, primary_key=True)
-    amount_sum = db.Column(db.BigInteger, nullable=False)
+    total_salary = db.Column(db.BigInteger, nullable=False)
+    remaining_salary = db.Column(db.BigInteger, nullable=False)
+    taken_money = db.Column(db.BigInteger, nullable=False)
     camp_staff_id = db.Column(db.BigInteger, db.ForeignKey("camp_staff.id"), nullable=False)
     year_id = db.Column(db.BigInteger, ForeignKey("calendaryear.id"), nullable=False)
     month_id = db.Column(db.BigInteger, ForeignKey("calendarmonth.id"), nullable=False)
@@ -85,6 +87,8 @@ class CampStaffSalaries(db.Model):
                           nullable=False)
     payment_type_id = db.Column(db.BigInteger, ForeignKey("paymenttypes.id"), nullable=False)
     camp_staff_id = db.Column(db.BigInteger, db.ForeignKey("camp_staff.id"), nullable=False)
+    deleted = Column(Boolean, default=False)
+    deleted_comment = Column(String)
 
     def convert_json(self, entire=False):
         return {

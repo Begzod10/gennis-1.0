@@ -1,6 +1,6 @@
-from app import app, request, db, jsonify
+from app import app, request, db, jsonify, contains_eager, or_, desc
 from backend.models.models import Users, Dividend, AccountPayable, CampStaff, PhoneList, Roles, Professions, \
-    CalendarDay, CalendarMonth, CalendarYear, CampStaffSalary
+    CalendarDay, CalendarMonth, CalendarYear, CampStaffSalary, CampStaffSalaries
 from backend.functions.utils import api, find_calendar_date, refreshdatas
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import datetime
@@ -8,8 +8,9 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime
 from sqlalchemy import extract
 from datetime import date
-
+from backend.functions.debt_salary_update import camp_staff_salary_update
 import datetime
+from backend.functions.utils import update_camp_staff_salary_id
 
 
 @app.route(f'{api}/take_dividend', methods=['POST'])
@@ -224,6 +225,81 @@ def find_calendar_date2(date_day=None, date_month=None, date_year=None):
     return find_calendar_date(today.day, today.month, today.year)
 
 
+@app.route(f'{api}/camp_staff/<int:user_id>')
+@jwt_required()
+def camp_staff(user_id):
+    """
+
+    :param user_id: User table primary key
+    :param location_id: Location table primary key
+    :return: TeacherSalary table and StaffSalary table data
+    """
+    camp_staff_salary_update()
+    staff = CampStaff.query.filter(CampStaff.user_id == user_id).first()
+    teacher_salary_list = []
+
+    staff_salaries = CampStaffSalary.query.filter(CampStaffSalary.camp_staff_id == staff.id).order_by(
+        desc(CampStaffSalary.id)).all()
+
+    for salary in staff_salaries:
+        if salary.remaining_salary:
+            residue = salary.remaining_salary
+        elif salary.taken_money == salary.total_salary:
+            residue = 0
+        else:
+            residue = salary.total_salary
+        info = {
+            "id": salary.id,
+            "salary": salary.total_salary,
+            "residue": residue,
+            "taken_salary": salary.taken_money,
+            "date": salary.month.date.strftime("%Y-%m")
+        }
+        teacher_salary_list.append(info)
+
+    return jsonify({
+        "data": teacher_salary_list
+    })
+
+
+@app.route(f'{api}/camp_staff_inside/<int:salary_id>/')
+@jwt_required()
+def camp_staff_inside(salary_id):
+    """
+
+    :param salary_id: TeacherSalary and StaffSalary primary key
+    :param user_id: User table primary key
+    :return: TeacherSalaries table and StaffSalaries table data
+    """
+    camp_staff_salary_update()
+    salary = CampStaffSalary.query.filter(CampStaffSalary.id == salary_id).first()
+    update_camp_staff_salary_id(salary_id)
+    salaries = CampStaffSalaries.query.filter(CampStaffSalaries.salary_id == salary_id).order_by(
+        CampStaffSalaries.id).all()
+    list_salaries = [{
+        "id": sal.id,
+        "salary": sal.payment_sum,
+        "reason": sal.reason,
+        "payment_type": sal.payment_type.name,
+        "date": sal.day.date.strftime("%Y-%m-%d"),
+        "status": False
+    } for sal in salaries]
+    if salary.remaining_salary:
+        exist_money = salary.remaining_salary
+    else:
+        exist_money = salary.total_salary
+    return jsonify({
+        "data": {
+            "salary": salary.total_salary,
+            "residue": salary.remaining_salary,
+            "taken_salary": salary.taken_money,
+            "exist_salary": exist_money,
+            "month": salary.month.date.strftime("%Y-%m"),
+            "data": list_salaries,
+        }
+    })
+
+
 @app.route(f'{api}/register_camp_staff', methods=['POST', "GET"])
 @jwt_required()
 def register_camp_staff():
@@ -236,6 +312,7 @@ def register_camp_staff():
         password = generate_password_hash(data['password'])
         role_id = data['role_id']
         father_name = data['father_name']
+        salary = int(data['salary'])
         phone = data['phone']
         born_year, born_month, born_day = map(int, data['birth_date'].split('-'))
         calendar_year, calendar_month, calendar_day = find_calendar_date2(
@@ -243,6 +320,12 @@ def register_camp_staff():
             date_month=born_month,
             date_year=born_year
         )
+        from datetime import datetime
+        today = datetime.today()
+        age = today.year - born_year
+        if (today.month, today.day) < (born_month, born_day):
+            age -= 1
+
         user = Users(
             name=name,
             surname=surname,
@@ -250,6 +333,7 @@ def register_camp_staff():
             password=password,
             role_id=role_id,
             father_name=father_name,
+            age=age,
             born_day=born_day,
             born_month=born_month,
             born_year=born_year,
@@ -266,14 +350,16 @@ def register_camp_staff():
         phone_list.add()
         staff_camp = CampStaff(
             user_id=user.id,
-            role_id=role_id
+            role_id=role_id,
+            salary=salary,
         )
         staff_camp.add()
         return jsonify({'message': 'Campus Staff registered successfully'}), 201
     else:
         camps = CampStaff.query.filter(CampStaff.deleted == False).order_by(CampStaff.id).all()
         camp_list = [
-            {"name": camp.user.name, "surname": camp.user.surname, "username": camp.user.username,
+            {"name": camp.user.name, "surname": camp.user.surname, "username": camp.user.username, "id": camp.id,
+             "user_id": camp.user.id,
              "age": camp.user.age, "role": Roles.query.filter(Roles.id == camp.user.role_id).first().type_role,
              "phone": PhoneList.query.filter(Users.id == camp.user.id).first().phone} for
             camp in camps]

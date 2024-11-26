@@ -317,3 +317,24 @@ def staff_salary_update():
                                                 location_id=item.user.location_id)
                 db.session.add(staff_salary_info)
                 db.session.commit()
+
+
+def camp_staff_salary_update():
+    """
+    create salary data in CampStaffSalary table
+    :return:
+    """
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    staff = CampStaff.query.order_by(CampStaff.id).all()
+    for item in staff:
+        if item.salary:
+            staff_salary_info = CampStaffSalary.query.filter(CampStaffSalary.month_id == calendar_month.id,
+                                                             CampStaffSalary.year_id == calendar_year.id,
+                                                             CampStaffSalary.camp_staff_id == item.id).first()
+            print(staff_salary_info)
+            if not staff_salary_info:
+                staff_salary_info = CampStaffSalary(month_id=calendar_month.id, year_id=calendar_year.id,
+                                                    total_salary=item.salary, remaining_salary=item.salary,
+                                                    taken_money=item.salary, camp_staff_id=item.id)
+                db.session.add(staff_salary_info)
+                db.session.commit()

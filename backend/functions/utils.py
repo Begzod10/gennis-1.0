@@ -4,7 +4,7 @@ from app import request, db, classroom_server
 import requests
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, AccountingPeriod, Professions, PaymentTypes, \
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
-    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason
+    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries
 from dateutil.relativedelta import relativedelta
 from calendar import monthrange
 import uuid
@@ -451,6 +451,16 @@ def update_staff_salary_id(salary_id):
         salary += book_payment_get.payment_sum
     staff_salary.remaining_salary = staff_salary.total_salary - salary
     staff_salary.taken_money = salary
+    db.session.commit()
+
+
+def update_camp_staff_salary_id(salary_id):
+    staff_salary = CampStaffSalary.query.filter(CampStaffSalary.id == salary_id).first()
+    salaries = CampStaffSalaries.query.filter(CampStaffSalaries.salary_id == salary_id).all()
+    salary = 0
+    for salary_get in salaries:
+        salary += salary_get.amount_sum
+    staff_salary.amount_sum = salary
     db.session.commit()
 
 
