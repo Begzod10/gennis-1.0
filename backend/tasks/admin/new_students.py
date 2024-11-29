@@ -148,7 +148,10 @@ def task_new_students_calling(location_id):
 @jwt_required()
 def task_new_students_filter(location_id):
     if request.method == "POST":
-        students = []
+        students = {
+            'result': [],
+            'is_selected':True
+        }
         today = datetime.today()
         date = datetime.strptime(request.get_json()['date'], "%Y-%m-%d")
         if date.date() <= today.date():
@@ -176,7 +179,6 @@ def task_new_students_filter(location_id):
                 'day': student.day,
                 'date': student.date,
                 'comment': student.comment,
-                'is_selected':True
             }
-            students.append(info)
+            students['result'].append(info)
     return jsonify(students)
