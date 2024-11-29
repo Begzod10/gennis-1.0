@@ -362,7 +362,7 @@ def student_in_debts(location_id):
     change_statistics(location_id)
     calendar_year, calendar_month, calendar_day = find_calendar_date()
 
-    avgust = datetime.strptime("2024-08-01", "%Y-%m-%d")
+    avgust = datetime.strptime("2024-09-01", "%Y-%m-%d")
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     task_statistics = TasksStatistics.query.filter(
@@ -423,8 +423,8 @@ def student_in_debts(location_id):
         select = data.get('select')
         to_date = data.get('date')
         user_id = data.get('id')
-        print(select)
-        print(reason)
+        print("select",select)
+        print("reason",reason)
         print(select == "tel ko'tardi")
         if to_date:
             to_date = datetime.strptime(to_date, "%Y-%m-%d")
@@ -442,11 +442,13 @@ def student_in_debts(location_id):
                                                 to_date=to_date,
                                                 added_date=calendar_day.date,
                                                 student_id=student.id)
+                    print(True)
                 else:
                     new_excuse = StudentExcuses(reason="tel ko'tarmadi",
                                                 to_date=to_date,
                                                 added_date=calendar_day.date,
                                                 student_id=student.id)
+                    print(False)
                 db.session.add(new_excuse)
                 db.session.commit()
 
@@ -492,7 +494,7 @@ def get_completed_tasks(location_id):
     students = Students.query.filter(Students.id.in_([st.student_id for st in task_students])).all()
     completed_tasks = []
     update_tasks_in_progress(location_id)
-    april = datetime.strptime("2024-08", "%Y-%m")
+    april = datetime.strptime("2024-09", "%Y-%m")
     for student in students:
         calendar_year, calendar_month, calendar_day = find_calendar_date()
         today = datetime.today()
