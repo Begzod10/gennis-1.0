@@ -1,9 +1,12 @@
 from app import app, db, jsonify, request
-from backend.models.models import Users, Students, or_, DeletedStudents, CalendarDay, CalendarMonth, CalendarYear
+from backend.models.models import Users, Students, or_, DeletedStudents, CalendarDay, CalendarMonth, CalendarYear, \
+    StudentExcuses
 from sqlalchemy import asc
+from backend.functions.utils import find_calendar_date
 
 
 def filter_debts(location_id, month):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     deleted_student_ids = (
         db.session.query(DeletedStudents.student_id)
         .join(Students, DeletedStudents.student_id == Students.id)
@@ -33,6 +36,13 @@ def filter_debts(location_id, month):
             or_(
                 Students.id.in_(deleted_student_ids),  # Include students matching deleted IDs
                 Students.deleted_from_register == None  # Include other students with `deleted_from_register` as None
+            )
+        )
+        .outerjoin(Students.excuses)  # Use an outer join to include students without excuses
+        .filter(
+            or_(
+                StudentExcuses.to_date > calendar_day.date,  # Excuses valid after the calendar day
+                StudentExcuses.id == None  # Students with no excuses
             )
         )
         .order_by(asc(Users.balance))

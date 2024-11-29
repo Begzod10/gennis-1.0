@@ -17,18 +17,26 @@ def update_all_ratings(location_id):
         location_id=location_id
     ).all()
     completed_tasks = sum(stat.completed_tasks for stat in overall_location_statistics)
+    total_tasks = sum(stat.total_tasks for stat in overall_location_statistics)
+    print("completed_tasks", completed_tasks)
     tasks_daily_statistics = TaskDailyStatistics.query.filter_by(
         # user_id=user.id,
         location_id=location_id,
-        calendar_day=calendar_day.id
+        calendar_day=calendar_day.id,
+        calendar_month=calendar_month.id,
+        calendar_year=calendar_year.id
     ).first()
     if not tasks_daily_statistics:
         tasks_daily_statistics = TaskDailyStatistics(
             calendar_day=calendar_day.id,
-            location_id=location_id
+            location_id=location_id,
+            calendar_month=calendar_month.id,
+            calendar_year=calendar_year.id
         )
         db.session.add(tasks_daily_statistics)
         db.session.commit()
+    tasks_daily_statistics.total_tasks = total_tasks
+    db.session.commit()
     completed_tasks_percentage = round(
         (completed_tasks / tasks_daily_statistics.total_tasks) * 100) if completed_tasks else 0
 
@@ -244,6 +252,8 @@ def update_tasks_in_progress(location_id, months):
 
     task_statistics = TasksStatistics.query.filter(TasksStatistics.location_id == location_id,
                                                    TasksStatistics.calendar_day == calendar_day.id,
+                                                   TasksStatistics.calendar_month == calendar_month.id,
+                                                   TasksStatistics.calendar_year == calendar_year.id,
                                                    TasksStatistics.task_id == task.id).first()
     if not task_statistics:
         task_statistics = TasksStatistics(task_id=task.id, calendar_year=calendar_year.id,
@@ -270,25 +280,16 @@ def update_tasks_in_progress(location_id, months):
             add_task_student = TaskStudents(task_id=task.id, tasksstatistics_id=task_statistics.id,
                                             student_id=st.id)
             add_task_student.add()
-    else:
-        students = db.session.query(Students).join(Students.user).filter(Users.balance > 0,
-                                                                         Users.location_id == location_id
-                                                                         ).filter(
-            Students.deleted_from_register == None).order_by(
-            asc(Users.balance)).limit(100).all()
-        for st in students:
-            task_student = TaskStudents.query.filter(TaskStudents.task_id == task.id,
-                                                     TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                     TaskStudents.student_id == st.id).first()
-            if task_student:
-                task_student.status = True
-                db.session.commit()
+
     completed_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                                    TaskStudents.tasksstatistics_id == task_statistics.id,
                                                    TaskStudents.status == True).count()
+    in_progress_tasks = TaskStudents.query.filter(TaskStudents.task_id == task.id,
+                                                  TaskStudents.tasksstatistics_id == task_statistics.id,
+                                                  TaskStudents.status == False).count()
 
     task_statistics.completed_tasks = completed_students
-    task_statistics.in_progress_tasks = task_statistics.total_tasks - completed_students
+    task_statistics.in_progress_tasks = in_progress_tasks
     task_statistics.total_tasks = task_statistics.in_progress_tasks + task_statistics.completed_tasks
     if task_statistics.total_tasks != 0:
         task_statistics.completed_tasks_percentage = round(
