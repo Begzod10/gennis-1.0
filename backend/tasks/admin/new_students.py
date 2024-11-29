@@ -175,7 +175,8 @@ def task_new_students_filter(location_id):
                 'shift': '1-smen' if student.student.morning_shift else '2-smen' if student.student.night_shift else 'Hamma vaqt',
                 'day': student.day,
                 'date': student.date,
-                'comment': student.comment
+                'comment': student.comment,
+                'is_selected':True
             }
             students.append(info)
     return jsonify(students)
