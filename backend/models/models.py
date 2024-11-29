@@ -88,10 +88,11 @@ class CalendarYear(db.Model):
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="year", order_by='TaskDailyStatistics.id')
     investment = relationship("Investment", backref="year", order_by="Investment.id")
     camp_staff_salary = relationship("CampStaffSalary", backref="year", order_by="CampStaffSalary.id")
-    branch_report = relationship("BranchReport", backref="year", order_by="BranchReport.id")
+    account_report = relationship("AccountReport", backref="year", order_by="AccountReport.id")
     camp_staff_salaries = relationship("CampStaffSalaries", backref="year", order_by="CampStaffSalaries.id")
     account_payable = relationship("AccountPayable", backref="year", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="year", order_by="Dividend.id")
+    main_overhead = relationship("MainOverhead", backref="year", order_by="MainOverhead.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
@@ -153,10 +154,11 @@ class CalendarMonth(db.Model):
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="month", order_by='TaskDailyStatistics.id')
     investment = relationship("Investment", backref="month", order_by="Investment.id")
     camp_staff_salary = relationship("CampStaffSalary", backref="month", order_by="CampStaffSalary.id")
-    branch_report = relationship("BranchReport", backref="month", order_by="BranchReport.id")
+    account_report = relationship("AccountReport", backref="month", order_by="AccountReport.id")
     camp_staff_salaries = relationship("CampStaffSalaries", backref="month", order_by="CampStaffSalaries.id")
     account_payable = relationship("AccountPayable", backref="month", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="month", order_by="Dividend.id")
+    main_overhead = relationship("MainOverhead", backref="month", order_by="MainOverhead.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -199,7 +201,6 @@ class AccountingPeriod(db.Model):
     capitals = relationship("Capital", backref="period", lazy="select", order_by="Capital.id")
     capital_term = relationship("CapitalTerm", backref="period", order_by="CapitalTerm.id", lazy="select")
     investment = relationship("Investment", backref="period", order_by="Investment.id")
-    camp_staff_salaries = relationship("CampStaffSalaries", backref="period", order_by="CampStaffSalaries.id")
 
 
 class CalendarDay(db.Model):
@@ -256,6 +257,7 @@ class CalendarDay(db.Model):
     camp_staff_salaries = relationship("CampStaffSalaries", backref="day", order_by="CampStaffSalaries.id")
     account_payable = relationship("AccountPayable", backref="day", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
+    main_overhead = relationship("MainOverhead", backref="day", order_by="MainOverhead.id")
 
     def convert_json(self, entire=False):
         return {
@@ -412,6 +414,7 @@ class Users(db.Model):
     observer = Column(Boolean, default=False)
     tasks_statistics = relationship("TasksStatistics", backref="user", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="user", order_by='TaskDailyStatistics.id')
+    camp_staffs = relationship("CampStaff", backref="user", order_by='CampStaff.id')
 
     def convert_json(self, entire=False):
         if not entire:
@@ -505,9 +508,11 @@ class Users(db.Model):
                 "username": self.username,
                 "user_id": self.user_id
             }
+
     def add(self):
         db.session.add(self)
         db.session.commit()
+
 
 def clone_group_info(group):
     group_info = {
@@ -562,6 +567,7 @@ class Roles(db.Model):
     role = Column(String)
     type_role = Column(String)
     users_link = relationship("Users", backref="role_info", order_by="Users.id")
+    camp_staff = relationship("CampStaff", backref="role_info", order_by="CampStaff.id")
     old_id = Column(Integer)
 
     def add(self):

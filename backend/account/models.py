@@ -92,7 +92,8 @@ class PaymentTypes(db.Model):
     camp_staff_salaries = relationship("CampStaffSalaries", backref="payment_type", order_by="CampStaffSalaries.id")
     account_payable = relationship("AccountPayable", backref="payment_type", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="payment_type", order_by="Dividend.id")
-    branch_report = relationship("BranchReport", backref="payment_type", order_by="BranchReport.id")
+    account_report = relationship("AccountReport", backref="payment_type", order_by="AccountReport.id")
+    main_overhead = relationship("MainOverhead", backref="payment_type", order_by="MainOverhead.id")
 
 
 class StudentPayments(db.Model):
@@ -624,6 +625,7 @@ class AccountingInfo(db.Model):
     all_capital = Column(Integer, default=0)
     all_charity = Column(Integer, default=0)
     all_investment = Column(Integer, default=0)
+    all_dividend = Column(Integer, default=0)
     current_cash = Column(Integer, default=0)
     old_cash = Column(Integer, default=0)
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))

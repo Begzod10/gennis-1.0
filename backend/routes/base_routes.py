@@ -976,10 +976,58 @@ def profile(user_id):
             }
             username = director_get.username
             type_role = "Director"
+        if hasattr(role, 'role') and role.role:
+            role = role.role
+        else:
+            role = type_role
+        if not user_get.camp_staffs:
+            links_f = [
+                {
+                    "link": "changeInfo",
+                    "title": "Ma'lumotlarni o'zgratirish",
+                    "iconClazz": "fa-pen",
+                    "type": "link"
+                },
+                link,
+                {
+                    "link": "changePhoto",
+                    "title": "Rasmni yangilash",
+                    "iconClazz": "fa-camera",
+                    "type": "link"
+                },
+                {
+                    "link": "timeTable",
+                    "title": "Dars Jadvali",
+                    "iconClazz": "fas fa-user-clock",
+                    "type": "link"
+                }
+            ]
+        else:
+            links_f = [
+                {
+                    "link": "changeInfo",
+                    "title": "Ma'lumotlarni o'zgratirish",
+                    "iconClazz": "fa-pen",
+                    "type": "link"
+                },
+                link,
+                {
+                    "link": "changePhoto",
+                    "title": "Rasmni yangilash",
+                    "iconClazz": "fa-camera",
+                    "type": "link"
+                },
+                {
+                    "link": "../../staffSalary",
+                    "title": "Salary",
+                    "iconClazz": "fa-dollar-sign",
+                    "type": "link"
+                }
+            ]
         user = {
             "isSalary": salary_status,
             "id": user_get.id,
-            "role": role.role,
+            "role": role,
             "photo_profile": user_get.photo_profile,
             "observer": user_get.observer,
             "activeToChange": {
@@ -1049,32 +1097,11 @@ def profile(user_id):
 
             },
 
-            "links": [
-                {
-                    "link": "changeInfo",
-                    "title": "Ma'lumotlarni o'zgratirish",
-                    "iconClazz": "fa-pen",
-                    "type": "link"
-                },
-                link,
-                {
-                    "link": "changePhoto",
-                    "title": "Rasmni yangilash",
-                    "iconClazz": "fa-camera",
-                    "type": "link"
-                },
-                {
-                    "link": "timeTable",
-                    "title": "Dars Jadvali",
-                    "iconClazz": "fas fa-user-clock",
-                    "type": "link"
-                }
-            ],
+            "links": links_f,
             "location_list": location_list,
             "groups": group_list,
 
         }
-        print(type_role)
         if type_role == "Teacher":
             if user['info'].get("students") is None:
                 user['info']["students"] = {}

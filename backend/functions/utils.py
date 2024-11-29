@@ -4,7 +4,7 @@ from app import request, db, classroom_server
 import requests
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, AccountingPeriod, Professions, PaymentTypes, \
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
-    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason
+    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries
 from dateutil.relativedelta import relativedelta
 from calendar import monthrange
 import uuid
@@ -311,15 +311,15 @@ def find_calendar_date(date_day=None, date_month=None, date_year=None):
         month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
         year = CalendarYear.query.filter(CalendarYear.date == date_year).first()
         if not year:
-            year = CalendarYear(date=new_year())
+            year = CalendarYear(date=date_year)
             db.session.add(year)
             db.session.commit()
         if not month:
-            month = CalendarMonth(date=new_month(), year_id=year.id)
+            month = CalendarMonth(date=date_month, year_id=year.id)
             db.session.add(month)
             db.session.commit()
         if not day:
-            day = CalendarDay(date=new_today(), month_id=month.id)
+            day = CalendarDay(date=date_day, month_id=month.id)
             db.session.add(day)
             db.session.commit()
         return year, month, day
@@ -472,6 +472,16 @@ def update_teacher_salary_id(salary_id):
     teacher_salary.remaining_salary = teacher_salary.total_salary - (salary + black_salary)
     teacher_salary.taken_money = salary
     db.session.commit()
+
+
+def update_camp_salary_id(salary_id):
+    camp_staff_salary = CampStaffSalary.query.filter(CampStaffSalary.id == salary_id).first()
+    salaries = CampStaffSalaries.query.filter(CampStaffSalaries.salary_id == salary_id).all()
+    salary = 0
+    for salary_get in salaries:
+        salary += salary_get.amount_sum
+    camp_staff_salary.remaining_salary = camp_staff_salary.total_salary - salary
+    camp_staff_salary.taken_money = salary
 
 
 def refresh_age(user_id):
