@@ -103,7 +103,7 @@ def task_new_students_calling(location_id):
     if request.method == "GET":
         change_statistics(location_id)
         update_task_statistics(location_id, students_info, completed_tasks, calendar_day)
-        update_all_ratings()
+        update_all_ratings(location_id)
 
         return jsonify({
             "students": students_info,
@@ -131,7 +131,7 @@ def task_new_students_calling(location_id):
                 db.session.commit()
 
             update_task_statistics(location_id, students_info, completed_tasks, calendar_day)
-            update_all_ratings()
+            update_all_ratings(location_id)
 
             return jsonify({
                 "student": {

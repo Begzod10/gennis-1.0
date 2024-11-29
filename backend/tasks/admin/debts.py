@@ -1,41 +1,96 @@
 import datetime
 
-from app import app, db, jsonify
-from backend.models.models import Users, Students, or_, DeletedStudents, CalendarDay
+from app import app, db, jsonify, request
+from backend.models.models import Users, Students, or_, DeletedStudents, CalendarDay, CalendarMonth, CalendarYear, \
+    TaskStudents, TasksStatistics, StudentExcuses, Tasks
 from backend.functions.utils import api, find_calendar_date
 from sqlalchemy import asc
+from backend.student.functions import update_tasks_in_progress, update_all_ratings
+from backend.tasks.utils import filter_debts
 
 
-@app.route(f'{api}/student_debts/<int:location_id>', methods=["POST", "GET"])
-def student_debts(location_id):
-    day = datetime.datetime.strptime("2024-08-01", "%Y-%m-%d")  # "2024-08-01"
-    month = datetime.datetime.strptime("2024-08", "%Y-%m")  # "2024-08"
+@app.route(f'{api}/student_debts/<int:location_id>/<date>', methods=["POST", "GET"])
+def student_debts(location_id, date):
+    day = datetime.datetime.strptime(f"{date}-01", "%Y-%m-%d")  # "2024-08-01"
+    month = datetime.datetime.strptime(f"{date}", "%Y-%m")  # "2024-08"
     year = datetime.datetime.strptime("2024", "%Y")  # "2024"
+    task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    task_statistics = TasksStatistics.query.filter(
+        TasksStatistics.task_id == task_type.id,
+        TasksStatistics.calendar_day == calendar_day.id,
+        TasksStatistics.location_id == location_id
+    ).first()
     calendar_year, calendar_month, calendar_day = find_calendar_date(date_day=day, date_month=month, date_year=year)
+    update_tasks_in_progress(location_id, month)
+    update_all_ratings(location_id)
+    task_students = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
+                                              TaskStudents.status == False,
+                                              TaskStudents.tasksstatistics_id == task_statistics.id,
+                                              ).all()
+    task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
+                                             TaskStudents.tasksstatistics_id == task_statistics.id,
+                                             TasksStatistics.location_id == location_id).first()
+    if task_student:
+        students = Students.query.filter(Students.id.in_([st.student_id for st in task_students]))
+    else:
 
-    deleted_students = (
-        db.session.query(DeletedStudents)
-        .join(Students, DeletedStudents.student_id == Students.id)  # Ensure proper join condition
-        .join(Users, Students.user_id == Users.id)  # Ensure proper join condition
-        .filter(
-            Users.location_id == location_id,
-            DeletedStudents.calendar_day == calendar_day.id
-        )
-        .all()
-    )
+        students, deleted_student_ids = filter_debts(location_id, month)
 
-    print(len(deleted_students))
-
-    students = db.session.query(Students).join(Students.user).filter(Users.balance < 0,
-                                                                     Users.location_id == location_id
-                                                                     ).filter(
-
-        Students.deleted_from_register == None,
-        or_(Students.deleted_from_group != None, Students.group != None)).order_by(
-        asc(Users.balance)).limit(100).all()
-
+    if not task_student:
+        for student in students:
+            add_task_student = TaskStudents(task_id=task_type.id, tasksstatistics_id=task_statistics.id,
+                                            student_id=student.id)
+            add_task_student.add()
+    print(students)
     return jsonify({
         "status": "true",
-        "deleted_students": len(deleted_students),
-        "students": len(students)
+        # "deleted_students": len(deleted_student_ids),
+        # "students": len(students)
     })
+
+
+@app.route(f'{api}/call_to_debts')
+def call_to_debts():
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    data = request.get_json()
+    reason = data.get('comment')
+    select = data.get('select')
+    to_date = data.get('date')
+    user_id = data.get('id')
+    task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
+    task_statistics = TasksStatistics.query.filter_by(task_id=task_type.id).first()
+    print("select", select)
+    print("reason", reason)
+    print(select == "tel ko'tardi")
+    if to_date:
+        to_date = datetime.strptime(to_date, "%Y-%m-%d")
+    else:
+        to_date = calendar_day.date
+
+    student = Students.query.filter(Students.id == user_id).first()
+    if to_date > calendar_day.date:
+        exist_excuse = StudentExcuses.query.filter(StudentExcuses.added_date == calendar_day.date,
+                                                   StudentExcuses.student_id == student.id).first()
+        if not exist_excuse:
+            if select == "tel ko'tardi":
+
+                new_excuse = StudentExcuses(reason=reason,
+                                            to_date=to_date,
+                                            added_date=calendar_day.date,
+                                            student_id=student.id)
+                print(True)
+            else:
+                new_excuse = StudentExcuses(reason="tel ko'tarmadi",
+                                            to_date=to_date,
+                                            added_date=calendar_day.date,
+                                            student_id=student.id)
+                print(False)
+            db.session.add(new_excuse)
+            db.session.commit()
+
+        task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
+                                                 TaskStudents.tasksstatistics_id == task_statistics.id,
+                                                 TaskStudents.student_id == student.id).first()
+        task_student.status = True
+        db.session.commit()

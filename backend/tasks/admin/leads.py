@@ -67,17 +67,17 @@ def get_leads_location(status, location_id):
     leads = Lead.query.filter(Lead.location_id == location_id, filter_condition).order_by(desc(Lead.id)).all()
 
     leads_info = []
-    completed_tasks = []
+    completed_tasks_list = []
 
     for lead in leads:
         if tasks := get_lead_tasks(lead):
             leads_info.append(tasks)
         if completed_tasks := get_completed_lead_tasks(lead):
-            completed_tasks.append(completed_tasks)
+            completed_tasks_list.append(completed_tasks)
 
     return jsonify({
         "leads": leads_info,
-        'completed_tasks': completed_tasks
+        'completed_tasks': completed_tasks_list
     })
 
 
@@ -143,7 +143,7 @@ def adjust_daily_statistics(calendar_day, location_id):
     if daily_statistics:
         daily_statistics.total_tasks -= 1
         db.session.commit()
-        update_all_ratings()
+        update_all_ratings(location_id)
 
 
 def post_lead_comment(lead, calendar_day):
@@ -168,7 +168,7 @@ def post_lead_comment(lead, calendar_day):
             "success": True,
             "lead": lead.convert_json(),
             "lead_info": update_posted_tasks(),
-            "info": update_all_ratings()
+            "info": update_all_ratings(location_id)
         })
     else:
         return jsonify({'msg': "Eski sana kiritilgan"})
