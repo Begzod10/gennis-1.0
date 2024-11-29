@@ -148,12 +148,21 @@ def task_new_students_calling(location_id):
 @jwt_required()
 def task_new_students_filter(location_id):
     if request.method == "POST":
-        students = {
-            'result': [],
-            'is_selected':True
-        }
-        today = datetime.today()
+
+
         date = datetime.strptime(request.get_json()['date'], "%Y-%m-%d")
+
+        today = datetime.today()
+        if date.date() == today.date():
+            students = {
+                'result': [],
+                'is_selected': False
+            }
+        else:
+            students = {
+                'result': [],
+                'is_selected': True
+            }
         if date.date() <= today.date():
             query = StudentCallingInfo.query.filter(
                 func.extract('year', StudentCallingInfo.day) == date.year,
@@ -176,8 +185,8 @@ def task_new_students_filter(location_id):
                 'subject': [subject.name for subject in student.student.subject],
                 'registered_date': f'{student.student.user.year.date.year}-{student.student.user.month.date.month}-{student.student.user.day.date.day}',
                 'shift': '1-smen' if student.student.morning_shift else '2-smen' if student.student.night_shift else 'Hamma vaqt',
-                'day': student.day,
-                'date': student.date,
+                'day': student.day.strftime("%Y-%m-%d"),
+                'date': student.date.strftime("%Y-%m-%d"),
                 'comment': student.comment,
             }
             students['result'].append(info)
