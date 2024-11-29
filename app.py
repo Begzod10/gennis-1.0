@@ -94,7 +94,7 @@ from backend.lead.views import *
 from backend.mobile.views import *
 
 # tasks
-from backend.tasks.admin import *
+from backend.tasks.admin.views import *
 
 # investment
 from backend.account.investment import *
