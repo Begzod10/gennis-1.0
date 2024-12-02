@@ -17,45 +17,76 @@ def task_new_students_calling(location_id):
     today = datetime.today()
     date_strptime = today.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    def get_student_info(student):
-        phone = next((phones.phone for phones in student.user.phone if phones.personal), None)
-        subjects = [subject.name for subject in student.subject]
-        shift = '1-smen' if student.morning_shift else '2-smen' if student.night_shift else 'Hamma vaqt'
+    # Fetch all students with their related user, subjects, and phones
+    students = Students.query.join(Users).filter(
+        Users.location_id == location_id,
+        Users.student != None,
+        Students.subject != None,
+        Students.deleted_from_register == None
+    ).order_by(desc(Students.id)).all()
 
-        info = {
+    # Query calling information for the students in one go
+    calling_info = StudentCallingInfo.query.filter(
+        StudentCallingInfo.student_id.in_([student.id for student in students])
+    ).all()
+
+    # Create a mapping of student_id to calling info
+    calling_info_dict = {call.student_id: [] for call in calling_info}
+    for call in calling_info:
+        calling_info_dict[call.student_id].append(call)
+
+    # Use list comprehensions to gather and process all data in bulk
+    students_info = []
+    completed_tasks = []
+
+    # Query phone and subjects in bulk for better performance
+    student_phone_dict = {student.id: next((phone.phone for phone in student.user.phone if phone.personal), None) for student in students}
+    student_subject_dict = {student.id: [subject.name for subject in student.subject] for student in students}
+    student_shift_dict = {student.id: '1-smen' if student.morning_shift else '2-smen' if student.night_shift else 'Hamma vaqt' for student in students}
+    student_registered_date_dict = {student.id: f'{student.user.year.date.year}-{student.user.month.date.month}-{student.user.day.date.day}' for student in students}
+
+    # Process students and categorize based on calling history and status
+    students_info = [
+        {
             'id': student.id,
             'name': student.user.name,
             'surname': student.user.surname,
-            'phone': phone,
-            'subject': subjects,
-            'registered_date': f'{student.user.year.date.year}-{student.user.month.date.month}-{student.user.day.date.day}',
-            'shift': shift,
-            'history': [],
-            'status': 'red',
+            'phone': student_phone_dict[student.id],
+            'subject': student_subject_dict[student.id],
+            'registered_date': student_registered_date_dict[student.id],
+            'shift': student_shift_dict[student.id],
+            'history': [{
+                'id': call.id,
+                'comment': call.comment,
+                'day': f'{call.day.year}-{call.day.month}-{call.day.day}',
+                'date': call.date
+            } for call in calling_info_dict.get(student.id, [])],
+            'status': 'red' if not calling_info_dict.get(student.id) else 'yellow'
         }
+        for student in students
+    ]
 
-        if student.student_calling_info:
-            for calling_info in student.student_calling_info:
-                calling_date = {
-                    'id': calling_info.id,
-                    'comment': calling_info.comment,
-                    'day': f'{calling_info.day.year}-{calling_info.day.month}-{calling_info.day.day}',
-                    "date": calling_info.date
-                }
-                info['history'].append(calling_date)
+    # Update status based on calling history
+    for student_info in students_info:
+        if student_info['history']:
+            last_call = student_info['history'][-1]
+            if last_call['date'] <= date_strptime:
+                days_since_last_call = (today - last_call['date']).days
+                student_info['status'] = 'yellow' if days_since_last_call == 0 else 'red'
 
-            last_call = student.student_calling_info[-1]
+            added_date_strptime = datetime.strptime(last_call['day'], "%Y-%m-%d")
+            if added_date_strptime == date_strptime and last_call['date'] > date_strptime:
+                student_info['status'] = 'yellow'
 
-            if last_call.date <= date_strptime:
-                days_since_last_call = (today - last_call.date).days
-                info['status'] = 'yellow' if days_since_last_call == 0 else 'red'
+    # Split students into categories based on their calling history
+    students_info_to_show = [
+        student_info for student_info in students_info if student_info['status'] == 'yellow' or not student_info['history']
+    ]
+    completed_tasks = [
+        student_info for student_info in students_info if student_info['status'] != 'yellow' and student_info['history'] and not any(call.date.date() < today.date() for call in student_info['history'])
+    ]
 
-            added_date_strptime = datetime.strptime(f'{last_call.day.year}-{last_call.day.month}-{last_call.day.day}',
-                                                    "%Y-%m-%d")
-            if added_date_strptime == date_strptime and last_call.date > date_strptime:
-                info['status'] = 'yellow'
-
-        return info
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     def update_task_statistics(location_id, students_info, completed_tasks, calendar_day):
         task_type = Tasks.query.filter_by(name='new_students').first()
@@ -74,39 +105,13 @@ def task_new_students_calling(location_id):
 
         db.session.commit()
 
-    students = Students.query.join(Users).filter(
-        Users.location_id == location_id,
-        Users.student != None,
-        Students.subject != None,
-        Students.deleted_from_register == None
-    ).order_by(desc(Students.id)).all()
-
-    students_info = []
-    completed_tasks = []
-
-    def is_past_day_exist(calling_dates):
-        return any(day.date() < today.date() for day in calling_dates)
-
-    for student in students:
-        info = get_student_info(student)
-        if info['status'] == 'yellow':
-            calling_dates = [i['date'] for i in info['history']]
-            if is_past_day_exist(calling_dates):
-                students_info.append(info)
-            else:
-                completed_tasks.append(info)
-        else:
-            students_info.append(info)
-
-    calendar_year, calendar_month, calendar_day = find_calendar_date()
-
     if request.method == "GET":
         change_statistics(location_id)
-        update_task_statistics(location_id, students_info, completed_tasks, calendar_day)
+        update_task_statistics(location_id, students_info_to_show, completed_tasks, calendar_day)
         update_all_ratings(location_id)
 
         return jsonify({
-            "students": students_info,
+            "students": students_info_to_show,
             'completed_tasks': completed_tasks
         })
 
@@ -142,7 +147,6 @@ def task_new_students_calling(location_id):
             })
         else:
             return jsonify({'msg': "Eski sana kiritilgan"})
-
 
 @app.route(f'{api}/task_new_students_filter/<int:location_id>', methods=["POST", "GET"])
 @jwt_required()
