@@ -59,7 +59,7 @@ def block_information2(location_id):
         "name": day.name
     } for day in days]
     calendar_years = CalendarYear.query.order_by(CalendarYear.id).all()
-
+    calendar_months = CalendarMonth.query.distinct(CalendarMonth.date).order_by(desc(CalendarMonth.date)).all()
     group_reasons = GroupReason.query.order_by(GroupReason.id).all()
 
     data = {
@@ -71,6 +71,7 @@ def block_information2(location_id):
         "rooms": room_list,
         "days": day_list,
         "years": iterate_models(calendar_years),
+        "months": iterate_models(calendar_months),
         "group_reasons": iterate_models(group_reasons),
         "data_days": old_current_dates(observation=True)
     }

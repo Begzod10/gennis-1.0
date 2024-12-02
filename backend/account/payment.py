@@ -9,7 +9,7 @@ from backend.student.class_model import Student_Functions
 from datetime import datetime
 from backend.functions.utils import get_json_field, find_calendar_date, api, update_salary
 
-from backend.student.functions import update_all_ratings
+from backend.tasks.utils import update_all_ratings
 
 
 @app.route(f'{api}/delete_payment/<int:payment_id>', methods=['POST'])

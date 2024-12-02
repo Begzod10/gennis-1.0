@@ -119,14 +119,6 @@ def crud_lead(pm):
                 'completed_tasks_percentage': cm_tasks
             })
             db.session.commit()
-        daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.calendar_day == calendar_day.id,
-                                                            TaskDailyStatistics.location_id == location_id).order_by(
-            TaskDailyStatistics.id).first()
-        if daily_statistics:
-            daily_statistics.total_tasks -= 1
-            print(daily_statistics.total_tasks - 1)
-            db.session.commit()
-            update_all_ratings()
         return jsonify({"msg": "O'quvchi o'chirildi", "success": True, })
     if request.method == "POST":
         comment = get_json_field('comment')

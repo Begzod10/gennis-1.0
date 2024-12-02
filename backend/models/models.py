@@ -97,9 +97,16 @@ class CalendarYear(db.Model):
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
+        months = (
+            db.session.query(CalendarMonth)
+            .filter(CalendarMonth.year_id == self.id)
+            .distinct(CalendarMonth.date)  # Remove duplicates based on `date`
+            .all()
+        )
         return {
             "id": self.id,
-            "value": self.date.strftime("%Y")
+            "value": self.date.strftime("%Y"),
+            "months": [m.convert_json() for m in months]
         }
 
 
@@ -167,7 +174,7 @@ class CalendarMonth(db.Model):
             "id": self.id,
             "month": self.date.strftime("%m"),
             "year": self.date.strftime("%Y"),
-            "date": self.date
+            "date": self.date.strftime("%Y-%m"),
         }
 
 
