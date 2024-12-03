@@ -15,6 +15,7 @@ class LeadInfos(db.Model):
         return {
             "id": self.id,
             "comment": self.comment,
+            "added_date": self.added_date.strftime("%Y-%m-%d"),
             "date": self.day.strftime("%Y-%m-%d")
         }
 

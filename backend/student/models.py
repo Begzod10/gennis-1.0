@@ -22,6 +22,17 @@ class StudentExcuses(db.Model):
     added_date = Column(DateTime)
     old_id = Column(Integer)
 
+    def convert_json(self, entire=False):
+        info = {
+            'id': self.id,
+            'student_id': self.student_id,
+            'comment': self.reason,
+            'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
+            'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
+            'old_id': self.old_id
+        }
+        return info
+
 
 class StudentDebt(db.Model):
     __tablename__ = "student_debt"
@@ -139,6 +150,15 @@ class StudentCallingInfo(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "student_id": self.student_id,
+            "comment": self.comment,
+            "to_date": self.day.strftime("%Y-%m-%d"),
+            "added_date": self.date.strftime("%Y-%m-%d")
+        }
 
 
 class Contract_Students(db.Model):

@@ -19,7 +19,7 @@ def task_new_students(location_id):
     task_daily_statistics = update_all_ratings(location_id)
 
     return jsonify({
-        "students": students,
+        "students": iterate_models(students),
         "task_statistics": task_statistics.convert_json(),
         "task_daily_statistics": task_daily_statistics.convert_json()
     })

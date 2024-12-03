@@ -83,3 +83,30 @@ class TaskStudents(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+
+class BlackStudents(db.Model):
+    __tablename__ = "black_students"
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey('students.id'))
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'))
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class BlackStudentsStatistics(db.Model):
+    __tablename__ = "black_students_statistics"
+    id = Column(Integer, primary_key=True)
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'))
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
+    total_black_students = Column(Integer, default=0)
+    location_id = Column(Integer, ForeignKey('locations.id'))
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()

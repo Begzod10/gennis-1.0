@@ -6,7 +6,7 @@ from .models import Lead, LeadInfos
 from datetime import datetime
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.tasks.models.models import Tasks, TasksStatistics, TaskDailyStatistics
-from backend.student.calling_to_students import change_statistics, update_all_ratings
+from backend.student.calling_to_students import change_statistics
 from backend.models.models import Users
 from backend.lead.functions import update_task_statistics, update_posted_tasks, get_lead_tasks, \
     get_completed_lead_tasks
@@ -49,7 +49,7 @@ def register_lead():
 @app.route(f'{api}/get_leads_location/<status>/<location_id>')
 @jwt_required()
 def get_leads_location(status, location_id):
-    update_posted_tasks()
+
     if status == "news":
         change_statistics(location_id)
 
@@ -143,7 +143,7 @@ def crud_lead(pm):
                 "success": True,
                 "lead": lead.convert_json(),
                 "lead_info": update_posted_tasks(),
-                "info": update_all_ratings()
+                # "info": update_all_ratings()
             })
         else:
             return jsonify({

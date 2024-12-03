@@ -1,8 +1,61 @@
 from app import app, db, jsonify, request
-from backend.models.models import Users, Students, or_, DeletedStudents, CalendarDay, CalendarMonth, CalendarYear, \
-    StudentExcuses, TaskStudents, TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo
+from backend.models.models import Users, Students, or_, BlackStudentsStatistics, BlackStudents, CalendarDay, \
+    CalendarMonth, CalendarYear, \
+    StudentExcuses, TaskStudents, TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo, Lead, LeadInfos
 from sqlalchemy import asc, desc
 from backend.functions.utils import find_calendar_date
+
+from sqlalchemy.sql import func
+
+
+def black_students_count(calendar_month, calendar_year, location_id):
+    black_student_statistics = BlackStudentsStatistics.query.filter(
+        BlackStudentsStatistics.calendar_month == calendar_month.id,
+        BlackStudentsStatistics.calendar_year == calendar_year.id,
+        BlackStudentsStatistics.location_id == location_id).first()
+    if not black_student_statistics:
+        new_blacklist_statistics = BlackStudentsStatistics(total_black_students=1,
+                                                           calendar_month=calendar_month.id,
+                                                           calendar_year=calendar_year.id,
+                                                           location_id=location_id)
+        db.session.add(new_blacklist_statistics)
+        db.session.commit()
+    black_students = BlackStudents.query.filter(BlackStudents.calendar_year == calendar_year.id,
+                                                BlackStudents.calendar_month == calendar_month.id,
+                                                ).all()
+    black_student_statistics.total_black_students = len(black_students)
+    db.session.commit()
+
+
+def filter_new_leads(location_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    task_type = Tasks.query.filter(Tasks.name == 'leads').first()
+
+    task_statistics = TasksStatistics.query.filter(
+        TasksStatistics.task_id == task_type.id,
+        TasksStatistics.calendar_day == calendar_day.id,
+        TasksStatistics.location_id == location_id
+    ).first()
+    if not task_statistics:
+        task_statistics = TasksStatistics(task_id=task_type.id, calendar_year=calendar_year.id,
+                                          calendar_month=calendar_month.id, calendar_day=calendar_day.id,
+                                          location_id=location_id, in_progress_tasks=0,
+                                          total_tasks=0)
+        db.session.add(task_statistics)
+        db.session.commit()
+    completed = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False,
+                                                               Lead.location_id == location_id,
+                                                               LeadInfos.added_date == calendar_day.date).count()
+    leads = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False,
+                                                           Lead.location_id == location_id,
+                                                           LeadInfos.day <= calendar_day.date).order_by(
+        desc(Lead.id)).all()
+
+    task_statistics.total_tasks = len(leads)
+    task_statistics.completed_tasks = completed
+    task_statistics.in_progress_tasks = len(leads) - completed
+    db.session.commit()
+    return leads, task_statistics
 
 
 def filter_new_students(location_id):
@@ -25,8 +78,8 @@ def filter_new_students(location_id):
                                           total_tasks=0)
         db.session.add(task_statistics)
         db.session.commit()
-    students_calling = StudentCallingInfo.query.filter(
-        StudentCallingInfo.location_id == location_id,
+    students_calling = db.session.query(Users).join(Users.student).join(Students.student_calling_info).filter(
+        Users.location_id == location_id,
         StudentCallingInfo.day == calendar_day.date
     ).count()
     task_statistics.total_tasks = len(students)
@@ -47,6 +100,7 @@ def filter_debts(location_id):
         .filter(
             Users.balance < 0,
             Users.location_id == location_id,
+            Students.debtor != 4,
             # Include students matching deleted IDs
             Students.deleted_from_register == None  # Include other students with `deleted_from_register` as None
 
@@ -54,18 +108,26 @@ def filter_debts(location_id):
         .outerjoin(Students.excuses)  # Use an outer join to include students without excuses
         .filter(
             or_(
-                StudentExcuses.to_date > calendar_day.date,  # Excuses valid after the calendar day
-                StudentExcuses.id == None  # Students with no excuses
+                StudentExcuses.to_date.is_(None),  # No `to_date` specified
+                StudentExcuses.to_date < calendar_day.date  # Valid date after the calendar day
             )
         )
+
         .order_by(asc(Users.balance))
         .limit(100)
         .all()
     )
+    for student in students:
+        if student.user.name == "Asilbek":
+            print(student.excuses)
+            for ex in student.excuses:
+                print(ex.added_date)
+                print(ex.to_date)
+
     return students
 
 
-def update_debt_progress(location_id, months):
+def update_debt_progress(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
 
