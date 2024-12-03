@@ -92,7 +92,7 @@ def new_students_calling(location_id):
         task_statistics.completed_tasks_percentage = round(
             (len(completed_tasks) / (len(completed_tasks) + len(students_info))) * 100)
         db.session.commit()
-        update_all_ratings()
+        # update_all_ratings()
         return jsonify({
             "students": students_info,
             'completed_tasks': completed_tasks
@@ -210,7 +210,7 @@ def new_students_calling(location_id):
             task_statistics.completed_tasks_percentage = round(
                 (len(completed_tasks) / task_statistics.total_tasks) * 100)
             db.session.commit()
-            update_all_ratings()
+            # update_all_ratings()
             task_type = Tasks.query.filter(Tasks.name == 'new_students').first()
 
             task_statistics = TasksStatistics.query.filter(
@@ -372,8 +372,9 @@ def student_in_debts(location_id):
     ).first()
     if request.method == "GET":
         if user.role_info.type_role == "admin":
-            update_tasks_in_progress(user.location_id)
-            update_all_ratings()
+            True
+            # update_tasks_in_progress(user.location_id)
+            # update_all_ratings()
 
         task_students = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
                                                   TaskStudents.status == False,
@@ -458,8 +459,8 @@ def student_in_debts(location_id):
                                                      TaskStudents.student_id == student.id).first()
             task_student.status = True
             db.session.commit()
-            update_tasks_in_progress(user.location_id)
-            info = update_all_ratings()
+            # update_tasks_in_progress(user.location_id)
+            # info = update_all_ratings()
             task_students = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
                                                       TaskStudents.status == True,
                                                       TaskStudents.tasksstatistics_id == task_statistics.id,
@@ -468,7 +469,7 @@ def student_in_debts(location_id):
             return jsonify({"student": {
                 'msg': "Komment belgilandi",
                 'id': student.id,
-                "info": info,
+                # "info": info,
                 "students_num": task_students
             }})
         else:
@@ -494,7 +495,7 @@ def get_completed_tasks(location_id):
                                               TaskStudents.status == True).all()
     students = Students.query.filter(Students.id.in_([st.student_id for st in task_students])).all()
     completed_tasks = []
-    update_tasks_in_progress(location_id)
+    # update_tasks_in_progress(location_id)
     april = datetime.strptime("2024-09", "%Y-%m")
     for student in students:
         calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -552,8 +553,8 @@ def daily_statistics(location_id):
     day = CalendarDay.query.filter(CalendarDay.date == date_strptime).first()
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     change_statistics(location_id)
-    update_tasks_in_progress(user.location_id)
-    update_all_ratings()
+    # update_tasks_in_progress(user.location_id)
+    # update_all_ratings()
     if day:
         daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.calendar_day == day.id,
                                                             TaskDailyStatistics.location_id == location_id).order_by(

@@ -1,5 +1,5 @@
 from backend.models.models import db, CampStaffSalaries, Dividend, \
-    MainOverhead, AccountReport, PaymentTypes
+    MainOverhead, AccountReport, PaymentTypes, AccountPayable
 from backend.functions.utils import find_calendar_date
 from app import func
 
@@ -52,3 +52,16 @@ def update_account():
             exist_report.all_salaries = salaries
             exist_report.balance = balance
             db.session.commit()
+
+
+def payable_sum_calculate(calendar_year_id, calendar_month_id):
+    paid_payables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=True,
+                                                                                       finished=True).scalar() or 0
+    unpaid_payables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=True,
+                                                                                         finished=False).scalar() or 0
+    returned_receivables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=False,
+                                                                                              finished=True).scalar() or 0
+    unreturned_receivables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=False,
+                                                                                                finished=False).scalar() or 0
+
+    return True
