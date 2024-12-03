@@ -5,7 +5,7 @@ from app import app, jsonify, request
 from backend.functions.utils import api
 from backend.functions.utils import iterate_models
 from backend.models.models import StudentPayments, Investment, CalendarYear, Overhead, Capital, TeacherSalaries, \
-    StaffSalaries, Dividend, MainOverhead
+    StaffSalaries, Dividend, MainOverhead, AccountPayable
 
 
 @app.route(f'{api}/month_years_calendar', methods=['POST', 'GET'])
@@ -89,20 +89,36 @@ def debit_credit_all():
     month_id = data['month_id']
     year_id = data['years_id']
     payment_type = data['payment_type_id']
-    dividend = Dividend.query.filter(
+
+    dividend_query = Dividend.query.filter(
         Dividend.payment_type_id == payment_type,
         Dividend.month_id == month_id,
         Dividend.year_id == year_id
     ).all()
-    dividend_list = iterate_models(dividend)
-    overhead = MainOverhead.query.filter(
+
+    overhead_query = MainOverhead.query.filter(
         MainOverhead.payment_type_id == payment_type,
         MainOverhead.month_id == month_id,
         MainOverhead.year_id == year_id
     ).all()
-    overhead = iterate_models(overhead)
-    left_total = sum(item['amount'] for item in dividend_list)
-    right_total = sum(item['amount_sum'] for item in overhead)
+
+    payables_query = AccountPayable.query.filter(
+        AccountPayable.payment_type_id == payment_type,
+        AccountPayable.month_id == month_id,
+        AccountPayable.year_id == year_id
+    ).all()
+
+    dividend_list = iterate_models(dividend_query)
+    overhead_list = iterate_models(overhead_query)
+    payables_list = iterate_models([item for item in payables_query if item.status])
+    receivables_list = iterate_models([item for item in payables_query if not item.status])
+
+    left_total = sum(item['amount'] for item in dividend_list) + sum(item['amount'] for item in payables_list)
+    right_total = sum(item['amount_sum'] for item in overhead_list) + sum(item['amount'] for item in receivables_list)
+
     total = left_total - right_total
+
     return jsonify(
-        {'left': dividend_list, "right": overhead, "left_total": left_total, "right_total": right_total, "overall": total})
+        {'left': dividend_list, "right": overhead_list, "left_total": left_total, "right_total": right_total,
+         "overall": total}
+    )
