@@ -46,7 +46,8 @@ def debit_credit(location_id):
         Capital.location_id == location_id,
         Capital.payment_type_id == payment_type,
         Capital.calendar_month == month_id,
-        Capital.calendar_year == year_id
+        Capital.calendar_year == year_id,
+        Capital.deleted == False
     ).all()
     teacher_salaries = TeacherSalaries.query.filter(
         TeacherSalaries.location_id == location_id,
@@ -58,7 +59,8 @@ def debit_credit(location_id):
         StaffSalaries.location_id == location_id,
         StaffSalaries.payment_type_id == payment_type,
         StaffSalaries.calendar_month == month_id,
-        StaffSalaries.calendar_year == year_id
+        StaffSalaries.calendar_year == year_id,
+
     ).all()
     left = (
             iterate_models(student_payments) +
@@ -93,19 +95,22 @@ def debit_credit_all():
     dividend_query = Dividend.query.filter(
         Dividend.payment_type_id == payment_type,
         Dividend.month_id == month_id,
-        Dividend.year_id == year_id
+        Dividend.year_id == year_id,
+        Dividend.deleted == False
     ).all()
 
     overhead_query = MainOverhead.query.filter(
         MainOverhead.payment_type_id == payment_type,
         MainOverhead.month_id == month_id,
-        MainOverhead.year_id == year_id
+        MainOverhead.year_id == year_id,
+        MainOverhead.deleted == False
     ).all()
 
     payables_query = AccountPayable.query.filter(
         AccountPayable.payment_type_id == payment_type,
         AccountPayable.month_id == month_id,
-        AccountPayable.year_id == year_id
+        AccountPayable.year_id == year_id,
+        AccountPayable.deleted == False
     ).all()
 
     dividend_list = iterate_models(dividend_query)
