@@ -4,8 +4,8 @@ from app import app, request, jsonify, db, extract
 from backend.models.models import Students, StudentCallingInfo, Users, StudentExcuses
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import api, find_calendar_date
-from backend.student.functions import get_student_info, get_completed_student_info, change_statistics, \
-    update_all_ratings, update_tasks_in_progress
+from backend.student.functions import get_student_info, get_completed_student_info, change_statistics
+
 from backend.models.models import Locations
 
 from backend.lead.functions import get_lead_tasks, get_completed_lead_tasks
