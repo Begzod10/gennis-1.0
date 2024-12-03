@@ -101,7 +101,7 @@ from backend.account.investment import *
 
 # buxgalter
 from backend.account.profile.views import *
-
+from backend.account.debit_credit.views import *
 # teacher observation, attendance, teacher_group_statistics
 if __name__ == '__main__':
     app.run()

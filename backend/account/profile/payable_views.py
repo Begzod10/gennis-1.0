@@ -1,10 +1,19 @@
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 from app import app, db
-from backend.models.models import AccountPayable, CalendarDay, CalendarMonth, CalendarYear
+from backend.models.models import AccountPayable, CalendarDay, CalendarMonth, CalendarYear, Account
 from backend.functions.utils import api, find_calendar_date, iterate_models
 import datetime
-from .utils import update_account
+from .utils import update_account, payable_sum_calculate
+
+
+@app.route(f'{api}/create_account', methods=['POST', 'GET'])
+@jwt_required()
+def create_account():
+    data = request.get_json()
+    account = Account(name=data['name'])
+    account.add()
+    return jsonify({'account': account.convert_json()}), 201
 
 
 @app.route(f'{api}/add_account_payable', methods=['POST'])
@@ -27,6 +36,7 @@ def add_account_payable():
     desc = data['desc']
     status = data['debtor']
     new_account_payable = AccountPayable(
+        account_id=data['account_id'],
         amount_sum=amount_sum,
         location_id=location_id,
         day_id=calendar_day.id,
@@ -39,6 +49,7 @@ def add_account_payable():
     db.session.add(new_account_payable)
     db.session.commit()
     update_account()
+    payable_sum_calculate(calendar_year.id, calendar_month.id)
     return jsonify({'account_payable': new_account_payable.convert_json()}), 201
 
 
@@ -70,6 +81,7 @@ def crud_account_payable(pk):
     account_payable = AccountPayable.query.filter(AccountPayable.id == pk).first()
     account_payable.payment_type_id = payment_type_id
     db.session.commit()
+    payable_sum_calculate(account_payable.year_id, account_payable.month_id)
     return jsonify(
         {"payment_type": {'name': account_payable.payment_type.name, 'id': account_payable.payment_type.id, }}), 201
 
@@ -83,4 +95,5 @@ def delete_account_payable(pk):
     dividend.deleted = True
     dividend.deleted_comment = deleted_comment
     db.session.commit()
+    payable_sum_calculate(dividend.year_id, dividend.month_id)
     return jsonify({'message': 'Dividend deleted successfully'}), 201

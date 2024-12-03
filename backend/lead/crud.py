@@ -155,3 +155,4 @@ def crud_lead(pm):
         return jsonify({
             "comments": iterate_models(get_comments)
         })
+
