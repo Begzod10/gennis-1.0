@@ -125,7 +125,7 @@ def call_to_debts():
     if to_date:
         to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
     else:
-        to_date = calendar_day.date
+        to_date = calendar_day.date + datetime.timedelta(days=1)
 
     if to_date > calendar_day.date:
         exist_excuse = StudentExcuses.query.filter(StudentExcuses.added_date == calendar_day.date,

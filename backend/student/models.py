@@ -119,6 +119,7 @@ class Students(db.Model):
     students_tasks = relationship("TaskStudents", backref="student", order_by="TaskStudents.id")
 
     def convert_json(self, entire=False):
+        phone = self.user.phone[0].phone if self.user.phone[0] else self.user.phone[1].phone
         return {
             "id": self.user.id,
             "name": self.user.name.title(),
@@ -134,7 +135,7 @@ class Students(db.Model):
             "balance": self.user.balance,
             "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor else 0,
             'subjects': [subject.name for subject in self.subject],
-            "phone": self.user.phone[0].phone if self.user.phone else None,
+            "phone": phone,
             "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None
         }
 
