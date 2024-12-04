@@ -94,6 +94,7 @@ class BlackStudents(db.Model):
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
     user_id = Column(Integer, ForeignKey('users.id'))
     location_id = Column(Integer, ForeignKey('locations.id'))
+    comment = Column(String)
     deleted = Column(Boolean, default=False)
 
     def add(self):
