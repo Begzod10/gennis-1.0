@@ -65,7 +65,7 @@ def student_debts_completed(location_id, date):
         task_daily_statistics = update_all_ratings(location_id)
         students = db.session.query(Students).join(Students.user).join(Students.students_tasks).filter(
             Users.location_id == location_id, TaskStudents.status == True,
-            TaskStudents.calendar_day == calendar_day.id).order_by(desc(Students.id)).all()
+            TaskStudents.calendar_day == calendar_day.id, Students.debtor != 4).order_by(desc(Students.id)).all()
 
     elif date > calendar_day.date:
         table = True
@@ -117,7 +117,6 @@ def call_to_debts():
     user_id = data.get('id')
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     student = Students.query.filter(Students.user_id == user_id).first()
-    print(student.user.name)
     task_statistics = TasksStatistics.query.filter(TasksStatistics.calendar_day == calendar_day.id,
                                                    TasksStatistics.task_id == task_type.id,
                                                    TasksStatistics.location_id == student.user.location_id).first()
@@ -172,6 +171,7 @@ def add_blacklist2(user_id):
     user = Users.query.filter(Users.id == user_id).first()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     student = Students.query.filter(Students.user_id == user_id).first()
+    data = request.get_json()
     if student.debtor != 4:
         student.debtor = 4
         db.session.commit()
@@ -179,11 +179,13 @@ def add_blacklist2(user_id):
         if not black_student:
             new_blacklist = BlackStudents(student_id=student.id, calendar_year=calendar_year.id,
                                           user_id=user_get.id, location_id=student.user.location_id,
-                                          calendar_month=calendar_month.id, calendar_day=calendar_day.id)
+                                          calendar_month=calendar_month.id, calendar_day=calendar_day.id,
+                                          comment=data.get('comment'))
             db.session.add(new_blacklist)
             db.session.commit()
         else:
             black_student.deleted = False
+            black_student.comment = data.get('comment')
             db.session.commit()
         black_students_count(calendar_month=calendar_month.id, calendar_year=calendar_year.id,
                              location_id=student.user.location_id)

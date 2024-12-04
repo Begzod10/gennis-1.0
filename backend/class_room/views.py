@@ -49,6 +49,7 @@ def login2():
 
             return jsonify({
                 'class': class_status,
+                "type_platform": "gennis",
                 "access_token": access_token,
                 "refresh_token": create_refresh_token(identity=username_sign.user_id),
                 "data": {
