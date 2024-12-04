@@ -59,6 +59,7 @@ def student_debts_completed(location_id, date):
     date = datetime.datetime.strptime(date, "%Y-%m-%d")
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     table = False
+    task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
     if date == calendar_day.date:
         _, task_statistics = update_debt_progress(location_id)
         task_daily_statistics = update_all_ratings(location_id)
@@ -88,7 +89,8 @@ def student_debts_completed(location_id, date):
             StudentExcuses.added_date == date).distinct().order_by(Students.id).all()
 
         task_statistics = TasksStatistics.query.filter(TasksStatistics.location_id == location_id,
-                                                       TasksStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
+                                                       TasksStatistics.calendar_day == calendar_day.id,
+                                                       TasksStatistics.task_id == task.id).first() if calendar_day else None
         task_daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.location_id == location_id,
                                                                  TaskDailyStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
 
@@ -165,6 +167,7 @@ def call_to_debts():
 @app.route(f'{api}/add_blacklist/<int:user_id>', methods=["GET", "POST"])
 @jwt_required()
 def add_blacklist2(user_id):
+    refreshdatas()
     user_get = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     user = Users.query.filter(Users.id == user_id).first()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -175,11 +178,14 @@ def add_blacklist2(user_id):
         black_student = BlackStudents.query.filter(BlackStudents.student_id == student.id).first()
         if not black_student:
             new_blacklist = BlackStudents(student_id=student.id, calendar_year=calendar_year.id,
-                                          user_id=user_get.id,
+                                          user_id=user_get.id, location_id=student.user.location_id,
                                           calendar_month=calendar_month.id, calendar_day=calendar_day.id)
             db.session.add(new_blacklist)
             db.session.commit()
-        black_students_count(calendar_month=calendar_month, calendar_year=calendar_year,
+        else:
+            black_student.deleted = False
+            db.session.commit()
+        black_students_count(calendar_month=calendar_month.id, calendar_year=calendar_year.id,
                              location_id=student.user.location_id)
         return jsonify({
             "success": True,
@@ -189,7 +195,7 @@ def add_blacklist2(user_id):
     else:
         black_student = BlackStudents.query.filter(BlackStudents.student_id == student.id).first()
         calendar_year, calendar_month = black_student.calendar_year, black_student.calendar_month
-        db.session.delete(black_student)
+        black_student.deleted = True
         db.session.commit()
         black_students_count(calendar_month=calendar_month, calendar_year=calendar_year,
                              location_id=student.user.location_id)

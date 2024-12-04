@@ -65,10 +65,10 @@ class AccountReport(db.Model):
     all_dividend = db.Column(db.BigInteger, nullable=False)
     all_salaries = Column(db.BigInteger, nullable=False)
     all_overheads = Column(db.BigInteger, nullable=False)
-    paid_payables = Column(db.BigInteger, nullable=False)
-    unpaid_payables = Column(db.BigInteger, nullable=False)
-    returned_receivables = Column(db.BigInteger, nullable=False)
-    unreturned_receivables = Column(db.BigInteger, nullable=False)
+    paid_payables = Column(db.BigInteger)
+    unpaid_payables = Column(db.BigInteger)
+    returned_receivables = Column(db.BigInteger)
+    unreturned_receivables = Column(db.BigInteger)
     balance = Column(db.BigInteger, nullable=False)
 
 
@@ -146,9 +146,9 @@ class AccountPayable(db.Model):
     __tablename__ = "account_payable"
     id = db.Column(db.BigInteger, primary_key=True)
     payment_type_id = db.Column(db.BigInteger, ForeignKey("paymenttypes.id"), nullable=False)
-    account_id = db.Column(db.BigInteger, ForeignKey("account.id"), nullable=False)
+    account_id = db.Column(db.BigInteger, ForeignKey("account.id"))
     status = db.Column(db.Boolean, nullable=False)
-    finished = db.Column(db.Boolean, nullable=False)
+    finished = db.Column(db.Boolean)
     location_id = db.Column(db.BigInteger, ForeignKey("locations.id"), nullable=False)
     desc = db.Column(db.Text, nullable=False)
     amount_sum = Column(Integer, default=0)

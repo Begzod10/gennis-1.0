@@ -93,6 +93,8 @@ class BlackStudents(db.Model):
     calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
     user_id = Column(Integer, ForeignKey('users.id'))
+    location_id = Column(Integer, ForeignKey('locations.id'))
+    deleted = Column(Boolean, default=False)
 
     def add(self):
         db.session.add(self)

@@ -10,18 +10,20 @@ from sqlalchemy.sql import func
 
 def black_students_count(calendar_month, calendar_year, location_id):
     black_student_statistics = BlackStudentsStatistics.query.filter(
-        BlackStudentsStatistics.calendar_month == calendar_month.id,
-        BlackStudentsStatistics.calendar_year == calendar_year.id,
+        BlackStudentsStatistics.calendar_month == calendar_month,
+        BlackStudentsStatistics.calendar_year == calendar_year,
         BlackStudentsStatistics.location_id == location_id).first()
     if not black_student_statistics:
-        new_blacklist_statistics = BlackStudentsStatistics(total_black_students=1,
-                                                           calendar_month=calendar_month.id,
-                                                           calendar_year=calendar_year.id,
+        black_student_statistics = BlackStudentsStatistics(total_black_students=1,
+                                                           calendar_month=calendar_month,
+                                                           calendar_year=calendar_year,
                                                            location_id=location_id)
-        db.session.add(new_blacklist_statistics)
+        db.session.add(black_student_statistics)
         db.session.commit()
-    black_students = BlackStudents.query.filter(BlackStudents.calendar_year == calendar_year.id,
-                                                BlackStudents.calendar_month == calendar_month.id,
+    black_students = BlackStudents.query.filter(BlackStudents.calendar_year == calendar_year,
+                                                BlackStudents.calendar_month == calendar_month,
+                                                BlackStudents.location_id == location_id,
+                                                BlackStudents.deleted == False
                                                 ).all()
     black_student_statistics.total_black_students = len(black_students)
     db.session.commit()
@@ -45,24 +47,29 @@ def filter_new_leads(location_id):
         db.session.commit()
     completed = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False,
                                                                Lead.location_id == location_id,
-                                                               LeadInfos.added_date == calendar_day.date).count()
-    leads = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False,
-                                                           Lead.location_id == location_id,
-                                                           LeadInfos.day <= calendar_day.date).order_by(
+                                                               LeadInfos.added_date == calendar_day.date).all()
+    leads = db.session.query(Lead).filter(Lead.deleted == False,
+                                          Lead.location_id == location_id).outerjoin(Lead.infos).filter(
+        or_(LeadInfos.day <= calendar_day.date, LeadInfos.id == None)).order_by(
         desc(Lead.id)).all()
 
-    task_statistics.total_tasks = len(leads)
-    task_statistics.completed_tasks = completed
-    task_statistics.in_progress_tasks = len(leads) - completed
+    task_statistics.completed_tasks = len(completed)
+    task_statistics.in_progress_tasks = len(leads)
+    task_statistics.total_tasks = len(leads) + len(completed)
+    if len(completed) != 0:
+        task_statistics.completed_tasks_percentage = (len(completed) / task_statistics.total_tasks) * 100
     db.session.commit()
-    return leads, task_statistics
+    return leads, task_statistics, completed
 
 
 def filter_new_students(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
-                                                 Students.subject != None,
-                                                 Students.deleted_from_register == None).order_by(
+    students = db.session.query(Students).join(Students.user).filter(Users.location_id == location_id,
+                                                                     Users.student != None,
+                                                                     Students.subject != None,
+                                                                     Students.deleted_from_register == None).outerjoin(
+        Students.student_calling_info).filter(
+        or_(StudentCallingInfo.date <= calendar_day.date, StudentCallingInfo.id == None)).order_by(
         desc(Students.id)).all()
     task_type = Tasks.query.filter(Tasks.name == 'new_students').first()
 
@@ -78,15 +85,18 @@ def filter_new_students(location_id):
                                           total_tasks=0)
         db.session.add(task_statistics)
         db.session.commit()
-    students_calling = db.session.query(Users).join(Users.student).join(Students.student_calling_info).filter(
+    students_calling = db.session.query(Students).join(Students.user).join(Students.student_calling_info).filter(
         Users.location_id == location_id,
         StudentCallingInfo.day == calendar_day.date
-    ).count()
-    task_statistics.total_tasks = len(students)
-    task_statistics.completed_tasks = students_calling
-    task_statistics.in_progress_tasks = len(students) - students_calling
-    db.session.commit()
-    return students, task_statistics
+    ).distinct().all()
+
+    task_statistics.completed_tasks = len(students_calling)
+    task_statistics.in_progress_tasks = len(students)
+    task_statistics.total_tasks = len(students) + len(students_calling)
+    if len(students) != 0:
+        task_statistics.completed_tasks_percentage = (len(students_calling) / task_statistics.total_tasks) * 100
+        db.session.commit()
+    return students, task_statistics, students_calling
 
 
 def filter_debts(location_id):
@@ -117,12 +127,6 @@ def filter_debts(location_id):
         .limit(100)
         .all()
     )
-    for student in students:
-        if student.user.name == "Asilbek":
-            print(student.excuses)
-            for ex in student.excuses:
-                print(ex.added_date)
-                print(ex.to_date)
 
     return students
 
@@ -146,7 +150,8 @@ def update_debt_progress(location_id):
 
     task_student = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                              TaskStudents.tasksstatistics_id == task_statistics.id,
-                                             TaskStudents.calendar_day == calendar_day.id).first()
+                                             TaskStudents.calendar_day == calendar_day.id,
+                                             ).first()
     task_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                               TaskStudents.tasksstatistics_id == task_statistics.id,
                                               TaskStudents.status == False,
@@ -160,9 +165,14 @@ def update_debt_progress(location_id):
 
     if not task_student:
         for st in students:
-            add_task_student = TaskStudents(task_id=task.id, tasksstatistics_id=task_statistics.id,
-                                            student_id=st.id, calendar_day=calendar_day.id)
-            add_task_student.add()
+            exist_task = TaskStudents.query.filter(TaskStudents.task_id == task.id,
+                                                   TaskStudents.tasksstatistics_id == task_statistics.id,
+                                                   TaskStudents.student_id == st.id,
+                                                   TaskStudents.calendar_day == calendar_day.id).first()
+            if not exist_task:
+                add_task_student = TaskStudents(task_id=task.id, tasksstatistics_id=task_statistics.id,
+                                                student_id=st.id, calendar_day=calendar_day.id)
+                add_task_student.add()
 
     completed_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                                    TaskStudents.tasksstatistics_id == task_statistics.id,
