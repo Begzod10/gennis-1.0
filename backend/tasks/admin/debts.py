@@ -66,7 +66,7 @@ def student_debts_completed(location_id, date):
         students = db.session.query(Students).join(Students.user).join(Students.students_tasks).filter(
             Users.location_id == location_id, TaskStudents.status == True,
             TaskStudents.calendar_day == calendar_day.id, Students.debtor != 4).order_by(desc(Students.id)).all()
-
+        print(True, "bugungi")
     elif date > calendar_day.date:
         table = True
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()

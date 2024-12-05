@@ -137,7 +137,8 @@ class Students(db.Model):
             'subjects': [subject.name for subject in self.subject],
             "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
             "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
-            "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None
+            "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None,
+            "debtor": self.debtor
         }
 
 
