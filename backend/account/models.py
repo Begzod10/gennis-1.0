@@ -94,6 +94,8 @@ class PaymentTypes(db.Model):
     dividend = relationship("Dividend", backref="payment_type", order_by="Dividend.id")
     account_report = relationship("AccountReport", backref="payment_type", order_by="AccountReport.id")
     main_overhead = relationship("MainOverhead", backref="payment_type", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="payment_type",
+                                           order_by="AccountPayableHistory.id")
 
 
 class StudentPayments(db.Model):

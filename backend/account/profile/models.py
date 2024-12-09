@@ -62,15 +62,14 @@ class AccountReport(db.Model):
     payment_type_id = db.Column(db.BigInteger, ForeignKey("paymenttypes.id"), nullable=False)
     month_id = db.Column(db.Integer, ForeignKey("calendarmonth.id"), nullable=False)
     year_id = db.Column(db.Integer, ForeignKey("calendaryear.id"), nullable=False)
-    all_dividend = db.Column(db.BigInteger, nullable=False)
-    all_salaries = Column(db.BigInteger, nullable=False)
-    all_overheads = Column(db.BigInteger, nullable=False)
-    paid_payables = Column(db.BigInteger, nullable=False)
-    unpaid_payables = Column(db.BigInteger, nullable=False)
-    returned_receivables = Column(db.BigInteger, nullable=False)
-    unreturned_receivables = Column(db.BigInteger, nullable=False)
+    all_dividend = db.Column(db.BigInteger)
+    all_salaries = Column(db.BigInteger)
+    all_overheads = Column(db.BigInteger)
+    paid_payables = Column(db.BigInteger)
+    unpaid_payables = Column(db.BigInteger)
+    returned_receivables = Column(db.BigInteger)
+    unreturned_receivables = Column(db.BigInteger)
     balance = Column(db.BigInteger, nullable=False)
-
 
     def add(self):
         db.session.add(self)
@@ -128,17 +127,20 @@ class Account(db.Model):
     __tablename__ = "account"
     id = db.Column(db.BigInteger, primary_key=True)
     name = db.Column(db.Text)
-    balance = db.Column(db.BigInteger)
     payables = db.relationship('AccountPayable', backref='account', lazy=True)
 
     def convert_json(self, entire=False):
         return {
-            "name": self.name,
-            "balance": self.balance
+            "id": self.id,
+            "name": self.name
         }
 
     def add(self):
         db.session.add(self)
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
         db.session.commit()
 
 
@@ -148,8 +150,7 @@ class AccountPayable(db.Model):
     payment_type_id = db.Column(db.BigInteger, ForeignKey("paymenttypes.id"), nullable=False)
     account_id = db.Column(db.BigInteger, ForeignKey("account.id"), nullable=False)
     status = db.Column(db.Boolean, nullable=False)
-    finished = db.Column(db.Boolean, nullable=False)
-    location_id = db.Column(db.BigInteger, ForeignKey("locations.id"), nullable=False)
+    finished = db.Column(db.Boolean, nullable=False, default=False)
     desc = db.Column(db.Text, nullable=False)
     amount_sum = Column(Integer, default=0)
     day_id = db.Column(db.Integer, ForeignKey("calendarday.id"), nullable=False)
@@ -157,6 +158,9 @@ class AccountPayable(db.Model):
     year_id = db.Column(db.Integer, ForeignKey("calendaryear.id"), nullable=False)
     deleted = Column(Boolean, default=False)
     deleted_comment = Column(String)
+    history = db.relationship('AccountPayableHistory', backref='account_payable', lazy=True)
+    remaining_sum = Column(Integer, default=0)
+    taken_sum = Column(Integer, default=0)
 
     def convert_json(self, entire=False):
         return {
@@ -164,8 +168,6 @@ class AccountPayable(db.Model):
             "date": self.day.date.strftime("%Y-%m-%d"),
             "month": self.month.date.strftime("%Y-%m"),
             "year_id": self.year.date.strftime("%Y"),
-            "location_id": self.location_id,
-            "location": self.location.name if self.location else "",
             "amount": self.amount_sum,
             "payment_type": {
                 "id": self.payment_type_id,
@@ -174,7 +176,43 @@ class AccountPayable(db.Model):
             "payment_type_id": self.payment_type_id,
             "payment_type_name": self.payment_type.name,
             "desc": self.desc,
-            "status": self.status
+            "status": self.status,
+            "remaining_sum": self.remaining_sum,
+            "taken_sum": self.taken_sum
+        }
+
+
+class AccountPayableHistory(db.Model):
+    __tablename__ = "account_payable_history"
+    id = db.Column(db.BigInteger, primary_key=True)
+    account_payable_id = db.Column(db.BigInteger, ForeignKey("account_payable.id"), nullable=False)
+    sum = Column(Integer, default=0)
+    day_id = db.Column(db.Integer, ForeignKey("calendarday.id"), nullable=False)
+    month_id = db.Column(db.Integer, ForeignKey("calendarmonth.id"), nullable=False)
+    year_id = db.Column(db.Integer, ForeignKey("calendaryear.id"), nullable=False)
+    payment_type_id = db.Column(db.BigInteger, ForeignKey("paymenttypes.id"), nullable=False)
+    reason = Column(String)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "date": self.day.date.strftime("%Y-%m-%d"),
+            "month": self.month.date.strftime("%Y-%m"),
+            "year": self.year.date.strftime("%Y"),
+            "account_payable_id": self.account_payable_id,
+            "payment_type": {
+                "id": self.payment_type_id,
+                "name": self.payment_type.name
+            },
+            "sum": self.payment_type_id,
         }
 
 

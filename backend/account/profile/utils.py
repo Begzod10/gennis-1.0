@@ -1,5 +1,5 @@
 from backend.models.models import db, CampStaffSalaries, Dividend, \
-    MainOverhead, AccountReport, PaymentTypes, AccountPayable
+    MainOverhead, AccountReport, PaymentTypes, AccountPayable, AccountPayableHistory
 from backend.functions.utils import find_calendar_date
 from app import func
 
@@ -54,14 +54,71 @@ def update_account():
             db.session.commit()
 
 
-def payable_sum_calculate(calendar_year_id, calendar_month_id):
+def payable_sum_calculate(calendar_year_id, calendar_month_id, payment_type_id):
     paid_payables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=True,
-                                                                                       finished=True).scalar() or 0
+                                                                                       finished=True,
+                                                                                       deleted=False,
+                                                                                       year_id=calendar_year_id,
+                                                                                       month_id=calendar_month_id,
+                                                                                       payment_type_id=payment_type_id).scalar() or 0
     unpaid_payables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=True,
-                                                                                         finished=False).scalar() or 0
+                                                                                         finished=False,
+                                                                                         deleted=False,
+                                                                                         year_id=calendar_year_id,
+                                                                                         month_id=calendar_month_id,
+                                                                                         payment_type_id=payment_type_id).scalar() or 0
     returned_receivables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=False,
-                                                                                              finished=True).scalar() or 0
+                                                                                              finished=True,
+                                                                                              deleted=False,
+                                                                                              year_id=calendar_year_id,
+                                                                                              month_id=calendar_month_id,
+                                                                                              payment_type_id=payment_type_id).scalar() or 0
     unreturned_receivables = db.session.query(db.func.sum(AccountPayable.amount_sum)).filter_by(status=False,
-                                                                                                finished=False).scalar() or 0
+                                                                                                finished=False,
+                                                                                                deleted=False,
+                                                                                                year_id=calendar_year_id,
+                                                                                                month_id=calendar_month_id,
+                                                                                                payment_type_id=payment_type_id).scalar() or 0
+    exist_report = AccountReport.query.filter(AccountReport.payment_type_id == payment_type_id,
+                                              AccountReport.month_id == calendar_month_id,
+                                              AccountReport.year_id == calendar_year_id).first()
+    all_dividend = getattr(exist_report, 'all_dividend', 0) or 0
+    all_overheads = getattr(exist_report, 'all_overheads', 0) or 0
+    all_salaries = getattr(exist_report, 'all_salaries', 0) or 0
 
-    return True
+    balance = (
+            returned_receivables + unpaid_payables + all_dividend - paid_payables - all_overheads - all_salaries
+    )
+
+    if not exist_report:
+        account_report = AccountReport(
+            year_id=calendar_year_id,
+            month_id=calendar_month_id,
+            payment_type_id=payment_type_id,
+            paid_payables=paid_payables,
+            unpaid_payables=unpaid_payables,
+            returned_receivables=returned_receivables,
+            unreturned_receivables=unreturned_receivables,
+            balance=balance
+        )
+        account_report.add()
+    else:
+        exist_report.paid_payables = paid_payables
+        exist_report.unpaid_payables = unpaid_payables
+        exist_report.returned_receivables = returned_receivables
+        exist_report.unreturned_receivables = unreturned_receivables
+        exist_report.balance = balance
+        db.session.commit()
+
+
+def calculate_history(payable_id):
+    payable = AccountPayable.query.filter(AccountPayable.id == payable_id).first()
+    history = db.session.query(db.func.sum(AccountPayableHistory.sum)).filter_by(
+        account_payable_id=payable_id).scalar() or 0
+
+
+    payable.remaining_sum = payable.amount_sum - history
+    payable.taken_sum = history
+    if payable.remaining_sum == 0:
+        payable.finished = True
+    db.session.commit()
