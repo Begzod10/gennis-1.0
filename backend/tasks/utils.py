@@ -155,7 +155,8 @@ def update_debt_progress(location_id):
     task_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                               TaskStudents.tasksstatistics_id == task_statistics.id,
                                               TaskStudents.status == False,
-                                              TaskStudents.calendar_day == calendar_day.id).all()
+                                              TaskStudents.calendar_day == calendar_day.id).join(
+        TaskStudents.student).filter(Students.debtor != 4).all()
 
     if task_student:
         students = Students.query.filter(Students.id.in_([st.student_id for st in task_students])).all()
@@ -176,10 +177,13 @@ def update_debt_progress(location_id):
 
     completed_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                                    TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                   TaskStudents.status == True).count()
+                                                   TaskStudents.status == True,
+                                                   TaskStudents.calendar_day == calendar_day.id).count()
     in_progress_tasks = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                                   TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                  TaskStudents.status == False).count()
+                                                  TaskStudents.status == False,
+                                                  TaskStudents.calendar_day == calendar_day.id).join(
+        TaskStudents.student).filter(Students.debtor != 4).count()
 
     task_statistics.completed_tasks = completed_students
     task_statistics.in_progress_tasks = in_progress_tasks

@@ -65,8 +65,8 @@ def student_debts_completed(location_id, date):
         task_daily_statistics = update_all_ratings(location_id)
         students = db.session.query(Students).join(Students.user).join(Students.students_tasks).filter(
             Users.location_id == location_id, TaskStudents.status == True,
-            TaskStudents.calendar_day == calendar_day.id).order_by(desc(Students.id)).all()
-
+            TaskStudents.calendar_day == calendar_day.id, Students.debtor != 4).order_by(desc(Students.id)).all()
+        print(True, "bugungi")
     elif date > calendar_day.date:
         table = True
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
@@ -117,7 +117,6 @@ def call_to_debts():
     user_id = data.get('id')
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     student = Students.query.filter(Students.user_id == user_id).first()
-    print(student.user.name)
     task_statistics = TasksStatistics.query.filter(TasksStatistics.calendar_day == calendar_day.id,
                                                    TasksStatistics.task_id == task_type.id,
                                                    TasksStatistics.location_id == student.user.location_id).first()
@@ -125,7 +124,7 @@ def call_to_debts():
     if to_date:
         to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
     else:
-        to_date = calendar_day.date
+        to_date = calendar_day.date + datetime.timedelta(days=1)
 
     if to_date > calendar_day.date:
         exist_excuse = StudentExcuses.query.filter(StudentExcuses.added_date == calendar_day.date,
@@ -180,7 +179,8 @@ def add_blacklist2(user_id):
         if not black_student:
             new_blacklist = BlackStudents(student_id=student.id, calendar_year=calendar_year.id,
                                           user_id=user_get.id, location_id=student.user.location_id,
-                                          calendar_month=calendar_month.id, calendar_day=calendar_day.id,comment=data.get('comment'))
+                                          calendar_month=calendar_month.id, calendar_day=calendar_day.id,
+                                          comment=data.get('comment'))
             db.session.add(new_blacklist)
             db.session.commit()
         else:
