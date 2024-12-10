@@ -1,8 +1,8 @@
-from backend.models.models import Column, Integer, ForeignKey, String, Boolean, relationship, DateTime, db, \
-    contains_eager, BigInteger, JSON
 from backend.group.models import Groups
-from backend.student.models import Students
+from backend.models.models import Column, Integer, ForeignKey, String, Boolean, relationship, DateTime, db, \
+    BigInteger
 from backend.models.models import func
+from backend.student.models import Students
 
 
 class Category(db.Model):
@@ -113,6 +113,26 @@ class StudentPayments(db.Model):
     by_who = Column(Integer, ForeignKey("users.id"))
     payment_data = Column(DateTime)
     old_id = Column(Integer)
+
+    def convert_json(self, entire=False):
+        from backend.models.models import CalendarDay
+        info = {
+            "id": self.id,
+            "type_name": "To'lov",
+            "student_id": self.student_id,
+            "location_id": self.location_id,
+            "date": CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
+            "calendar_month": self.calendar_month,
+            "calendar_year": self.calendar_year,
+            "amount": self.payment_sum,
+            "payment_type_id": self.payment_type_id,
+            "account_period_id": self.account_period_id,
+            "payment": self.payment,
+            "by_who": self.by_who,
+            "payment_data": self.payment_data,
+            "old_id": self.old_id
+        }
+        return info
 
 
 class StudentCharity(db.Model):
@@ -403,6 +423,16 @@ class TeacherSalaries(db.Model):
     old_id = Column(Integer)
     order_id = Column(Integer, ForeignKey('book_order.id'))
 
+    def convert_json(self, entire=False):
+        from backend.models.models import CalendarDay
+        return {
+            "id": self.id,
+            "amount": self.payment_sum,
+            "type_name": "Teacher salaries",
+            'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
+
+        }
+
 
 class DeletedTeacherSalaries(db.Model):
     __tablename__ = "deletedteachersalaries"
@@ -440,6 +470,16 @@ class StaffSalaries(db.Model):
     old_id = Column(Integer)
     order_id = Column(Integer, ForeignKey('book_order.id'))
 
+    def convert_json(self, entire=False):
+        from backend.models.models import CalendarDay
+        return {
+            "id": self.id,
+            "amount": self.payment_sum,
+            "type_name": "Staff salaries",
+            'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
+
+        }
+
 
 class DeletedStaffSalaries(db.Model):
     __tablename__ = "deletedstaffsalaries"
@@ -472,6 +512,17 @@ class Overhead(db.Model):
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     by_who = Column(Integer, ForeignKey("users.id"))
     old_id = Column(Integer)
+
+    def convert_json(self, entire=False):
+        from backend.models.models import CalendarDay
+
+        return {
+            "id": self.id,
+            "amount": self.item_sum,
+            "type_name": "Overhead",
+            "date": CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
+
+        }
 
 
 class DeletedOverhead(db.Model):
@@ -535,8 +586,11 @@ class Capital(db.Model):
             return {
                 "id": self.id,
                 "name": self.name,
+                "type_name": "Capital",
                 "number": self.number,
                 "price": self.price,
+                "amount": self.price,
+                "date": self.day.date.strftime("%Y-%m-%d"),
                 "term": self.term,
                 "category": {
                     "id": self.capital_category.id,
@@ -555,7 +609,12 @@ class Capital(db.Model):
 
             }
         else:
-            return
+            return {
+                "id": self.id,
+                "type_name": "Capital",
+                "amount": self.price,
+                'date': self.day.date.strftime("%d.%m.%Y"),
+            }
 
     def add(self):
         db.session.add(self)
@@ -751,5 +810,7 @@ class Investment(db.Model):
             "year": self.year.date.strftime("%Y"),
             "date": self.day.date.strftime("%Y-%m-%d"),
             "typePayment": self.payment_type.name,
-            "location": self.location.name if self.location else self.reason
+            "location": self.location.name if self.location else self.reason,
+            "reason": self.reason,
+            "type_name": "Investitsiya"
         }

@@ -49,7 +49,7 @@ def register_lead():
 @app.route(f'{api}/get_leads_location/<status>/<location_id>')
 @jwt_required()
 def get_leads_location(status, location_id):
-    update_posted_tasks()
+
     if status == "news":
         change_statistics(location_id)
 
@@ -143,7 +143,7 @@ def crud_lead(pm):
                 "success": True,
                 "lead": lead.convert_json(),
                 "lead_info": update_posted_tasks(),
-                "info": update_all_ratings()
+                # "info": update_all_ratings()
             })
         else:
             return jsonify({
@@ -155,3 +155,4 @@ def crud_lead(pm):
         return jsonify({
             "comments": iterate_models(get_comments)
         })
+

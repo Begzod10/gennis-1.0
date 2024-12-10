@@ -36,9 +36,8 @@ def completed_leads(location_id, date):
     task_type = Tasks.query.filter(Tasks.name == 'leads').first()
     table = True
     if date == calendar_day.date:
-        _, task_statistics, leads = filter_new_leads(location_id)
+        leads, task_statistics, completed = filter_new_leads(location_id)
         daily_statistics = update_all_ratings(location_id)
-
         table = False
     elif date > calendar_day.date:
 
