@@ -133,7 +133,7 @@ class Students(db.Model):
             "photo_profile": self.user.photo_profile,
             "location_id": self.user.location_id,
             "balance": self.user.balance,
-            "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor else 0,
+            "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor != None else 0,
             'subjects': [subject.name for subject in self.subject],
             "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
             "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,

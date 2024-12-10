@@ -3,9 +3,10 @@ from backend.models.models import Users, Students, or_, BlackStudentsStatistics,
     CalendarMonth, CalendarYear, \
     StudentExcuses, TaskStudents, TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo, Lead, LeadInfos
 from sqlalchemy import asc, desc
-from backend.functions.utils import find_calendar_date
+from backend.functions.utils import find_calendar_date, refreshdatas
 
-from sqlalchemy.sql import func
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql import func, and_, or_
 
 
 def black_students_count(calendar_month, calendar_year, location_id):
@@ -104,6 +105,19 @@ def filter_debts(location_id):
 
     # Second Query: Get students filtered by the first query
 
+    latest_excuses_subquery = (
+        db.session.query(
+            StudentExcuses.student_id.label("student_id"),
+            func.max(StudentExcuses.to_date).label("latest_to_date"),
+        )
+        .group_by(StudentExcuses.student_id)
+        .subquery()  # Use `.subquery()` to make it a valid SQL table
+    )
+
+    # Alias the subquery
+    latest_excuses_alias = aliased(latest_excuses_subquery)
+
+    # Main query
     students = (
         db.session.query(Students)
         .join(Users, Students.user_id == Users.id)
@@ -111,27 +125,34 @@ def filter_debts(location_id):
             Users.balance < 0,
             Users.location_id == location_id,
             Students.debtor != 4,
-            # Include students matching deleted IDs
-            Students.deleted_from_register == None  # Include other students with `deleted_from_register` as None
-
+            Students.deleted_from_register == None,  # Include students with `deleted_from_register` as None
         )
-        .outerjoin(Students.excuses)  # Use an outer join to include students without excuses
+        .outerjoin(
+            latest_excuses_alias,
+            latest_excuses_alias.c.student_id == Students.id,  # Match subquery results with Students table
+        )
+        .outerjoin(
+            StudentExcuses,
+            and_(
+                StudentExcuses.student_id == Students.id,
+                StudentExcuses.to_date == latest_excuses_alias.c.latest_to_date,  # Match the latest excuse
+            ),
+        )
         .filter(
             or_(
                 StudentExcuses.to_date.is_(None),  # No `to_date` specified
-                StudentExcuses.to_date < calendar_day.date  # Valid date after the calendar day
+                StudentExcuses.to_date <= calendar_day.date,  # Latest `to_date` is before the calendar day
             )
         )
-
         .order_by(asc(Users.balance))
         .limit(100)
         .all()
     )
-
     return students
 
 
 def update_debt_progress(location_id):
+    refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
 
@@ -156,7 +177,8 @@ def update_debt_progress(location_id):
                                               TaskStudents.tasksstatistics_id == task_statistics.id,
                                               TaskStudents.status == False,
                                               TaskStudents.calendar_day == calendar_day.id).join(
-        TaskStudents.student).filter(Students.debtor != 4).all()
+        TaskStudents.student).filter(Students.debtor != 4).outerjoin(Students.excuses).filter(
+        or_(StudentExcuses.to_date.is_(None), StudentExcuses.to_date < calendar_day.date)).all()
 
     if task_student:
         students = Students.query.filter(Students.id.in_([st.student_id for st in task_students])).all()

@@ -308,9 +308,10 @@ def get_payment(user_id):
                 task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
                                                          TaskStudents.tasksstatistics_id == task_statistics.id,
                                                          TaskStudents.student_id == student.id).first()
-                task_student.status = True
-                db.session.commit()
-                info = update_all_ratings()
+                if task_student:
+                    task_student.status = True
+                    db.session.commit()
+
         return jsonify({
             "success": True,
             "msg": "To'lov qabul qilindi"

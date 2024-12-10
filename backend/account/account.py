@@ -884,6 +884,7 @@ def account_details(location_id):
             "date": salary.day.date.strftime('%Y-%m-%d')
         } for salary in capitals]
         investment_list = iterate_models(investments)
+        all_investment = all_investment if all_investment else 0
         result = (all_payment + all_investment) - (
                 all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all + all_dividend)
         return jsonify({
