@@ -751,5 +751,5 @@ class Investment(db.Model):
             "year": self.year.date.strftime("%Y"),
             "date": self.day.date.strftime("%Y-%m-%d"),
             "typePayment": self.payment_type.name,
-            "reason": self.reason
+            "location": self.location.name if self.location else self.reason
         }

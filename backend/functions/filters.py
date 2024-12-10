@@ -4,7 +4,8 @@ from datetime import datetime, date
 
 from flask_jwt_extended import jwt_required
 
-from app import app, jsonify, contains_eager, db, desc
+from app import app, contains_eager, db, desc
+from flask import request, jsonify
 from backend.functions.utils import find_calendar_date, number_of_days_in_month, api, iterate_models
 from backend.models.models import Locations, AccountingPeriod, Teachers, CalendarMonth, EducationLanguage, CalendarDay, \
     CalendarYear, PaymentTypes, CourseTypes, Subjects, Students, LessonPlan, Users, Week, DeletedStudents, Professions, \

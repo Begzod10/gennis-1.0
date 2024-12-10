@@ -328,6 +328,7 @@ class Locations(db.Model):
     tasks_statistics = relationship("TasksStatistics", backref="location", order_by="TasksStatistics.id")
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="location", order_by='TaskDailyStatistics.id')
     dividend = relationship("Dividend", backref="location", order_by="Dividend.id")
+    investments = relationship("Investment", backref="location", order_by="Investment.id")
 
     def convert_json(self, entire=False):
         return {

@@ -1,5 +1,6 @@
 from backend.models.models import db, CampStaffSalaries, Dividend, \
     MainOverhead, AccountReport, PaymentTypes, AccountPayable, AccountPayableHistory
+from backend.account.models import Investment
 from backend.functions.utils import find_calendar_date
 from app import func
 
@@ -79,6 +80,7 @@ def payable_sum_calculate(calendar_year_id, calendar_month_id, payment_type_id):
                                                                                                 year_id=calendar_year_id,
                                                                                                 month_id=calendar_month_id,
                                                                                                 payment_type_id=payment_type_id).scalar() or 0
+    investment = db.session.query(db.func.sum(Investment.amount)).filter_by(deleted_status=False).scalar() or 0
     exist_report = AccountReport.query.filter(AccountReport.payment_type_id == payment_type_id,
                                               AccountReport.month_id == calendar_month_id,
                                               AccountReport.year_id == calendar_year_id).first()
@@ -87,7 +89,7 @@ def payable_sum_calculate(calendar_year_id, calendar_month_id, payment_type_id):
     all_salaries = getattr(exist_report, 'all_salaries', 0) or 0
 
     balance = (
-            returned_receivables + unpaid_payables + all_dividend - paid_payables - all_overheads - all_salaries
+            returned_receivables + unpaid_payables + all_dividend - paid_payables - all_overheads - all_salaries - investment
     )
 
     if not exist_report:
@@ -115,7 +117,6 @@ def calculate_history(payable_id):
     payable = AccountPayable.query.filter(AccountPayable.id == payable_id).first()
     history = db.session.query(db.func.sum(AccountPayableHistory.sum)).filter_by(
         account_payable_id=payable_id).scalar() or 0
-
 
     payable.remaining_sum = payable.amount_sum - history
     payable.taken_sum = history

@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required
 import datetime
 from backend.functions.utils import api, find_calendar_date, iterate_models
 from backend.models.models import Dividend, AccountingPeriod, CalendarDay, CalendarMonth, CalendarYear
-from .utils import update_account
+from .utils import update_account, payable_sum_calculate
 from app import desc as dc
 
 
@@ -39,7 +39,7 @@ def take_dividend():
     )
     db.session.add(new_dividend)
     db.session.commit()
-    update_account()
+    payable_sum_calculate(calendar_year.id, calendar_month.id, payment_type_id)
     return jsonify({'dividend': new_dividend.convert_json()}), 201
 
 
@@ -69,18 +69,17 @@ def delete_dividend(pk):
     return jsonify({'message': 'Dividend deleted successfully'}), 201
 
 
-@app.route(f'{api}/get_dividend/<int:location_id>/<deleted>/<archive>/', methods=['GET'])
+@app.route(f'{api}/get_dividend/<deleted>/<archive>/', methods=['GET'])
 @jwt_required()
-def get_dividend(location_id, deleted, archive):
+def get_dividend(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     deleted = deleted.capitalize()
     archive = archive.capitalize()
     if archive != "True":
-        dividends = Dividend.query.filter(Dividend.location_id == location_id, Dividend.deleted == deleted).order_by(
+        dividends = Dividend.query.filter(Dividend.deleted == deleted).order_by(
             Dividend.id).all()
     else:
-        dividends = Dividend.query.filter(Dividend.location_id == location_id,
-                                          Dividend.year_id == calendar_year.id, Dividend.month_id == calendar_month.id,
+        dividends = Dividend.query.filter(Dividend.year_id == calendar_year.id, Dividend.month_id == calendar_month.id,
                                           Dividend.deleted == deleted).order_by(
             Dividend.id).all()
     dividend_list = iterate_models(dividends)
