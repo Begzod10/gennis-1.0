@@ -97,10 +97,14 @@ from backend.mobile.views import *
 from backend.tasks.admin.views import *
 
 # investment
-from backend.account.investment import *
+from backend.account.profile.investment import *
 
 # buxgalter
 from backend.account.profile.views import *
+
+
+# from backend.account.debit_credit.views import *
+
 from backend.account.debit_credit.views import *
 # teacher observation, attendance, teacher_group_statistics
 if __name__ == '__main__':

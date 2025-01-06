@@ -93,6 +93,9 @@ class CalendarYear(db.Model):
     account_payable = relationship("AccountPayable", backref="year", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="year", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="year", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="year", order_by="AccountPayableHistory.id")
+    task_rating = relationship("TaskRatings", backref="year", order_by="TaskRatings.id")
+    task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
@@ -166,6 +169,10 @@ class CalendarMonth(db.Model):
     account_payable = relationship("AccountPayable", backref="month", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="month", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="month", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="month",
+                                           order_by="AccountPayableHistory.id")
+    task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
+    task_monthly_rating = relationship("TaskRatingsMonthly", backref="month", order_by="TaskRatingsMonthly.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -265,6 +272,7 @@ class CalendarDay(db.Model):
     account_payable = relationship("AccountPayable", backref="day", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="day", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="day", order_by="AccountPayableHistory.id")
 
     def convert_json(self, entire=False):
         return {
@@ -323,8 +331,10 @@ class Locations(db.Model):
     center_balances = relationship("CenterBalance", backref="location", lazy="select", order_by="CenterBalance.id")
     tasks_statistics = relationship("TasksStatistics", backref="location", order_by="TasksStatistics.id")
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="location", order_by='TaskDailyStatistics.id')
-    account_payable = relationship("AccountPayable", backref="location", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="location", order_by="Dividend.id")
+    investments = relationship("Investment", backref="location", order_by="Investment.id")
+    task_rating = relationship("TaskRatings", backref="location", order_by="TaskRatings.id")
+    task_monthly_rating = relationship("TaskRatingsMonthly", backref="location", order_by="TaskRatingsMonthly.id")
 
     def convert_json(self, entire=False):
         return {

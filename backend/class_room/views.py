@@ -1,7 +1,8 @@
-from app import app, check_password_hash, db, request, jsonify, or_, contains_eager, classroom_server
+from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
     DeletedTeachers
+from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id
 from datetime import datetime
 from backend.functions.debt_salary_update import salary_debt
