@@ -264,19 +264,19 @@ def black_salary(teacher_id):
                                                      ).filter(
         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None)).order_by(
         TeacherBlackSalary.id).all()
-    # calendar_month = CalendarMonth.query.filter(
-    #     CalendarMonth.date == datetime.datetime.strptime("2024-05", "%Y-%m")).first()
-    # print(teacher.id)
-    # teach_black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == 102,
-    #                                                      TeacherBlackSalary.calendar_month == calendar_month.id,
-    #                                                      TeacherBlackSalary.status != True
-    #                                                      ).all()
+    calendar_month = CalendarMonth.query.filter(
+        CalendarMonth.date == datetime.datetime.strptime("2024-10", "%Y-%m")).first()
+    print(teacher.id)
+    teach_black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == 23,
+                                                         TeacherBlackSalary.calendar_month == calendar_month.id,
+                                                         TeacherBlackSalary.status != True
+                                                         ).all()
     # print(teach_black_salary)
-    # for teach in teach_black_salary:
-    #     print(teach.student.user.name)
-    #     if teach.student.user.name == "Sevinch":
-    #         teach.status = True
-    #         db.session.commit()
+    for teach in teach_black_salary:
+        print(teach.student.user.name)
+
+        teach.status = True
+        db.session.commit()
     group_names = []
     for gr in teacher.group:
         if gr.deleted != True and gr.status == True:
@@ -359,10 +359,13 @@ def salary_give_teacher(salary_id, user_id):
     date_year = str(current_year)
     date_day = datetime.datetime.strptime(date_day, "%Y-%m-%d")
     date_month = datetime.datetime.strptime(date_month, "%Y-%m")
-    date_year = datetime.datetime.strptime(date_year, "%Y")
-    calendar_year = CalendarYear.query.filter(CalendarYear.date == date_year).first()
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == date_day).first()
+    print(date_year)
+    year = datetime.datetime.strptime(date_year, '%Y')
+    calendar_year, calendar_month, calendar_day = find_calendar_date(
+        date_day=date_day,
+        date_month=date_month,
+        date_year=year
+    )
 
     payment_type_id = PaymentTypes.query.filter(PaymentTypes.id == payment_type).first()
     accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
