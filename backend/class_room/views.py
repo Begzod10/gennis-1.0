@@ -52,6 +52,7 @@ def login2():
                 'class': class_status,
                 "type_platform": "gennis",
                 "access_token": access_token,
+                "user": username_sign.convert_json(),
                 "refresh_token": create_refresh_token(identity=username_sign.user_id),
                 "data": {
                     "username": username_sign.username,
@@ -363,16 +364,12 @@ def get_user():
 
     user = Users.query.filter_by(user_id=identity).first()
     subjects = Subjects.query.order_by(Subjects.id).all()
-    subject_list = []
-    for sub in subjects:
-        subject_list.append(sub.convert_json())
-    # users = Users.query.order_by(Users.id).all()
 
     return jsonify({
         "data": user.convert_json(),
         "access_token": access_token,
         "refresh_token": create_refresh_token(identity=user.user_id),
-        "subject_list": subject_list,
+        "subject_list": iterate_models(subjects),
         # "users": iterate_models(users, entire=True)
     })
 

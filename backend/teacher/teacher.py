@@ -23,8 +23,6 @@ from datetime import timedelta
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear
 
 
-
-
 def analyze(attendances, teacher, type_rating=None):
     ball = 0
     teacher_list = []
@@ -432,7 +430,8 @@ def make_attendance():
                                             location_id=group.location_id, teacher_id=teacher.id,
                                             balance_with_discount=balance_with_discount,
                                             salary_per_day=salary_per_day, discount=discount_status,
-                                            discount_per_day=discount_per_day, date=datetime.now(), teacher_ball=ball, calling_status=True
+                                            discount_per_day=discount_per_day, date=datetime.now(), teacher_ball=ball,
+                                            calling_status=True
                                             )
             db.session.add(attendance_add)
             db.session.commit()
@@ -472,12 +471,8 @@ def make_attendance():
             else:
                 black_salary.total_salary += salary_per_day
                 db.session.commit()
-        requests.post(f"{classroom_server}/api/update_student_balance", json={
-            "platform_id": student_get.user.id,
-            "balance": student_get.user.balance,
-            "teacher_id": teacher.user_id,
-            "salary": student_get.user.balance,
-            "debtor": student_get.debtor
+        requests.post(f"{classroom_server}/api/update_student_balance/{student_get.user.id}/gennis", json={
+            "balance": student_get.user.balance
         })
         return jsonify({
             "msg": "studentlar davomat qilindi",
@@ -661,5 +656,4 @@ class Test(db.Model):
 @app.route('/test_model', methods=["GET", "POST"])
 # @jwt_required()
 def test_model():
-
     return jsonify({"teachers": "True"})
