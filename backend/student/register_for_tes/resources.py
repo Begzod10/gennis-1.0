@@ -22,8 +22,6 @@ class StudentResource(Resource):
         if defenation_id is not None:
             students_query = students_query.filter(StudentTestBlock.defenation_id == defenation_id)
 
-
-
         if location_id is not None:
             students_query = students_query.filter(StudentTestBlock.location_id == location_id)
 
@@ -39,7 +37,7 @@ class StudentResource(Resource):
                 "school_id": student.school_id,
                 "defenation_id": student.defenation_id,
                 "unique_id": student.unique_id,
-                'school_name': student.school.name,
+                # 'school_name': student.school.name if student.school else None,
                 'defenation_name': student.defenation.name,
                 "language": student.language
             }
@@ -50,7 +48,6 @@ class StudentResource(Resource):
         data = request.get_json()
         if not data:
             return {"error": "Request payload must be in JSON format"}, 400
-
 
         required_fields = ['name', 'surname', 'father_name', 'phone', 'school_id', 'defenation_id']
 

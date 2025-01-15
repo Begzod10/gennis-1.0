@@ -4,7 +4,8 @@ from datetime import datetime, date
 
 from flask_jwt_extended import jwt_required
 
-from app import app, jsonify, contains_eager, db, desc
+from app import app, contains_eager, db, desc
+from flask import request, jsonify
 from backend.functions.utils import find_calendar_date, number_of_days_in_month, api, iterate_models
 from backend.models.models import Locations, AccountingPeriod, Teachers, CalendarMonth, EducationLanguage, CalendarDay, \
     CalendarYear, PaymentTypes, CourseTypes, Subjects, Students, LessonPlan, Users, Week, DeletedStudents, Professions, \
@@ -58,8 +59,10 @@ def block_information2(location_id):
         "id": day.id,
         "name": day.name
     } for day in days]
-    calendar_years = CalendarYear.query.order_by(CalendarYear.id).all()
-
+    calendar_years = CalendarYear.query.filter(
+        CalendarYear.date >= datetime.strptime("2021-01-01", "%Y-%m-%d")).order_by(
+        CalendarYear.id).all()
+    calendar_months = CalendarMonth.query.distinct(CalendarMonth.date).order_by(desc(CalendarMonth.date)).all()
     group_reasons = GroupReason.query.order_by(GroupReason.id).all()
 
     data = {
@@ -71,6 +74,7 @@ def block_information2(location_id):
         "rooms": room_list,
         "days": day_list,
         "years": iterate_models(calendar_years),
+        "months": iterate_models(calendar_months),
         "group_reasons": iterate_models(group_reasons),
         "data_days": old_current_dates(observation=True)
     }

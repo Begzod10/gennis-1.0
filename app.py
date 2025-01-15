@@ -22,7 +22,7 @@ jwt = JWTManager(app)
 #
 classroom_server = "https://classroom.gennis.uz"
 telegram_bot_server = "http://127.0.0.1:5000"
-django_server = "http://school.gennis.uz"
+django_server = "http://turonedu.uz"
 
 # test block
 from backend.student.register_for_tes.resources import *
@@ -94,14 +94,21 @@ from backend.lead.views import *
 from backend.mobile.views import *
 
 # tasks
-from backend.tasks.admin import *
+from backend.tasks.admin.views import *
 
 # investment
-from backend.account.investment import *
+from backend.account.profile.investment import *
 
 # buxgalter
 from backend.account.profile.views import *
 
+# from backend.account.debit_credit.views import *
+
+from backend.account.debit_credit.views import *
 # teacher observation, attendance, teacher_group_statistics
+
+
+from backend.mobile.api import *
+
 if __name__ == '__main__':
     app.run()

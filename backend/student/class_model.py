@@ -82,17 +82,13 @@ class Student_Functions:
         user = Users.query.filter(Users.id == student.user_id).first()
         if student.debtor != 4:
 
-            if not student_excuse:
-                if user.balance >= 0:
-                    Students.query.filter_by(id=self.student_id).update({"debtor": 0})
-                if user.balance < 0:
-                    Students.query.filter_by(id=self.student_id).update({"debtor": 1})
-                if student.combined_debt:
-                    if -user.balance >= -student.combined_debt:
-                        Students.query.filter_by(id=self.student_id).update({"debtor": 2})
-            else:
-                Students.query.filter_by(id=self.student_id).update({"debtor": 3})
-            db.session.commit()
+            if user.balance >= 0:
+                Students.query.filter_by(id=self.student_id).update({"debtor": 0})
+            if user.balance < 0:
+                Students.query.filter_by(id=self.student_id).update({"debtor": 1})
+            if student.combined_debt:
+                if -user.balance >= -student.combined_debt:
+                    Students.query.filter_by(id=self.student_id).update({"debtor": 2})
 
     def update_debt(self):
         student = Students.query.filter_by(id=self.student_id).first()

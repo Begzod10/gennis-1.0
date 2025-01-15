@@ -331,7 +331,7 @@ def camp_staff_salary_update():
             staff_salary_info = CampStaffSalary.query.filter(CampStaffSalary.month_id == calendar_month.id,
                                                              CampStaffSalary.year_id == calendar_year.id,
                                                              CampStaffSalary.camp_staff_id == item.id).first()
-            print(staff_salary_info)
+
             if not staff_salary_info:
                 staff_salary_info = CampStaffSalary(month_id=calendar_month.id, year_id=calendar_year.id,
                                                     total_salary=item.salary, remaining_salary=item.salary,

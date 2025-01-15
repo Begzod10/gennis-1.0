@@ -22,6 +22,17 @@ class StudentExcuses(db.Model):
     added_date = Column(DateTime)
     old_id = Column(Integer)
 
+    def convert_json(self, entire=False):
+        info = {
+            'id': self.id,
+            'student_id': self.student_id,
+            'comment': self.reason,
+            'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
+            'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
+            'old_id': self.old_id
+        }
+        return info
+
 
 class StudentDebt(db.Model):
     __tablename__ = "student_debt"
@@ -105,8 +116,10 @@ class Students(db.Model):
     student_debts = relationship("StudentDebt", backref="student", order_by="StudentDebt.id", lazy="select")
     student_tests = relationship("StudentTest", backref="student", order_by="StudentTest.id", lazy="select")
     student_calling_info = relationship("StudentCallingInfo", backref="student", order_by="StudentCallingInfo.id")
+    students_tasks = relationship("TaskStudents", backref="student", order_by="TaskStudents.id")
 
-    def convert_json(self):
+    def convert_json(self, entire=False):
+        phone = self.user.phone[0].phone if self.user.phone[0].phone != 0 else self.user.phone[1].phone
         return {
             "id": self.user.id,
             "name": self.user.name.title(),
@@ -119,7 +132,13 @@ class Students(db.Model):
             "role": self.user.role_info.type_role,
             "photo_profile": self.user.photo_profile,
             "location_id": self.user.location_id,
-            'subjects': [subject.name for subject in self.subject]
+            "balance": self.user.balance,
+            "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor != None else 0,
+            'subjects': [subject.name for subject in self.subject],
+            "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
+            "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
+            "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None,
+            "debtor": self.debtor
         }
 
 
@@ -134,6 +153,15 @@ class StudentCallingInfo(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "student_id": self.student_id,
+            "comment": self.comment,
+            "to_date": self.day.strftime("%Y-%m-%d"),
+            "added_date": self.date.strftime("%Y-%m-%d")
+        }
 
 
 class Contract_Students(db.Model):

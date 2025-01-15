@@ -4,8 +4,8 @@ from app import app, request, jsonify, db, extract
 from backend.models.models import Students, StudentCallingInfo, Users, StudentExcuses
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import api, find_calendar_date
-from backend.student.functions import get_student_info, get_completed_student_info, change_statistics, \
-    update_all_ratings, update_tasks_in_progress
+from backend.student.functions import get_student_info, get_completed_student_info, change_statistics
+
 from backend.models.models import Locations
 
 from backend.lead.functions import get_lead_tasks, get_completed_lead_tasks
@@ -92,7 +92,7 @@ def new_students_calling(location_id):
         task_statistics.completed_tasks_percentage = round(
             (len(completed_tasks) / (len(completed_tasks) + len(students_info))) * 100)
         db.session.commit()
-        update_all_ratings()
+        # update_all_ratings()
         return jsonify({
             "students": students_info,
             'completed_tasks': completed_tasks
@@ -210,7 +210,7 @@ def new_students_calling(location_id):
             task_statistics.completed_tasks_percentage = round(
                 (len(completed_tasks) / task_statistics.total_tasks) * 100)
             db.session.commit()
-            update_all_ratings()
+            # update_all_ratings()
             task_type = Tasks.query.filter(Tasks.name == 'new_students').first()
 
             task_statistics = TasksStatistics.query.filter(
@@ -362,7 +362,7 @@ def student_in_debts(location_id):
     change_statistics(location_id)
     calendar_year, calendar_month, calendar_day = find_calendar_date()
 
-    avgust = datetime.strptime("2024-08-01", "%Y-%m-%d")
+    avgust = datetime.strptime("2024-09-01", "%Y-%m-%d")
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     task_statistics = TasksStatistics.query.filter(
@@ -372,15 +372,17 @@ def student_in_debts(location_id):
     ).first()
     if request.method == "GET":
         if user.role_info.type_role == "admin":
-            update_tasks_in_progress(user.location_id)
-            update_all_ratings()
+            True
+            # update_tasks_in_progress(user.location_id)
+            # update_all_ratings()
 
         task_students = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
                                                   TaskStudents.status == False,
                                                   TaskStudents.tasksstatistics_id == task_statistics.id,
                                                   ).all()
         task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
-                                                 TaskStudents.tasksstatistics_id == task_statistics.id).first()
+                                                 TaskStudents.tasksstatistics_id == task_statistics.id,
+                                                 TasksStatistics.location_id == location_id).first()
         if task_student:
             students = Students.query.filter(Students.id.in_([st.student_id for st in task_students]))
         else:
@@ -423,6 +425,9 @@ def student_in_debts(location_id):
         select = data.get('select')
         to_date = data.get('date')
         user_id = data.get('id')
+        print("select", select)
+        print("reason", reason)
+        print(select == "tel ko'tardi")
         if to_date:
             to_date = datetime.strptime(to_date, "%Y-%m-%d")
         else:
@@ -433,10 +438,19 @@ def student_in_debts(location_id):
             exist_excuse = StudentExcuses.query.filter(StudentExcuses.added_date == calendar_day.date,
                                                        StudentExcuses.student_id == student.id).first()
             if not exist_excuse:
-                new_excuse = StudentExcuses(reason=reason if select == "tel ko'tardi" else "tel ko'tarmadi",
-                                            to_date=to_date,
-                                            added_date=calendar_day.date,
-                                            student_id=student.id)
+                if select == "tel ko'tardi":
+
+                    new_excuse = StudentExcuses(reason=reason,
+                                                to_date=to_date,
+                                                added_date=calendar_day.date,
+                                                student_id=student.id)
+                    print(True)
+                else:
+                    new_excuse = StudentExcuses(reason="tel ko'tarmadi",
+                                                to_date=to_date,
+                                                added_date=calendar_day.date,
+                                                student_id=student.id)
+                    print(False)
                 db.session.add(new_excuse)
                 db.session.commit()
 
@@ -445,8 +459,8 @@ def student_in_debts(location_id):
                                                      TaskStudents.student_id == student.id).first()
             task_student.status = True
             db.session.commit()
-            update_tasks_in_progress(user.location_id)
-            info = update_all_ratings()
+            # update_tasks_in_progress(user.location_id)
+            # info = update_all_ratings()
             task_students = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
                                                       TaskStudents.status == True,
                                                       TaskStudents.tasksstatistics_id == task_statistics.id,
@@ -455,7 +469,7 @@ def student_in_debts(location_id):
             return jsonify({"student": {
                 'msg': "Komment belgilandi",
                 'id': student.id,
-                "info": info,
+                # "info": info,
                 "students_num": task_students
             }})
         else:
@@ -481,8 +495,8 @@ def get_completed_tasks(location_id):
                                               TaskStudents.status == True).all()
     students = Students.query.filter(Students.id.in_([st.student_id for st in task_students])).all()
     completed_tasks = []
-    update_tasks_in_progress(location_id)
-    april = datetime.strptime("2024-08", "%Y-%m")
+    # update_tasks_in_progress(location_id)
+    april = datetime.strptime("2024-09", "%Y-%m")
     for student in students:
         calendar_year, calendar_month, calendar_day = find_calendar_date()
         today = datetime.today()
@@ -539,8 +553,8 @@ def daily_statistics(location_id):
     day = CalendarDay.query.filter(CalendarDay.date == date_strptime).first()
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     change_statistics(location_id)
-    update_tasks_in_progress(user.location_id)
-    update_all_ratings()
+    # update_tasks_in_progress(user.location_id)
+    # update_all_ratings()
     if day:
         daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.calendar_day == day.id,
                                                             TaskDailyStatistics.location_id == location_id).order_by(

@@ -41,7 +41,8 @@ def observe_info():
             "title": "Teacher has ready made materials for the lesson"
         },
         {
-            "title": "Lesson objective is present and communicated to students"
+            "title": "Lesson objective is present and communicated to students",
+
         }
     ]
     for item in info:
@@ -302,3 +303,94 @@ def observed_group_info(group_id):
         "average": average,
         "observer": observer
     })
+
+
+from django.http import JsonResponse
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import api_view, permission_classes
+from datetime import datetime
+from .models import CalendarDay, ObservationOptions, ObservationInfo, TeacherObservationDay, \
+    TeacherObservation  # Update imports based on your models
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def observed_group_info(request, group_id):
+    try:
+        # Get the day, month, and year from the request body
+        day = request.data.get('day')
+        month = request.data.get('month')
+        year = request.data.get('year')
+
+        # Combine the year, month, and day to create a date object
+        date_str = f"{year}-{month}-{day}"
+        date = datetime.strptime(date_str, "%Y-%m-%d")
+
+        # Find the corresponding CalendarDay
+        calendar_day = CalendarDay.objects.filter(date=date).first()
+
+        observation_list = []
+        observation_options = ObservationOptions.objects.all().order_by('id')
+        observation_infos = ObservationInfo.objects.all().order_by('id')
+        average = 0
+        observer = {
+            "name": "",
+            "surname": ""
+        }
+
+        if calendar_day:
+            # Find the TeacherObservationDay for the given group and calendar_day
+            teacher_observation_day = TeacherObservationDay.objects.filter(
+                calendar_day=calendar_day.id,
+                group_id=group_id
+            ).first()
+
+            # If found, get the average and observer info
+            if teacher_observation_day:
+                average = teacher_observation_day.average
+                observer['name'] = teacher_observation_day.user.name
+                observer['surname'] = teacher_observation_day.user.surname
+
+            # Loop through the ObservationInfos to gather the observations
+            for item in observation_infos:
+                teacher_observations = TeacherObservation.objects.filter(
+                    observation_id=teacher_observation_day.id,
+                    observation_info_id=item.id
+                ).first()
+
+                info = {
+                    "title": item.title,
+                    "values": [],
+                    "comment": teacher_observations.comment if teacher_observations else ""
+                }
+
+                # Loop through the ObservationOptions to get the options for each observation
+                for option in observation_options:
+                    teacher_observations = TeacherObservation.objects.filter(
+                        observation_id=teacher_observation_day.id,
+                        observation_options_id=option.id,
+                        observation_info_id=item.id
+                    ).first()
+
+                    info["values"].append({
+                        "name": option.name,
+                        "value": teacher_observations.observation_option.value if teacher_observations and teacher_observations.observation_option else "",
+                    })
+
+                observation_list.append(info)
+
+        # Return the JSON response
+        return JsonResponse({
+            "info": observation_list,
+            "observation_options": iterate_models(observation_options),
+            # Assuming iterate_models is a function to serialize the options
+            "average": average,
+            "observer": observer
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "msg": f"Error: {str(e)}",
+            "success": False
+        }, status=500)

@@ -1,7 +1,8 @@
-from app import app, check_password_hash, db, request, jsonify, or_, contains_eager, classroom_server
+from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
     DeletedTeachers
+from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id
 from datetime import datetime
 from backend.functions.debt_salary_update import salary_debt
@@ -49,7 +50,9 @@ def login2():
 
             return jsonify({
                 'class': class_status,
+                "type_platform": "gennis",
                 "access_token": access_token,
+                "user": username_sign.convert_json(),
                 "refresh_token": create_refresh_token(identity=username_sign.user_id),
                 "data": {
                     "username": username_sign.username,
@@ -339,13 +342,13 @@ def make_attendance_classroom():
                 black_salary.total_salary += salary_per_day
                 db.session.commit()
 
-        # requests.post(f"{classroom_server}/api/update_student_balance", json={
-        #     "platform_id": student.user.id,
-        #     "balance": student.user.balance,
-        #     "teacher_id": teacher.user_id,
-        #     "salary": teacher.user.balance,
-        #     "debtor": student.debtor
-        # })
+        requests.post(f"{classroom_server}/api/update_student_balance", json={
+            "platform_id": student.user.id,
+            "balance": student.user.balance,
+            "teacher_id": teacher.user_id,
+            "salary": teacher.user.balance,
+            "debtor": student.debtor
+        })
     return jsonify({
         "message": "O'quvchilar davomat qilindi",
         "status": "success",
@@ -361,16 +364,12 @@ def get_user():
 
     user = Users.query.filter_by(user_id=identity).first()
     subjects = Subjects.query.order_by(Subjects.id).all()
-    subject_list = []
-    for sub in subjects:
-        subject_list.append(sub.convert_json())
-    # users = Users.query.order_by(Users.id).all()
 
     return jsonify({
         "data": user.convert_json(),
         "access_token": access_token,
         "refresh_token": create_refresh_token(identity=user.user_id),
-        "subject_list": subject_list,
+        "subject_list": iterate_models(subjects),
         # "users": iterate_models(users, entire=True)
     })
 

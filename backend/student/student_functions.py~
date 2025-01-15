@@ -60,6 +60,41 @@ def student_history(user_id):
     })
 
 
+@app.route(f'{api}/add_blacklist/<int:user_id>', methods=["GET", "POST"])
+@jwt_required()
+def add_blacklist2(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    student = Students.query.filter(Students.user_id == user_id).first()
+    if student.debtor != 4:
+        student.debtor = 4
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "msg": "Student qora ro'yxatga qo'shildi"
+        })
+
+    else:
+        student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == student.id,
+                                                     StudentExcuses.to_date > calendar_day.date).order_by(
+            desc(StudentExcuses.id)).first()
+
+        if not student_excuse:
+            if user.balance >= 0:
+                Students.query.filter_by(id=student.id).update({"debtor": 0})
+            elif user.balance < 0:
+                Students.query.filter_by(id=student.id).update({"debtor": 1})
+            elif user.balance >= -student.combined_debt:
+                Students.query.filter_by(id=student.id).update({"debtor": 2})
+        else:
+            Students.query.filter_by(id=student.id).update({"debtor": 3})
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "msg": "Student qora ro'yxatdan olib tashlandi"
+        })
+
+
 @app.route(f'{api}/delete_newStudent/<int:user_id>', methods=["GET", "POST"])
 @jwt_required()
 def delete_newStudent(user_id):

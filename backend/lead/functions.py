@@ -98,9 +98,10 @@ def update_posted_tasks():
     task_statistics.in_progress_tasks = task_statistics.total_tasks - lead_infos
     db.session.commit()
     updated_task_statistics = TasksStatistics.query.filter_by(id=task_statistics.id).first()
-    cm_tasks = round(
-        (task_statistics.completed_tasks / task_statistics.total_tasks) * 100) if task_statistics.completed_tasks else 0
-
+    if task_statistics.total_tasks > 0:
+        cm_tasks = round((task_statistics.completed_tasks / task_statistics.total_tasks) * 100)
+    else:
+        cm_tasks = 0
     TasksStatistics.query.filter_by(id=updated_task_statistics.id).update({
         'completed_tasks_percentage': cm_tasks
     })

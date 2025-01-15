@@ -55,6 +55,17 @@ def index():
     return app.send_static_file("index.html")
 
 
+@app.route(f'{api}/check_user_id/<user_id>/<username>')
+def calendar(user_id, username):
+    user_id = check_exist_id(user_id)
+    Users.query.filter(Users.username == username).update({'user_id': user_id})
+    db.session.commit()
+    print(user_id)
+    return jsonify({
+        "user_id": user_id,
+    })
+
+
 @app.route(f'{api}/locations')
 def locations():
     locations_list = Locations.query.order_by(Locations.id).all()
