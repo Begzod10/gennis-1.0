@@ -46,7 +46,10 @@ def login2():
             refresh_age(username_sign.id)
             class_status = False
             if role.type_role == "student" or role.type_role == "teacher" or role.type_role == "methodist":
-                class_status = True
+                return jsonify({
+                    "success": False,
+                    "msg": "Username yoki parol noturg'i"
+                })
 
             return jsonify({
                 'class': class_status,
@@ -74,7 +77,6 @@ def login2():
 
 
 @app.route(f'{api}/attendance_classroom/<int:group_id>')
-@jwt_required()
 def attendance_classroom(group_id):
     """
     filter Student and User table data
@@ -138,7 +140,6 @@ def attendance_classroom(group_id):
 
 
 @app.route(f'{api}/make_attendance_classroom', methods=['POST'])
-@jwt_required()
 def make_attendance_classroom():
     """
     make attendance to students, update students' balance and teacher salary
@@ -147,7 +148,6 @@ def make_attendance_classroom():
     month = str(datetime.now().month)
     current_year = datetime.now().year
     old_year = datetime.now().year - 1
-    pprint(request.get_json())
     data = request.get_json()['data']
     day = data['day']
     get_month = data['month']
@@ -160,6 +160,7 @@ def make_attendance_classroom():
     group = Groups.query.filter(Groups.id == group_id).first()
     teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
     errors = []
+    pprint(students)
     for st in students:
         student = Students.query.filter(Students.user_id == st['id']).first()
         homework = 0

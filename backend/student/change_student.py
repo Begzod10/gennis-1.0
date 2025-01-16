@@ -140,7 +140,6 @@ def change_student_info(user_id):
                 db.session.commit()
 
                 del_phone = PhoneList.query.filter(PhoneList.user_id == user.id, PhoneList.personal == True).first()
-                
 
                 if not del_phone:
                     del_phone = PhoneList(user_id=user_id, personal=True, phone=json['phone'])
@@ -214,7 +213,9 @@ def change_student_info(user_id):
                 "success": True,
                 "msg": "User ma'lumoti o'zgartirildi o'zgartirildi"
             })
+
         else:
+
             password = json['password']
             hash = generate_password_hash(password, method='sha256')
             Users.query.filter(Users.id == user_id).update({'password': hash})
@@ -250,3 +251,5 @@ def debt_reason(user_id):
         "success": True,
         "msg": "Ma'lumot kiritildi"
     })
+
+

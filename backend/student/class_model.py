@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import requests
 from app import contains_eager, db, desc
 from backend.functions.utils import find_calendar_date
 from backend.models.models import CalendarYear, CalendarDay, CalendarMonth, StudentExcuses, AttendanceDays, Attendance, \
@@ -79,6 +79,7 @@ class Student_Functions:
         Users.query.filter(Users.id == student.user_id).update({'balance': result})
 
         db.session.commit()
+
         user = Users.query.filter(Users.id == student.user_id).first()
         if student.debtor != 4:
 
@@ -89,7 +90,6 @@ class Student_Functions:
             if student.combined_debt:
                 if -user.balance >= -student.combined_debt:
                     Students.query.filter_by(id=self.student_id).update({"debtor": 2})
-
     def update_debt(self):
         student = Students.query.filter_by(id=self.student_id).first()
         combined_debt = 0

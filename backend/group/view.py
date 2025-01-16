@@ -380,7 +380,6 @@ def attendances(group_id):
                 "date": old_current_dates(group_id),
             }
         })
-
     else:
         year = get_json_field('year')
 
@@ -645,3 +644,6 @@ def student_group_dates2(student_id):
             "current_month": calendar_month.date.strftime("%m"),
         }
     })
+
+
+from .classroom.attendance import *

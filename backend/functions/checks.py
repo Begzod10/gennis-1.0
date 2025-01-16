@@ -54,11 +54,11 @@ def check_exist_username(user_id):
     exist_username = Users.query.filter(and_(Users.username == username, Users.username != user.username)).first()
 
     error = True if exist_username else False
-    if not error:
-        response = requests.post(f"{django_server}/api/Users/username-check/", headers={
-            'Content-Type': 'application/json'
-        }, json={"username": username})
-        error = False if response.json()['exists'] else True
+    # if not error:
+    #     response = requests.post(f"{django_server}/api/Users/username-check/", headers={
+    #         'Content-Type': 'application/json'
+    #     }, json={"username": username})
+    #     error = False if response.json()['exists'] else True
     return jsonify({
         "found": error
     })

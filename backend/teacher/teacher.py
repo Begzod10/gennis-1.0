@@ -657,3 +657,12 @@ class Test(db.Model):
 # @jwt_required()
 def test_model():
     return jsonify({"teachers": "True"})
+
+
+@app.route(f'{api}/get_teacher_balance/<user_id>', methods=["GET", "POST"])
+def get_teacher_balance(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    return jsonify({"balance": user.balance})
+
+
+

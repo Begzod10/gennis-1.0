@@ -5,16 +5,15 @@ from datetime import datetime
 from backend.functions.utils import find_calendar_date, iterate_models, get_json_field, api, filter_month_day
 from backend.models.models import Users, Week, Groups, Group_Room_Week, \
     CalendarMonth, CalendarYear, LessonPlan, LessonPlanStudents, or_, CalendarDay
-from .models import TeacherObservation, ObservationOptions, ObservationInfo, \
+from backend.teacher.models import TeacherObservation, ObservationOptions, ObservationInfo, \
     TeacherObservationDay, Teachers
 from pprint import pprint
 from backend.functions.filters import old_current_dates
 import requests
 
 
-@app.route(f'{api}/observe_info')
-@jwt_required()
-def observe_info():
+@app.route(f'{api}/observe_info_classroom')
+def observe_info_classroom():
     info = [
         {
             "title": "Teacher follows her or his lesson plan"
@@ -79,15 +78,19 @@ def observe_info():
     })
 
 
-@app.route(f'{api}/groups_to_observe', defaults={"location_id": None}, methods=['POST', 'GET'])
-@app.route(f'{api}/groups_to_observe/<int:location_id>', methods=['POST', 'GET'])
-@jwt_required()
-def groups_to_observe(location_id):
-    identity = get_jwt_identity()
+@app.route(f'{api}/groups_to_observe_classroom/<int:user_id>/', defaults={"location_id": None}, methods=['POST', 'GET'])
+@app.route(f'{api}/groups_to_observe_classroom/<int:user_id>/<location_id>', methods=['POST', 'GET'])
+def groups_to_observe_classroom(user_id, location_id):
+    print(True)
+    identity = user_id
+    user = Users.query.filter(Users.id == identity).first()
+    if type(location_id) == str:
+        location_id = None
     if not location_id:
-        user = Users.query.filter(Users.user_id == identity).first()
+
         location_id = user.location_id
     else:
+
         location_id = location_id
     teacher = Teachers.query.filter(Teachers.user_id == user.id).first()
 
@@ -124,12 +127,10 @@ def groups_to_observe(location_id):
         })
 
 
-# @app.route(f'{api}/teacher_observe/<int:teacher_id>/', defaults={"group_id": None}, methods=['POST', 'GET'])
-@app.route(f'{api}/teacher_observe/<int:group_id>', methods=['POST', 'GET'])
-@jwt_required()
-def teacher_observe(group_id):
-    identity = get_jwt_identity()
-    user = Users.query.filter_by(user_id=identity).first()
+@app.route(f'{api}/teacher_observe_classroom/<int:user_id>/<int:group_id>', methods=['POST', 'GET'])
+def teacher_observe_classroom(user_id, group_id):
+    identity = user_id
+    user = Users.query.filter_by(id=identity).first()
     group = Groups.query.filter(Groups.id == group_id).first()
     if request.method == "POST":
         date_year, date_month, date_day = filter_month_day()
@@ -184,35 +185,16 @@ def teacher_observe(group_id):
         })
 
 
-@app.route(f'{api}/set_observer/<int:user_id>')
-@jwt_required()
-def set_observer(user_id):
-    user = Users.query.filter_by(id=user_id).first()
-
-    user.observer = not user.observer
-    db.session.commit()
-
-    action = "given" if user.observer else "taken"
-    response_message = f"Permission was {action}"
-    success = True
-    requests.get(f"{classroom_server}/api/set_observer/{user.id}/{'gennis'}")
-    return jsonify({
-        "msg": response_message,
-        "success": success
-    })
-
-
-@app.route(f'{api}/observed_group/<int:group_id>', defaults={"date": None})
-@app.route(f'{api}/observed_group/<int:group_id>/<date>')
-@jwt_required()
-def observed_group(group_id, date):
+@app.route(f'{api}/observed_group_classroom/<int:group_id>/', defaults={"date": None})
+@app.route(f'{api}/observed_group_classroom/<int:group_id>/<date>')
+def observed_group_classroom(group_id, date):
     group = Groups.query.filter(Groups.id == group_id).first()
 
     days_list = []
     month_list = []
     years_list = []
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    if date:
+    if date and date != "None":
         calendar_month = datetime.strptime(date, "%Y-%m")
         calendar_month = CalendarMonth.query.filter(CalendarMonth.date == calendar_month).first()
     else:
@@ -239,20 +221,22 @@ def observed_group(group_id, date):
     years_list = list(dict.fromkeys(years_list))
     month_list.sort()
     years_list.sort()
-
+    if len(month_list) != 0:
+        month = calendar_month.date.strftime("%m") if month_list[len(month_list) - 1] == calendar_month.date.strftime(
+            "%m") else month_list[len(month_list) - 1]
+    else:
+        month = calendar_month.date.strftime("%m")
     return jsonify({
         "month_list": month_list,
         "years_list": years_list,
-        "month": calendar_month.date.strftime("%m") if month_list[len(month_list) - 1] == calendar_month.date.strftime(
-            "%m") else month_list[len(month_list) - 1],
+        "month": month,
         "year": calendar_month.date.strftime("%Y"),
         "days": days_list
     })
 
 
-@app.route(f'{api}/observed_group_info/<int:group_id>', methods=["POST"])
-@jwt_required()
-def observed_group_info(group_id):
+@app.route(f'{api}/observed_group_info_classroom/<int:group_id>', methods=["POST"])
+def observed_group_info_classroom(group_id):
     day = get_json_field('day')
     month = get_json_field('month')
     year = get_json_field('year')
@@ -293,7 +277,6 @@ def observed_group_info(group_id):
                 info["values"].append({
                     "name": option.name,
                     "value": teacher_observations.observation_option.value if teacher_observations and teacher_observations.observation_option else "",
-
                 })
             observation_list.append(info)
     return jsonify({
