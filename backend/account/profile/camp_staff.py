@@ -124,7 +124,7 @@ def camp_staff_salary(salary_id):
         db.session.add(add)
         db.session.commit()
     update_camp_salary_id(salary_id)
-    update_account()
+    update_account(payment_type_id.id)
     return jsonify({
         "success": True,
         "msg": "Muvaffaqiyatli qo'shildi"
@@ -138,7 +138,7 @@ def update_camp_staff_salary(salary_id, payment_type_id):
     payment_type = PaymentTypes.query.filter(PaymentTypes.id == payment_type_id).first()
     staff_salary.payment_type_id = payment_type.id
     db.session.commit()
-    update_account()
+    update_account(staff_salary.payment_type_id)
     return jsonify({
         "success": True,
         "msg": "Avans summa turi o'zgartirildi"
@@ -152,7 +152,7 @@ def delete_camp_staff_salary(salary_id):
     staff_salary.deleted = True
     staff_salary.deleted_comment = get_json_field('otherReason')
     db.session.commit()
-    update_account()
+    update_account(staff_salary.payment_type_id)
     return jsonify({
         "success": True,
         "msg": "Muvaffaqiyatli o'chirildi"
@@ -248,13 +248,14 @@ def get_camp_staff_salaries(deleted, archive):
     if archive != "True":
         salaries = CampStaffSalaries.query.filter(
             CampStaffSalaries.deleted == deleted,
+        ).order_by(
+            CampStaffSalaries.id).all()
+    else:
+
+        salaries = CampStaffSalaries.query.filter(
+            CampStaffSalaries.deleted == deleted,
             CampStaffSalaries.month_id == calendar_month.id,
             CampStaffSalaries.year_id == calendar_year.id).order_by(
             CampStaffSalaries.id).all()
-    else:
-        salaries = CampStaffSalaries.query.filter(
-            CampStaffSalaries.deleted == deleted,
-        ).order_by(
-            CampStaffSalaries.id).all()
     list_salaries = iterate_models(salaries)
-    return jsonify({'salaries': list_salaries}), 201
+    return jsonify({'salaries': list_salaries}), 200

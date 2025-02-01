@@ -18,11 +18,12 @@ apis = Api(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
-# classroom_server = "http://192.155.1.20:5001"
+classroom_server = "http://192.168.1.61:5001"
 #
-classroom_server = "https://classroom.gennis.uz"
-telegram_bot_server = "http://127.0.0.1:5000"
-django_server = "http://turonedu.uz"
+# classroom_server = "https://classroom.gennis.uz"
+# telegram_bot_server = "http://127.0.0.1:5000"
+django_server = "https://school.gennis.uz"
+# django_server = "http://192.168.1.14:7622"
 
 # test block
 from backend.student.register_for_tes.resources import *
@@ -45,21 +46,16 @@ from backend.functions.small_info import *
 from backend.QR_code.qr_code import *
 
 # routes
-from backend.routes.base_routes import *
+from backend.routes.views import *
 
 # student
-from backend.student.student_functions import *
-from backend.student.change_student import *
-from backend.student.calling_to_students import *
+from backend.student.views import *
+
 # programmers
 from backend.for_programmers.for_programmers import *
 
 # teacher
-from backend.teacher.teacher_delete import *
-from backend.teacher.teacher import *
-from backend.teacher.lesson_plan import *
-from backend.teacher.observation import *
-from backend.teacher.teacher_home_page import *
+from backend.teacher.views import *
 
 # group
 from backend.group.create_group import *
@@ -97,11 +93,15 @@ from backend.mobile.views import *
 from backend.tasks.admin.views import *
 
 # investment
-from backend.account.investment import *
+from backend.account.profile.investment import *
 
 # buxgalter
 from backend.account.profile.views import *
+
+# from backend.account.debit_credit.views import *
+
 from backend.account.debit_credit.views import *
+
 # teacher observation, attendance, teacher_group_statistics
 if __name__ == '__main__':
     app.run()

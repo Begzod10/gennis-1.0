@@ -116,11 +116,15 @@ def groups_to_observe(location_id):
     if request.method == "GET":
         return jsonify({
             "groups": iterate_models(groups, entire=True),
-            "observation_tools": old_current_dates(observation=True)
+            "observation_tools": old_current_dates(observation=True),
+            "current_date": datetime.now().strftime("%d"),
+            "current_month": datetime.now().strftime("%B"),
         })
     else:
         return jsonify({
             "groups": iterate_models(groups, entire=True),
+            "current_date": datetime.now().strftime("%d"),
+            "current_month": datetime.now().strftime("%B"),
         })
 
 
@@ -195,7 +199,7 @@ def set_observer(user_id):
     action = "given" if user.observer else "taken"
     response_message = f"Permission was {action}"
     success = True
-    requests.get(f"{classroom_server}/api/set_observer/{user.id}")
+    requests.get(f"{classroom_server}/api/set_observer/{user.id}/{'gennis'}")
     return jsonify({
         "msg": response_message,
         "success": success

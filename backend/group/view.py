@@ -380,7 +380,6 @@ def attendances(group_id):
                 "date": old_current_dates(group_id),
             }
         })
-
     else:
         year = get_json_field('year')
 
@@ -477,8 +476,16 @@ def group_dates(group_id):
             if month.month.date.strftime("%m") not in info['months']:
                 info['months'].append(month.month.date.strftime("%m"))
                 info['months'].sort()
+        #
+        # if info['year'] != calendar_year.date.strftime("%Y"):
+        #     info['year'] = calendar_year.date.strftime("%Y")
+        # if calendar_month.date.strftime("%m") not in info['months']:
+        #     print(calendar_year.date.strftime("%Y"))
+        #     info['months'].append(calendar_month.date.strftime("%m"))
         month_list.append(info)
     year_list = list(dict.fromkeys(year_list))
+    if calendar_year.date.strftime("%Y") not in year_list:
+        year_list.append(calendar_year.date.strftime("%Y"))
     filtered_list = []
     for student in month_list:
         added_to_existing = False
@@ -637,3 +644,7 @@ def student_group_dates2(student_id):
             "current_month": calendar_month.date.strftime("%m"),
         }
     })
+
+
+from .classroom.attendance import *
+from .classroom.profile import *

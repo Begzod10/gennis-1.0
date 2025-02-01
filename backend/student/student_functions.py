@@ -555,3 +555,13 @@ def student_attendance_info(user_id):
             "bookPayments": book_payment_list
         }
     })
+
+
+@app.route(f'{api}/get_student_balance/<user_id>')
+def get_student_balance(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    return jsonify(
+        {
+            "success": True,
+            "balance": user.balance}
+    )

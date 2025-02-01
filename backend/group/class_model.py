@@ -55,16 +55,14 @@ class Group_Functions:
             db.session.commit()
             user = Users.query.filter(Users.id == student.user_id).first()
             if student.debtor != 4:
-                if not student_excuse:
-                    if user.balance >= 0:
-                        Students.query.filter_by(id=student_get.id).update({"debtor": 0})
-                    if user.balance < 0:
-                        Students.query.filter_by(id=student_get.id).update({"debtor": 1})
-                    if student.combined_debt:
-                        if -user.balance >= -student.combined_debt:
-                            Students.query.filter_by(id=student_get.id).update({"debtor": 2})
-                else:
-                    Students.query.filter_by(id=student_get.id).update({"debtor": 3})
+
+                if user.balance >= 0:
+                    Students.query.filter_by(id=student_get.id).update({"debtor": 0})
+                if user.balance < 0:
+                    Students.query.filter_by(id=student_get.id).update({"debtor": 1})
+                if student.combined_debt:
+                    if -user.balance >= -student.combined_debt:
+                        Students.query.filter_by(id=student_get.id).update({"debtor": 2})
                 db.session.commit()
 
     def attendance_filter(self, month, year):

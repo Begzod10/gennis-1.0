@@ -19,7 +19,7 @@ from backend.models.models import CourseTypes, Students, Users, Staff, \
     CalendarYear, TeacherData, StudentTest, GroupTest
 from backend.student.class_model import Student_Functions
 from backend.functions.functions import update_user_time_table
-
+from backend.student.register_for_tes.populate import create_school
 
 @app.errorhandler(404)
 def not_found(e):
@@ -37,6 +37,7 @@ def img_larger(e):
 @app.route('/', methods=['POST', 'GET'])
 def index():
     refreshdatas()
+
     # list = ['Co-working zone', 'Friendly atmosphere', 'Football games in 3 branches', 'Different interesting events',
     #         'Cybersport']
     # for name in list:
@@ -122,7 +123,7 @@ def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
     username_sign = Users.query.filter_by(user_id=identity).first()
-
+    create_school()
     role = Roles.query.filter(Roles.id == username_sign.role_id).first() if username_sign else {}
     if username_sign and username_sign.teacher:
         data = TeacherData.query.filter(TeacherData.teacher_id == username_sign.teacher.id).first()
@@ -1128,7 +1129,90 @@ def profile(user_id):
 def user_time_table(user_id, location_id):
     student = Students.query.filter(Students.user_id == user_id).first()
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
-    print(student.user.name)
+    table_list = []
+    weeks = []
+
+    if student:
+        week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
+        for week in week_days:
+            weeks.append(week.name)
+        groups = db.session.query(Groups).join(Groups.student).options(contains_eager(Groups.student)).filter(
+            Students.id == student.id).order_by(Groups.id).all()
+
+        for group in groups:
+            group_info = {
+                "name": group.name,
+                "id": group.id,
+                "lesson": []
+            }
+            week_list = []
+            for week in week_days:
+                info = {
+                    "from": "",
+                    "to": "",
+                    "room": ""
+                }
+                time_table = db.session.query(Group_Room_Week).join(Group_Room_Week.student).options(
+                    contains_eager(Group_Room_Week.student)).filter(Students.id == student.id,
+                                                                    Group_Room_Week.week_id == week.id,
+                                                                    ).order_by(
+                    Group_Room_Week.group_id).first()
+
+                if time_table:
+                    info["from"] = time_table.start_time.strftime("%H:%M")
+                    info["to"] = time_table.end_time.strftime("%H:%M")
+                    info['room'] = time_table.room.name
+
+                week_list.append(info)
+                group_info['lesson'] = week_list
+            table_list.append(group_info)
+    else:
+        week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
+        for week in week_days:
+            weeks.append(week.name)
+        groups = db.session.query(Groups).join(Groups.teacher).options(contains_eager(Groups.teacher)).filter(
+            Teachers.id == teacher.id, Groups.deleted != True).order_by(Groups.id).all()
+        for group in groups:
+            group_info = {
+                "name": group.name,
+                "id": group.id,
+                "lesson": []
+            }
+            week_list = []
+            for week in week_days:
+                info = {
+                    "from": "",
+                    "to": "",
+                    "room": ""
+                }
+                time_table = db.session.query(Group_Room_Week).join(Group_Room_Week.teacher).options(
+                    contains_eager(Group_Room_Week.teacher)).filter(Teachers.id == teacher.id,
+                                                                    Group_Room_Week.group_id == group.id,
+                                                                    Groups.location_id == location_id,
+                                                                    Group_Room_Week.week_id == week.id,
+                                                                    ).order_by(
+                    Group_Room_Week.group_id).first()
+
+                if time_table:
+                    info["from"] = time_table.start_time.strftime("%H:%M")
+                    info["to"] = time_table.end_time.strftime("%H:%M")
+                    info['room'] = time_table.room.name
+
+                week_list.append(info)
+                group_info['lesson'] = week_list
+            table_list.append(group_info)
+
+    return jsonify({
+        "success": True,
+        "data": table_list,
+        "days": weeks
+    })
+
+
+@app.route(f'{api}/user_time_table_classroom/<int:user_id>/<location_id>')
+def user_time_table_classroom(user_id, location_id):
+    student = Students.query.filter(Students.user_id == user_id).first()
+    teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     table_list = []
     weeks = []
 

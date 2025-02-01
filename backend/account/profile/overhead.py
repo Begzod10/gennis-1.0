@@ -35,7 +35,7 @@ def account_overhead():
     )
     db.session.add(new_overhead)
     db.session.commit()
-    update_account()
+    update_account(payment_type_id)
     return jsonify({
         "success": True,
         "data": new_overhead.convert_json(),
@@ -49,7 +49,7 @@ def get_account_overhead(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     deleted = deleted.capitalize()
     archive = archive.capitalize()
-    if archive != "True":
+    if archive == "True":
         overheads = MainOverhead.query.filter(MainOverhead.deleted == deleted).order_by(MainOverhead.id).all()
     else:
         overheads = MainOverhead.query.filter(MainOverhead.year_id == calendar_year.id,
@@ -65,7 +65,7 @@ def delete_account_overhead(overhead_id):
     overhead = MainOverhead.query.filter(MainOverhead.id == overhead_id).first()
     overhead.deleted = True
     db.session.commit()
-    update_account()
+    update_account(overhead.payment_type_id)
     return jsonify({
         "success": True,
         "data": overhead.convert_json(),
@@ -82,7 +82,7 @@ def change_account_overhead(overhead, type_id):
         "payment_type_id": payment_type.id
     })
     db.session.commit()
-    update_account()
+    update_account(payment_type.id)
     return jsonify({
         "success": True,
         "data": overhead_get.convert_json(),

@@ -22,8 +22,6 @@ class StudentResource(Resource):
         if defenation_id is not None:
             students_query = students_query.filter(StudentTestBlock.defenation_id == defenation_id)
 
-
-
         if location_id is not None:
             students_query = students_query.filter(StudentTestBlock.location_id == location_id)
 
@@ -39,7 +37,7 @@ class StudentResource(Resource):
                 "school_id": student.school_id,
                 "defenation_id": student.defenation_id,
                 "unique_id": student.unique_id,
-                'school_name': student.school.name,
+                # 'school_name': student.school.name if student.school else None,
                 'defenation_name': student.defenation.name,
                 "language": student.language
             }
@@ -51,12 +49,12 @@ class StudentResource(Resource):
         if not data:
             return {"error": "Request payload must be in JSON format"}, 400
 
-
         required_fields = ['name', 'surname', 'father_name', 'phone', 'school_id', 'defenation_id']
 
         missing_fields = [field for field in required_fields if field not in data]
         if missing_fields:
             return {"error": f"Missing fields in request: {', '.join(missing_fields)}"}, 400
+
         import random
 
         def generate_numeric_id(length=7):
@@ -68,18 +66,22 @@ class StudentResource(Resource):
                 if not StudentTestBlock.query.filter(StudentTestBlock.unique_id == unique_id).first():
                     return unique_id
 
+        existing_student = StudentTestBlock.query.filter_by(
+            name=data['name'], surname=data['surname'], father_name=data['father_name'], phone=data['phone']
+        ).first()
+        if existing_student:
+            return {"msg": "Tafsilotlari berilgan talaba allaqachon mavjud",'success': False}, 200
+
         student = StudentTestBlock(
             name=data['name'],
             surname=data['surname'],
             father_name=data['father_name'],
             phone=data['phone'],
             school_id=data['school_id'],
-
             defenation_id=data['defenation_id'],
             unique_id=generate_unique_numeric_id(),
             location_id=data['location_id'],
             language=data['language']
-
         )
 
         db.session.add(student)

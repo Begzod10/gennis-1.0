@@ -94,6 +94,8 @@ class PaymentTypes(db.Model):
     dividend = relationship("Dividend", backref="payment_type", order_by="Dividend.id")
     account_report = relationship("AccountReport", backref="payment_type", order_by="AccountReport.id")
     main_overhead = relationship("MainOverhead", backref="payment_type", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="payment_type",
+                                           order_by="AccountPayableHistory.id")
 
 
 class StudentPayments(db.Model):
@@ -429,7 +431,6 @@ class TeacherSalaries(db.Model):
             "type_name": "Teacher salaries",
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
 
-
         }
 
 
@@ -476,7 +477,6 @@ class StaffSalaries(db.Model):
             "amount": self.payment_sum,
             "type_name": "Staff salaries",
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
-
 
         }
 
@@ -810,6 +810,7 @@ class Investment(db.Model):
             "year": self.year.date.strftime("%Y"),
             "date": self.day.date.strftime("%Y-%m-%d"),
             "typePayment": self.payment_type.name,
-            "reason": self.reason,
+            # "location": self.location.name if self.location else self.reason,
+            "reason": self.location.name if self.location else self.reason,
             "type_name": "Investitsiya"
         }

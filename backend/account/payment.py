@@ -167,9 +167,12 @@ def get_payment(user_id):
             date_day = datetime.strptime(date_day, "%Y-%m-%d")
             date_month = datetime.strptime(date_month, "%Y-%m")
             date_year = datetime.strptime(date_year, "%Y")
-            calendar_year = CalendarYear.query.filter(CalendarYear.date == date_year).first()
-            calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
-            calendar_day = CalendarDay.query.filter(CalendarDay.date == date_day).first()
+
+            calendar_year, calendar_month, calendar_day = find_calendar_date(
+                date_day=date_day,
+                date_month=date_month,
+                date_year=date_year
+            )
         else:
             status = False
 
@@ -308,9 +311,10 @@ def get_payment(user_id):
                 task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
                                                          TaskStudents.tasksstatistics_id == task_statistics.id,
                                                          TaskStudents.student_id == student.id).first()
-                task_student.status = True
-                db.session.commit()
-                info = update_all_ratings()
+                if task_student:
+                    task_student.status = True
+                    db.session.commit()
+
         return jsonify({
             "success": True,
             "msg": "To'lov qabul qilindi"

@@ -26,8 +26,6 @@ def account_info(type_filter):
 
     accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     payments_list = []
-    print(accounting_period)
-    print(location)
     final_list = []
     if type_account == "dividends":
         if not type_filter:
@@ -809,12 +807,14 @@ def account_details(location_id):
             contains_eager(Dividend.day)).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, Dividend.location_id == location_id,
                  Dividend.payment_type_id == payment_type.id,
+                 Dividend.deleted == False
                  )).order_by(
             desc(Dividend.id)).all()
         all_dividend = db.session.query(
             func.sum(Dividend.amount_sum)).join(CalendarDay,
                                                 CalendarDay.id == Dividend.day_id).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, Dividend.location_id == location_id,
+                 Dividend.deleted == False,
                  Dividend.payment_type_id == payment_type.id,
                  )).first()[0] if dividends else 0
 
@@ -884,6 +884,7 @@ def account_details(location_id):
             "date": salary.day.date.strftime('%Y-%m-%d')
         } for salary in capitals]
         investment_list = iterate_models(investments)
+        all_investment = all_investment if all_investment else 0
         result = (all_payment + all_investment) - (
                 all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all + all_dividend)
         return jsonify({
@@ -1001,12 +1002,22 @@ def get_location_money(location_id):
         overhead = sum_money(Overhead.item_sum, Overhead.account_period_id,
                              accounting_period.id, Overhead.location_id, location_id,
                              Overhead.payment_type_id, payment_type.id)
-        investment = sum_money(Investment.amount, Investment.account_period_id,
-                               accounting_period.id, Investment.location_id, location_id,
-                               Investment.payment_type_id, payment_type.id)
-        dividend = sum_money(Dividend.amount_sum, Dividend.account_period_id,
-                             accounting_period.id, Dividend.location_id, location_id,
-                             Dividend.payment_type_id, payment_type.id)
+        dividends = db.session.query(Dividend).join(Dividend.day).options(
+            contains_eager(Dividend.day)).filter(
+            and_(Dividend.location_id == location_id,
+                 Dividend.account_period_id == accounting_period.id,
+                 Dividend.payment_type_id == payment_type.id,
+                 Dividend.deleted == False
+                 )).order_by(
+            desc(Dividend.id)).all()
+        all_dividend = db.session.query(
+            func.sum(Dividend.amount_sum)).join(CalendarDay,
+                                                CalendarDay.id == Dividend.day_id).filter(
+            and_(Dividend.location_id == location_id,
+                 Dividend.deleted == False,
+                 Dividend.account_period_id == accounting_period.id,
+                 Dividend.payment_type_id == payment_type.id,
+                 )).first()[0] if dividends else 0
         # center_balance = CenterBalance.query.filter(CenterBalance.location_id == location_id,
         #                                             CenterBalance.account_period_id == accounting_period).first()
 
@@ -1040,8 +1051,8 @@ def get_location_money(location_id):
         else:
             center_balance_overhead = 0
 
-        current_cash = (student_payments + investment) - (
-                teacher_salaries + staff_salaries + overhead + capital + center_balance_overhead + branch_payments + dividend)
+        current_cash = student_payments - (
+                teacher_salaries + staff_salaries + overhead + capital + center_balance_overhead + branch_payments + all_dividend)
 
         account_list += [{
             "value": current_cash,
@@ -1051,8 +1062,7 @@ def get_location_money(location_id):
             "staff_salaries": staff_salaries,
             "overhead": overhead + branch_payments + center_balance_overhead,
             "capital": capital,
-            "investment": investment,
-            "dividend": dividend
+            "dividend": all_dividend
         }]
 
         account_get = AccountingInfo.query.filter(AccountingInfo.account_period_id == accounting_period.id,
@@ -1063,10 +1073,10 @@ def get_location_money(location_id):
         if not account_get:
             add = AccountingInfo(account_period_id=accounting_period.id, all_payments=student_payments,
                                  location_id=location_id, all_teacher_salaries=teacher_salaries,
-                                 all_dividend=dividend,
+                                 all_dividend=all_dividend,
                                  payment_type_id=payment_type.id, all_staff_salaries=staff_salaries,
                                  all_overhead=overhead + branch_payments + center_balance_overhead, all_capital=capital,
-                                 all_charity=student_discounts, all_investment=investment, current_cash=current_cash,
+                                 all_charity=student_discounts, current_cash=current_cash,
                                  calendar_year=accounting_period.year_id)
             add.add()
         else:
@@ -1076,9 +1086,9 @@ def get_location_money(location_id):
             account_get.all_overhead = overhead + branch_payments + center_balance_overhead
             account_get.all_capital = capital
             account_get.all_charity = student_discounts
-            account_get.all_investment = investment
             account_get.current_cash = current_cash
-            account_get.all_dividend = dividend
+            account_get.all_dividend = all_dividend
+            accounting_period.all_investment = 0
             db.session.commit()
 
     return jsonify({
@@ -1119,7 +1129,6 @@ def account_history(location_id):
             "old_cash": account.old_cash,
             "period_id": account.account_period_id,
             "discount": account.all_charity,
-            "investment": account.all_investment,
             "dividend": account.all_dividend
         } for account in account_infos]
 
