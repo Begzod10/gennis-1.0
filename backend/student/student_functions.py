@@ -565,5 +565,3 @@ def get_student_balance(user_id):
             "success": True,
             "balance": user.balance}
     )
-
-

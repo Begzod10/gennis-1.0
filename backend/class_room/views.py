@@ -45,11 +45,11 @@ def login2():
             access_token = create_access_token(identity=username_sign.user_id)
             refresh_age(username_sign.id)
             class_status = False
-            if role.type_role == "student" or role.type_role == "teacher" or role.type_role == "methodist":
-                return jsonify({
-                    "success": False,
-                    "msg": "Username yoki parol noturg'i"
-                })
+            # if role.type_role == "student" or role.type_role == "teacher" or role.type_role == "methodist":
+            #     return jsonify({
+            #         "success": False,
+            #         "msg": "Username yoki parol noturg'i"
+            #     })
 
             return jsonify({
                 'class': class_status,
@@ -160,7 +160,6 @@ def make_attendance_classroom():
     group = Groups.query.filter(Groups.id == group_id).first()
     teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
     errors = []
-    pprint(students)
     for st in students:
         student = Students.query.filter(Students.user_id == st['id']).first()
         homework = 0
@@ -342,14 +341,6 @@ def make_attendance_classroom():
             else:
                 black_salary.total_salary += salary_per_day
                 db.session.commit()
-
-        requests.post(f"{classroom_server}/api/update_student_balance", json={
-            "platform_id": student.user.id,
-            "balance": student.user.balance,
-            "teacher_id": teacher.user_id,
-            "salary": teacher.user.balance,
-            "debtor": student.debtor
-        })
     return jsonify({
         "message": "O'quvchilar davomat qilindi",
         "status": "success",
@@ -420,6 +411,24 @@ def update_user(user_id):
     return jsonify({
         "msg": "User id o'zgartirildi"
     })
+
+
+@app.route(f'{api}/subjects_add', methods=['POST'])
+def subjects_add():
+    subjects = request.get_json()['data']
+    for sub in subjects:
+        get_subject = Subjects.query.filter(Subjects.classroom_id == sub['id']).first()
+        if not get_subject:
+            get_subject = Subjects.query.filter(Subjects.name == sub['name']).first()
+        if not get_subject:
+            get_subject = Subjects(name=sub['name'], ball_number=2, classroom_id=sub['id'])
+            get_subject.add()
+        else:
+            get_subject.disabled = sub['disabled']
+            get_subject.classroom_id = sub['id']
+            get_subject.name = sub['name']
+            db.session.commit()
+    return jsonify({"msg": "Fanlar o'zgartirildi"})
 
 
 @app.route(f'/api/get_datas', methods=['POST'])

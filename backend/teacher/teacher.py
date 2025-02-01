@@ -502,9 +502,6 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
         if black_salary.total_salary:
             black_salary.total_salary -= salary_per_day
             db.session.commit()
-            if black_salary.paid_money:
-                black_salary.remaining = black_salary.total_salary - black_salary.paid_money
-                db.session.commit()
         else:
             db.session.delete(black_salary)
             db.session.commit()
@@ -663,6 +660,3 @@ def test_model():
 def get_teacher_balance(user_id):
     user = Users.query.filter(Users.id == user_id).first()
     return jsonify({"balance": user.balance})
-
-
-

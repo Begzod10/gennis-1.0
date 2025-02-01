@@ -647,3 +647,4 @@ def student_group_dates2(student_id):
 
 
 from .classroom.attendance import *
+from .classroom.profile import *

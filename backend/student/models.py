@@ -1,4 +1,5 @@
 from backend.models.models import Column, Integer, ForeignKey, String, Boolean, relationship, DateTime, db
+from backend.models.utils import clone_group_info
 
 
 class StudentHistoryGroups(db.Model):
@@ -140,6 +141,29 @@ class Students(db.Model):
             "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None,
             "debtor": self.debtor
         }
+
+    def convert_groups(self):
+        info = {
+            "subjects": [],
+            "group": [],
+            "deleted_groups": [],
+            "debtor": self.debtor
+        }
+        for subject in self.subject:
+            info['subjects'].append(
+                {
+                    "id": subject.id,
+                    "name": subject.name,
+                    "ball_number": subject.ball_number
+                }
+            )
+        for group in self.group:
+            if not group.deleted:
+                group_info = clone_group_info(group)
+                info['group'].append(group_info)
+            else:
+                info['deleted_groups'].append(clone_group_info(group))
+        return info
 
 
 class StudentCallingInfo(db.Model):

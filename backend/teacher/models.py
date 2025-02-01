@@ -3,6 +3,7 @@ import pprint
 from backend.models.models import Column, Integer, ForeignKey, String, relationship, DateTime, db, desc, contains_eager
 from backend.student.models import Students
 from backend.group.models import Groups
+from backend.models.utils import clone_group_info
 
 
 class Teachers(db.Model):
@@ -43,6 +44,19 @@ class Teachers(db.Model):
         return {
             "info": self.user.convert_json(entire=True)
         }
+
+    def convert_groups(self):
+        info = {
+            "group": [],
+            "deleted_groups": []
+        }
+        for group in self.group:
+            if not group.deleted:
+                group_info = clone_group_info(group)
+                info['group'].append(group_info)
+            else:
+                info['deleted_groups'].append(clone_group_info(group))
+        return info
 
 
 db.Table('teacher_locations',

@@ -72,6 +72,7 @@ def change_lesson_plan_classroom(plan_id):
 
     resources = get_json_field("resources")
     student_id_list = get_json_field("students")
+    print("test", resources)
     lesson_plan_get.objective = objective
     lesson_plan_get.homework = homework
     lesson_plan_get.assessment = assessment
@@ -80,6 +81,7 @@ def change_lesson_plan_classroom(plan_id):
     lesson_plan_get.resources = resources
 
     db.session.commit()
+    print(lesson_plan_get.resources)
     for student in student_id_list:
         info = {
             "comment": student['comment'],

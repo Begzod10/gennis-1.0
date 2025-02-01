@@ -39,23 +39,23 @@ def account_info(type_filter):
 
         type_account = "user"
         payments_list = iterate_models(dividends)
-    # if type_account == "investments":
-    #     if not type_filter:
-    #         investments = Investment.query.filter(Investment.location_id == location,
-    #                                               Investment.deleted_status == False,
-    #                                               Investment.account_period_id == accounting_period,
-    #                                               ).order_by(
-    #             desc(Investment.id)).all()
-    #
-    #     else:
-    #         investments = Investment.query.filter(Investment.location_id == location,
-    #                                               Investment.deleted_status == False
-    #                                               ).order_by(
-    #             desc(Investment.id)).all()
-    #
-    #     type_account = "user"
-    #
-    #     payments_list = iterate_models(investments)
+    if type_account == "investments":
+        if not type_filter:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.deleted_status == False,
+                                                  Investment.account_period_id == accounting_period,
+                                                  ).order_by(
+                desc(Investment.id)).all()
+
+        else:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.deleted_status == False
+                                                  ).order_by(
+                desc(Investment.id)).all()
+
+        type_account = "user"
+
+        payments_list = iterate_models(investments)
     if type_account == "payments":
         if not type_filter:
             payments = StudentPayments.query.filter(StudentPayments.location_id == location,
@@ -358,21 +358,21 @@ def account_info_deleted(type_filter):
 
         type_account = "user"
         payments_list = iterate_models(dividends)
-    # if type_account == "investments":
-    #     if not type_filter:
-    #         investments = Investment.query.filter(Investment.location_id == location,
-    #                                               Investment.account_period_id == accounting_period,
-    #                                               Investment.deleted_status == True,
-    #                                               ).order_by(
-    #             desc(Investment.id)).all()
-    #     else:
-    #         investments = Investment.query.filter(Investment.location_id == location,
-    #                                               Investment.deleted_status == True
-    #                                               ).order_by(
-    #             desc(Investment.id)).all()
-    #
-    #     type_account = "user"
-    #     payments_list = iterate_models(investments)
+    if type_account == "investments":
+        if not type_filter:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.account_period_id == accounting_period,
+                                                  Investment.deleted_status == True,
+                                                  ).order_by(
+                desc(Investment.id)).all()
+        else:
+            investments = Investment.query.filter(Investment.location_id == location,
+                                                  Investment.deleted_status == True
+                                                  ).order_by(
+                desc(Investment.id)).all()
+
+        type_account = "user"
+        payments_list = iterate_models(investments)
     if type_account == "payments":
         if not type_filter:
             payments = DeletedStudentPayments.query.filter(DeletedStudentPayments.location_id == location,
@@ -681,18 +681,18 @@ def account_details(location_id):
                  StudentPayments.payment_type_id == payment_type.id, StudentPayments.payment == True,
                  )).first()[0] if student_payments else 0
 
-        # investments = db.session.query(Investment).join(Investment.day).options(
-        #     contains_eager(Investment.day)).filter(
-        #     and_(CalendarDay.date >= ot, CalendarDay.date <= do, StudentPayments.location_id == location_id,
-        #          Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
-        #          )).order_by(
-        #     desc(StudentPayments.id)).all()
-        # all_investment = db.session.query(
-        #     func.sum(Investment.amount)).join(CalendarDay,
-        #                                       CalendarDay.id == Investment.calendar_day).filter(
-        #     and_(CalendarDay.date >= ot, CalendarDay.date <= do, Investment.location_id == location_id,
-        #          Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
-        #          )).first()[0] if investments else 0
+        investments = db.session.query(Investment).join(Investment.day).options(
+            contains_eager(Investment.day)).filter(
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, StudentPayments.location_id == location_id,
+                 Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
+                 )).order_by(
+            desc(StudentPayments.id)).all()
+        all_investment = db.session.query(
+            func.sum(Investment.amount)).join(CalendarDay,
+                                              CalendarDay.id == Investment.calendar_day).filter(
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Investment.location_id == location_id,
+                 Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
+                 )).first()[0] if investments else 0
 
         teacher_salaries = db.session.query(TeacherSalaries).join(TeacherSalaries.day).options(
             contains_eager(TeacherSalaries.day)).filter(
@@ -883,9 +883,9 @@ def account_details(location_id):
             "payment": salary.item_sum,
             "date": salary.day.date.strftime('%Y-%m-%d')
         } for salary in capitals]
-        # investment_list = iterate_models(investments)
-        # all_investment = all_investment if all_investment else 0
-        result = (all_payment) - (
+        investment_list = iterate_models(investments)
+        all_investment = all_investment if all_investment else 0
+        result = (all_payment + all_investment) - (
                 all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all + all_dividend)
         return jsonify({
             "data": {
@@ -910,10 +910,10 @@ def account_details(location_id):
                         "list": capital_list,
                         "value": all_capital
                     },
-                    # "investments": {
-                    #     "list": investment_list,
-                    #     "value": all_investment
-                    # },
+                    "investments": {
+                        "list": investment_list,
+                        "value": all_investment
+                    },
                     "dividends": {
                         "list": iterate_models(dividends),
                         "value": all_dividend

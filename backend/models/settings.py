@@ -20,3 +20,5 @@ def sum_money(model_item, model_period, period_id, model_location, location_id, 
     else:
         payment = 0
     return payment
+
+

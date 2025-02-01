@@ -629,3 +629,4 @@ def send_user_info(user):
     requests.post(f"{classroom_server}/api/update_user_info", json={
         "user": user.convert_json(),
     })
+
