@@ -18,9 +18,9 @@ apis = Api(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
 
-classroom_server = "http://192.168.1.61:5001"
-#
-# classroom_server = "https://classroom.gennis.uz"
+# classroom_server = "http://192.168.1.61:5001"
+
+classroom_server = "https://classroom.gennis.uz"
 # telegram_bot_server = "http://127.0.0.1:5000"
 django_server = "https://school.gennis.uz"
 # django_server = "http://192.168.1.14:7622"
