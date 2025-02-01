@@ -54,6 +54,7 @@ class StudentResource(Resource):
         missing_fields = [field for field in required_fields if field not in data]
         if missing_fields:
             return {"error": f"Missing fields in request: {', '.join(missing_fields)}"}, 400
+
         import random
 
         def generate_numeric_id(length=7):
@@ -65,18 +66,22 @@ class StudentResource(Resource):
                 if not StudentTestBlock.query.filter(StudentTestBlock.unique_id == unique_id).first():
                     return unique_id
 
+        existing_student = StudentTestBlock.query.filter_by(
+            name=data['name'], surname=data['surname'], father_name=data['father_name'], phone=data['phone']
+        ).first()
+        if existing_student:
+            return {"msg": "Tafsilotlari berilgan talaba allaqachon mavjud",'success': False}, 200
+
         student = StudentTestBlock(
             name=data['name'],
             surname=data['surname'],
             father_name=data['father_name'],
             phone=data['phone'],
             school_id=data['school_id'],
-
             defenation_id=data['defenation_id'],
             unique_id=generate_unique_numeric_id(),
             location_id=data['location_id'],
             language=data['language']
-
         )
 
         db.session.add(student)
