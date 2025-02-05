@@ -5,6 +5,7 @@ from backend.functions.utils import api, get_json_field, iterate_models
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 from pprint import pprint
+from backend.functions.filters import old_current_dates, update_lesson_plan
 
 
 @app.route(f'{api}/lesson_plan_list_classroom/<int:group_id>', defaults={"date": None})
@@ -13,6 +14,7 @@ def lesson_plan_list_classroom(group_id, date):
     days_list = []
     month_list = []
     years_list = []
+    update_lesson_plan(group_id)
     plan_list = LessonPlan.query.filter(LessonPlan.group_id == group_id).order_by(LessonPlan.id).all()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
 
@@ -72,16 +74,14 @@ def change_lesson_plan_classroom(plan_id):
 
     resources = get_json_field("resources")
     student_id_list = get_json_field("students")
-    print("test", resources)
+
     lesson_plan_get.objective = objective
     lesson_plan_get.homework = homework
     lesson_plan_get.assessment = assessment
     lesson_plan_get.main_lesson = main_lesson
     lesson_plan_get.activities = activities
     lesson_plan_get.resources = resources
-
     db.session.commit()
-    print(lesson_plan_get.resources)
     for student in student_id_list:
         info = {
             "comment": student['comment'],

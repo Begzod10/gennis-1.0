@@ -89,7 +89,7 @@ def change_student_info(user_id):
                         "table_color": json['color']
                     })
                     db.session.commit()
-                send_user_info(user)
+                # send_user_info(user)
                 return jsonify({
                     "success": True,
                     "msg": "Ma'lumotlar o'zgartirildi"
@@ -157,7 +157,7 @@ def change_student_info(user_id):
 
                 db.session.commit()
 
-                send_user_info(user)
+                # send_user_info(user)
                 subjects = json['selectedSubjects']
                 subjects_list = []
                 if subjects:
@@ -208,7 +208,7 @@ def change_student_info(user_id):
             user = Users.query.filter(Users.id == user_id).first()
             user.username = json['username']
             db.session.commit()
-            send_user_info(user)
+            # send_user_info(user)
             return jsonify({
                 "success": True,
                 "msg": "User ma'lumoti o'zgartirildi o'zgartirildi"

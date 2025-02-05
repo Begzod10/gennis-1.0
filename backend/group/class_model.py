@@ -105,7 +105,7 @@ class Group_Functions:
                 'absent': [],
                 'present': [],
                 'len_days': 0,
-                'dates': []
+                'dates': [],
             }
             days = []
             for date in for_filter:
@@ -145,7 +145,8 @@ class Group_Functions:
                     "day": date,
                     "reason": reason,
                     "status": status,
-                    "ball": {}
+                    "ball": {},
+                    "salary_per_day": attendance.salary_per_day if attendance else 0
                 }
                 if attendance:
                     if attendance.dictionary:

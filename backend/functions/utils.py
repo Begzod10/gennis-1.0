@@ -500,7 +500,6 @@ def update_week(location_id):
     friday = "Juma"
     saturday = "Shanba"
     sunday = "Yakshanba"
-
     monday_date = Week.query.filter(Week.name == monday, Week.location_id == location_id).first()
     if not monday_date:
         monday_date = Week(name=monday, location_id=location_id)
@@ -629,4 +628,3 @@ def send_user_info(user):
     requests.post(f"{classroom_server}/api/update_user_info", json={
         "user": user.convert_json(),
     })
-

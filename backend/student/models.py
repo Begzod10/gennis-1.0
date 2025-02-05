@@ -147,7 +147,10 @@ class Students(db.Model):
             "subjects": [],
             "group": [],
             "deleted_groups": [],
-            "debtor": self.debtor
+            "debtor": self.debtor,
+            "name": self.user.name,
+            "surname": self.user.surname,
+            'father_name': self.user.father_name
         }
         for subject in self.subject:
             info['subjects'].append(

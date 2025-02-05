@@ -16,10 +16,12 @@ from backend.functions.utils import refresh_age, iterate_models, refreshdatas, h
 from backend.models.models import CourseTypes, Students, Users, Staff, \
     PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, AccountingInfo, Groups, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
-    CalendarYear, TeacherData, StudentTest, GroupTest
+    CalendarYear, TeacherData, StudentTest, GroupTest, AttendanceDays, CalendarDay, CalendarMonth, \
+    CertificateLinks
 from backend.student.class_model import Student_Functions
 from backend.functions.functions import update_user_time_table
 from backend.student.register_for_tes.populate import create_school
+
 
 @app.errorhandler(404)
 def not_found(e):
@@ -666,8 +668,16 @@ def profile(user_id):
     teacher_get = Teachers.query.filter(Teachers.user_id == user_id).first()
     staff_get = Staff.query.filter(Staff.user_id == user_id).first()
     director_get = Users.query.filter(Users.id == user_id).first()
-
+    old_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime("2025-01", "%Y-%m")).first().id
     refresh_age(user_get.id)
+    att_count = 0
+    if teacher_get:
+        groups = Groups.query.filter(Groups.teacher_id == teacher_get.id, 
+                                     Groups.status == True).order_by(Groups.id).all()
+        att_count = db.session.query(AttendanceDays).join(AttendanceDays.group).options(
+            contains_eager(AttendanceDays.group)).filter(
+            Groups.teacher_id == teacher_get.id, Groups.id.in_([group.id for group in groups])).join(
+            AttendanceDays.day).filter(CalendarDay.month_id == old_month).count()
 
     salary_status = True
     role = ''
@@ -1031,6 +1041,7 @@ def profile(user_id):
             "role": role,
             "photo_profile": user_get.photo_profile,
             "observer": user_get.observer,
+            "att_count": att_count,
             "activeToChange": {
                 "username": True,
                 "name": True,

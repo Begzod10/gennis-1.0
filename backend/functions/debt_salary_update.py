@@ -211,37 +211,7 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
                                               AttendanceHistoryTeacher.location_id == group.location_id).update(
             {"total_salary": total_salary, 'status': False})
         db.session.commit()
-    attendance_teacher = AttendanceHistoryTeacher.query.filter(
-        AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
-        AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
-        AttendanceHistoryTeacher.teacher_id == teacher.id,
-        AttendanceHistoryTeacher.group_id == group_id,
-        AttendanceHistoryTeacher.subject_id == subject.id,
-        AttendanceHistoryTeacher.location_id == group.location_id).first()
-    if attendance_teacher.taken_money:
-        remaining_salary = attendance_teacher.total_salary - attendance_teacher.taken_money
-        AttendanceHistoryTeacher.query.filter(
-            AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
-            AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
-            AttendanceHistoryTeacher.teacher_id == teacher.id,
-            AttendanceHistoryTeacher.group_id == group_id,
-            AttendanceHistoryTeacher.subject_id == subject.id,
-            AttendanceHistoryTeacher.location_id == group.location_id).update({'remaining_salary': remaining_salary})
-        db.session.commit()
-    status = False
-    if attendance_teacher and attendance_teacher.taken_money:
-        if attendance_teacher.taken_money >= attendance_teacher.total_salary:
-            status = True
-        else:
-            status = False
-    AttendanceHistoryTeacher.query.filter(
-        AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
-        AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
-        AttendanceHistoryTeacher.teacher_id == teacher.id,
-        AttendanceHistoryTeacher.group_id == group_id,
-        AttendanceHistoryTeacher.subject_id == subject.id,
-        AttendanceHistoryTeacher.location_id == group.location_id).update({"status": status})
-    db.session.commit()
+
     salary_history = AttendanceHistoryTeacher.query.filter(
         AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
         AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
@@ -255,6 +225,16 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
                                                  TeacherSalary.teacher_id == teacher.id,
                                                  TeacherSalary.calendar_year == attendance.calendar_year,
                                                  TeacherSalary.calendar_month == attendance.calendar_month).first()
+    # if salary_location:
+    #     black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id).filter(
+    #         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None,
+    #             TeacherBlackSalary.salary_id == salary_location.id)).all()
+    #     for sal in black_salaries:
+    #         sal.salary_id = None
+    #         db.session.commit()
+    #     db.session.delete(salary_location)
+    #     db.session.commit()
+
     if not salary_location:
 
         salary_location = TeacherSalary(location_id=group.location_id,
@@ -275,9 +255,11 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
                                                  TeacherSalary.teacher_id == teacher.id,
                                                  TeacherSalary.calendar_year == attendance.calendar_year,
                                                  TeacherSalary.calendar_month == attendance.calendar_month).first()
+
     black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id).filter(
         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None,
             TeacherBlackSalary.salary_id == salary_location.id)).all()
+
     black_salary = 0
     for salary in black_salaries:
         black_salary += salary.total_salary

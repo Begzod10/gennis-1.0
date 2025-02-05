@@ -48,10 +48,7 @@ class Teachers(db.Model):
     def convert_groups(self):
         info = {
             "group": [],
-            "deleted_groups": [],
-            "name": self.user.name,
-            "surname": self.user.surname,
-            'father_name': self.user.father_name
+            "deleted_groups": []
         }
         for group in self.group:
             if not group.deleted:
