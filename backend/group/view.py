@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask_jwt_extended import jwt_required
 
@@ -11,9 +11,10 @@ from backend.group.class_model import Group_Functions
 from backend.models.models import Groups, CalendarDay, Students, AttendanceDays, SubjectLevels, \
     AttendanceHistoryStudent, Group_Room_Week, Attendance, CalendarMonth, Week, Rooms, Teachers, Roles, \
     CertificateLinks, GroupTest
+from backend.teacher.models import LessonPlan, TeacherObservationDay
 from backend.student.class_model import Student_Functions
 
-from backend.functions.functions import update_user_time_table
+from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
 
 
 @app.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
@@ -154,6 +155,7 @@ def group_profile(group_id):
     levels = SubjectLevels.query.filter(SubjectLevels.subject_id == group.subject_id).filter(
         or_(SubjectLevels.disabled == False, SubjectLevels.disabled == None)).order_by(SubjectLevels.id).all()
     level = ''
+
     update_lesson_plan(group_id)
     if group.level and group.level.name:
         level = group.level.name
@@ -222,6 +224,7 @@ def group_profile(group_id):
         "start_time": time_get.start_time.strftime("%H:%M"),
         "end_time": time_get.end_time.strftime("%H:%M")
     } for time_get in group_time_table if time_get.week]
+
     is_time = False
     links = []
     link = ''
@@ -260,9 +263,6 @@ def group_profile(group_id):
             "id": group.level.id,
             "name": group.level.name
         }
-    subject_levels = SubjectLevels.query.filter(SubjectLevels.subject_id == group.subject_id).order_by(
-        SubjectLevels.id).all()
-
     group_tests = GroupTest.query.filter(GroupTest.group_id == group_id,
                                          GroupTest.calendar_year == calendar_year.id,
                                          GroupTest.calendar_month == calendar_month.id,
@@ -274,16 +274,44 @@ def group_profile(group_id):
     last_test = GroupTest.query.filter(GroupTest.group_id == group_id, GroupTest.calendar_month == calendar_month.id,
                                        GroupTest.calendar_year == calendar_year.id,
                                        GroupTest.student_tests != None).order_by(desc(GroupTest.id)).first()
+    errors = []
 
     if test_status:
-        msg = f"Guruhda {test_status.day.date.strftime('%d')} kuni {test_status.level} leveli bo'yicha test olinishi kerak."
+        errors.append(
+            f"Guruhda {test_status.day.date.strftime('%d')} kuni {test_status.level} leveli bo'yicha test olinishi kerak.")
     elif last_test and not test_status:
-        msg = f"Guruhda oxirgi marta {last_test.day.date.strftime('%d')} kuni {last_test.level} leveli bo'yicha test olingan."
+        errors.append(
+            f"Guruhda oxirgi marta {last_test.day.date.strftime('%d')} kuni {last_test.level} leveli bo'yicha test olingan.")
     else:
-        msg = f"Guruh uchun {calendar_month.date.strftime('%B')} oyi uchun test kuni belgilanmagan."
+        errors.append(f"Guruh uchun {calendar_month.date.strftime('%B')} oyi uchun test kuni belgilanmagan.")
 
     for student in group.student:
         update_user_time_table(student.id)
+
+    week_names = [time.week.eng_name for time in group_time_table]
+
+    target_dates = get_dates_for_weekdays(week_names)
+
+    lesson_plans = LessonPlan.query.filter(LessonPlan.group_id == group.id, LessonPlan.date.in_(target_dates),
+                                           LessonPlan.main_lesson == None, LessonPlan.homework == None).all()
+
+    if not lesson_plans:
+        errors.append("Bu hafta lesson plan qilinmagan.")
+    else:
+        for lesson_plan in lesson_plans:
+            errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
+
+    # calendar_days = CalendarDay.query.filter(CalendarDay.date.in_(target_dates)).all()
+    # teacher_observations = TeacherObservationDay.query.filter(TeacherObservationDay.group_id == group.id,
+    #                                                           TeacherObservationDay.teacher_id == teacher.user.id,
+    #                                                           TeacherObservationDay.calendar_day.in_(
+    #                                                               [day.id for day in calendar_days])).all()
+    #
+    # if not teacher_observations:
+    #     errors.append("Bu hafta teacher observation qilinmagan.")
+    # else:
+    #     for teacher_observation in teacher_observations:
+    #         errors.append(f"{teacher_observation.day.date} shu kunda teacher observation qilinmagan.")
     return jsonify({
         "locationId": group.location_id,
         "groupName": group.name.title(),
@@ -298,7 +326,7 @@ def group_profile(group_id):
         "levels": iterate_models(levels),
         "isTime": is_time,
         "test_info": iterate_models(group_tests),
-        "msg": msg
+        "msg": errors
     })
 
 
@@ -646,3 +674,4 @@ def student_group_dates2(student_id):
 
 from .classroom.attendance import *
 from .classroom.profile import *
+from .classroom.test import *

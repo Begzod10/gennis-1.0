@@ -189,38 +189,39 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
     attendance_teacher_salary = db.session.query(AttendanceDays).join(AttendanceDays.day).options(contains_eager(
         AttendanceDays.day)).filter(extract("year", CalendarDay.date) == current_year,
                                     extract("month", CalendarDay.date) == months,
-                                    AttendanceDays.teacher_id == teacher.id, AttendanceDays.group_id == group_id,
+                                    AttendanceDays.teacher_id == teacher.id,
                                     AttendanceDays.location_id == group.location_id).all()
+    print(len(attendance_teacher_salary))
     total_salary = 0
     for salary in attendance_teacher_salary:
         total_salary += salary.salary_per_day
-    if not attendance_teacher:
-        attendance_teacher = AttendanceHistoryTeacher(teacher_id=teacher.id, group_id=group_id,
-                                                      subject_id=subject.id, total_salary=total_salary,
-                                                      location_id=group.location_id,
-                                                      calendar_month=attendance.calendar_month,
-                                                      calendar_year=attendance.calendar_year)
-        db.session.add(attendance_teacher)
-        db.session.commit()
-    else:
-        AttendanceHistoryTeacher.query.filter(AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
-                                              AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
-                                              AttendanceHistoryTeacher.teacher_id == teacher.id,
-                                              AttendanceHistoryTeacher.group_id == group_id,
-                                              AttendanceHistoryTeacher.subject_id == subject.id,
-                                              AttendanceHistoryTeacher.location_id == group.location_id).update(
-            {"total_salary": total_salary, 'status': False})
-        db.session.commit()
+    # if not attendance_teacher:
+    #     attendance_teacher = AttendanceHistoryTeacher(teacher_id=teacher.id, group_id=group_id,
+    #                                                   subject_id=subject.id, total_salary=total_salary,
+    #                                                   location_id=group.location_id,
+    #                                                   calendar_month=attendance.calendar_month,
+    #                                                   calendar_year=attendance.calendar_year)
+    #     db.session.add(attendance_teacher)
+    #     db.session.commit()
+    # else:
+    #     AttendanceHistoryTeacher.query.filter(AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
+    #                                           AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
+    #                                           AttendanceHistoryTeacher.teacher_id == teacher.id,
+    #                                           AttendanceHistoryTeacher.group_id == group_id,
+    #                                           AttendanceHistoryTeacher.subject_id == subject.id,
+    #                                           AttendanceHistoryTeacher.location_id == group.location_id).update(
+    #         {"total_salary": total_salary, 'status': False})
+    #     db.session.commit()
+    #
+    # salary_history = AttendanceHistoryTeacher.query.filter(
+    #     AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
+    #     AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
+    #     AttendanceHistoryTeacher.teacher_id == teacher.id, AttendanceHistoryTeacher.location_id == group.location_id,
+    # ).all()
 
-    salary_history = AttendanceHistoryTeacher.query.filter(
-        AttendanceHistoryTeacher.calendar_month == attendance.calendar_month,
-        AttendanceHistoryTeacher.calendar_year == attendance.calendar_year,
-        AttendanceHistoryTeacher.teacher_id == teacher.id, AttendanceHistoryTeacher.location_id == group.location_id,
-    ).all()
-
-    salary_location_total = 0
-    for salary in salary_history:
-        salary_location_total += salary.total_salary
+    # salary_location_total = 0
+    # for salary in salary_history:
+    #     salary_location_total += salary.total_salary
     salary_location = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
                                                  TeacherSalary.teacher_id == teacher.id,
                                                  TeacherSalary.calendar_year == attendance.calendar_year,
@@ -241,7 +242,7 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
                                         teacher_id=teacher.id,
                                         calendar_month=attendance.calendar_month,
                                         calendar_year=attendance.calendar_year,
-                                        total_salary=salary_location_total)
+                                        total_salary=total_salary)
         db.session.add(salary_location)
         db.session.commit()
     else:
@@ -249,7 +250,7 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
                                    TeacherSalary.teacher_id == teacher.id,
                                    TeacherSalary.calendar_year == attendance.calendar_year,
                                    TeacherSalary.calendar_month == attendance.calendar_month,
-                                   ).update({"total_salary": salary_location_total, 'status': False})
+                                   ).update({"total_salary": total_salary, 'status': False})
         db.session.commit()
     salary_location = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
                                                  TeacherSalary.teacher_id == teacher.id,

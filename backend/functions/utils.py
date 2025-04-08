@@ -458,9 +458,10 @@ def update_teacher_salary_id(salary_id):
     teacher_salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
     salaries = TeacherSalaries.query.filter(TeacherSalaries.salary_location_id == salary_id).all()
     user_books = UserBooks.query.filter(UserBooks.salary_location_id == salary_id).all()
-    black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher_salary.teacher_id,
-                                                     TeacherBlackSalary.status == False,
-                                                     TeacherBlackSalary.salary_id == salary_id).all()
+    black_salaries = TeacherBlackSalary.query.filter(
+        TeacherBlackSalary.calendar_month == teacher_salary.calendar_month,
+        TeacherBlackSalary.teacher_id == teacher_salary.id,
+        TeacherBlackSalary.status == False).all()
     black_salary = 0
     for salary in black_salaries:
         black_salary += salary.total_salary

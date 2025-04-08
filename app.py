@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, render_template, session, json, send_file, send_from_directory
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired
-
+from backend.school.models import custom_migrate, register_commands
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from backend.models.models import *
@@ -9,7 +9,7 @@ from flask_restful import Api
 
 app = Flask(__name__, static_folder="frontend/build", static_url_path="/")
 
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 app.config.from_object('backend.models.config')
 db = db_setup(app)
@@ -17,8 +17,9 @@ apis = Api(app)
 
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
+register_commands(app)
 
-classroom_server = "http://192.168.1.61:5001"
+classroom_server = "http://192.168.1.15:5001"
 #
 # classroom_server = "https://classroom.gennis.uz"
 # telegram_bot_server = "http://127.0.0.1:5000"

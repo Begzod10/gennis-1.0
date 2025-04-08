@@ -9,6 +9,7 @@ from sqlalchemy.sql import func, functions
 from pprint import pprint
 import uuid
 from .utils import clone_group_info
+
 db = SQLAlchemy()
 
 
@@ -37,6 +38,7 @@ from backend.lead.models import *
 from backend.for_programmers.models import *
 from backend.tasks.models.models import *
 from backend.account.profile.models import *
+from backend.school.models import *
 
 
 class CalendarYear(db.Model):
@@ -96,6 +98,7 @@ class CalendarYear(db.Model):
     account_payable_history = relationship("AccountPayableHistory", backref="year", order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="year", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
+    school_teacher_salary = relationship("SchoolTeacherSalary", backref="year", order_by="SchoolTeacherSalary.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
@@ -173,6 +176,7 @@ class CalendarMonth(db.Model):
                                            order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="month", order_by="TaskRatingsMonthly.id")
+    school_teacher_salary = relationship("SchoolTeacherSalary", backref="month", order_by="SchoolTeacherSalary.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -273,6 +277,8 @@ class CalendarDay(db.Model):
     dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="day", order_by="MainOverhead.id")
     account_payable_history = relationship("AccountPayableHistory", backref="day", order_by="AccountPayableHistory.id")
+    school_teacher_salary_day = relationship("SchoolTeacherSalaryDay", backref="day",
+                                             order_by="SchoolTeacherSalaryDay.id")
 
     def convert_json(self, entire=False):
         return {
@@ -446,12 +452,12 @@ class Users(db.Model):
                 # "username": self.username.title(),
                 "username": self.username,
                 "password": self.password,
-                "father_name": self.father_name.title(),
+                "father_name": self.father_name.title() if self.father_name else "",
                 "user_id": self.user_id,
                 "phone_list": [],
                 "education_language": {
-                    "id": self.language.id,
-                    "name": self.language.name
+                    "id": self.language.id if self.education_language else None,
+                    "name": self.language.name if self.education_language else None
                 },
                 "photo_profile": self.photo_profile,
                 "born_day": self.born_day,
@@ -529,9 +535,6 @@ class Users(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
-
-
-
 
 
 class PhoneList(db.Model):

@@ -56,8 +56,6 @@ def create_test(group_id):
         })
     else:
         json_file = json.loads(info)
-        print(json_file)
-        print(type(json_file))
         test_get = GroupTest.query.filter(GroupTest.id == json_file['test_id']).first()
         year = json_file['date'][0:4]
         month = json_file['date'][5:7]
@@ -88,9 +86,6 @@ def filter_datas_in_group(group_id):
         group_tests = GroupTest.query.filter(GroupTest.group_id == group_id).all()
         group_tests_month = GroupTest.query.filter(GroupTest.group_id == group_id,
                                                    GroupTest.calendar_year == calendar_year.id).all()
-        group = Groups.query.filter(Groups.id == group_id).first()
-        subject_levels = SubjectLevels.query.filter(SubjectLevels.subject_id == group.subject_id).order_by(
-            SubjectLevels.id).all()
         years_list = []
 
         for group_test in group_tests:
@@ -183,3 +178,34 @@ def submit_test_group(group_id):
             "test": group_test.convert_json(),
             "msg": "Test natijasi kiritildi"
         })
+
+
+@app.route(f'{api}/groups_by_test/<location_id>', methods=['POST'])
+@jwt_required()
+def groups_by_test(location_id):
+    year = get_json_field('year')
+    month = get_json_field('month')
+
+    groups = Groups.query.filter(Groups.location_id == location_id, Groups.deleted == False,
+                                 Groups.status == True).all()
+    group_list = []
+    calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
+    calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month,
+                                                CalendarMonth.year_id == calendar_year.id).first()
+    for group in groups:
+        group_test = GroupTest.query.filter(GroupTest.group_id == group.id,
+                                            GroupTest.calendar_year == calendar_year.id,
+                                            GroupTest.calendar_month == calendar_month.id).first()
+        group_info = {
+            "id": group.id,
+            "name": group.name,
+            "subject": group.subject.name,
+            "subject_id": group.subject_id,
+            "group_test": True if group_test else False,
+            "teacher_name": group.teacher[0].user.name,
+            "teacher_surname": group.teacher[0].user.surname,
+            "teacher_id": group.teacher_id,
+            "students_number": len(group.student)
+        }
+        group_list.append(group_info)
+    return jsonify({"groups": group_list})

@@ -728,7 +728,9 @@ class TeacherSalary(db.Model):
     deleted_teacher_salary = relationship("DeletedTeacherSalaries", backref="salary",
                                           order_by="DeletedTeacherSalaries.id")
     taken_money = Column(Integer)
+    debt = Column(Integer)
     old_id = Column(Integer)
+    extra = Column(Integer)
 
 
 class TeacherBlackSalary(db.Model):

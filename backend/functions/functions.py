@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 from backend.models.models import AccountingPeriod, Professions, PaymentTypes, Locations, CalendarDay, CalendarYear, \
@@ -654,3 +654,13 @@ def update_user_time_table(student_id):
         if time not in student_get.time_table:
             student_get.time_table.append(time)
             db.session.commit()
+
+
+def get_dates_for_weekdays(weekdays):
+    today = datetime.today()
+    start_of_week = today - timedelta(days=today.weekday())
+    dates = {
+        start_of_week + timedelta(days=i): day
+        for i, day in enumerate(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+    }
+    return [date for date, name in dates.items() if name in weekdays]

@@ -1,9 +1,10 @@
 from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
-    DeletedTeachers
+    DeletedTeachers, Locations
 from werkzeug.security import check_password_hash
-from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id
+from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id, \
+    find_calendar_date
 from datetime import datetime
 from backend.functions.debt_salary_update import salary_debt
 from flask_jwt_extended import jwt_required, create_refresh_token, create_access_token, get_jwt_identity
@@ -13,6 +14,7 @@ from backend.student.class_model import Student_Functions
 from datetime import timedelta
 from pprint import pprint
 import requests
+from werkzeug.security import generate_password_hash
 
 
 # @app.route(f'{api}/update_users_datas')
@@ -35,8 +37,20 @@ def login2():
     create token
     :return: logged User datas
     """
-
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
+
+        # role = Roles.query.filter_by(type_role="director").first()
+        # location = Locations.query.filter(Locations.id == 3).first()
+        # exist_user = Users.query.filter(Users.username == "dr_mamur").first()
+        # if not exist_user:
+        #     user = Users(username="dr_mamur", name="dr_mamur", surname="dr_mamur",
+        #                  password=generate_password_hash("12345678"), role_id=role.id,
+        #                  location_id=location.id, director=True, user_id=check_exist_id(), born_day=18, born_month=10,
+        #                  born_year=1998, calendar_year=calendar_year.id, calendar_month=calendar_month.id,
+        #                  calendar_day=calendar_day.id)
+        #     db.session.add(user)
+        #     db.session.commit()
         username = get_json_field('username')
         password = get_json_field('password')
         username_sign = Users.query.filter_by(username=username).first()

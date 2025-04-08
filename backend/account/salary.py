@@ -92,22 +92,30 @@ def block_salary(user_id, location_id, year_id):
             teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.salary_id == salary.id,
                                                                      TeacherBlackSalary.teacher_id == teacher.id,
                                                                      TeacherBlackSalary.status == False).all()
+            user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
+                                                UserBooks.salary_location_id == salary.id).order_by(UserBooks.id).all()
+            book_payments = 0
+            for pay in user_books:
+                book_payments += pay.payment_sum
             black_salary = 0
             for black in teacher_black_salaries:
                 black_salary += black.total_salary
-            if salary.remaining_salary:
-                residue = salary.remaining_salary
-            elif salary.taken_money == salary.total_salary:
+
+            if salary.taken_money == salary.total_salary:
                 residue = 0
             else:
-                residue = salary.total_salary
+                taken_money = salary.taken_money if salary.taken_money else 0
+                residue = salary.total_salary - (taken_money + black_salary + book_payments)
+            salary.remaining_salary = residue
+            db.session.commit()
             info = {
                 "id": salary.id,
                 "salary": salary.total_salary,
                 "residue": residue,
                 "taken_salary": salary.taken_money,
                 "black_salary": black_salary,
-                "date": salary.month.date.strftime("%Y-%m")
+                "date": salary.month.date.strftime("%Y-%m"),
+                "debt": salary.debt
             }
             teacher_salary_list.append(info)
     else:
@@ -115,6 +123,7 @@ def block_salary(user_id, location_id, year_id):
                                                   StaffSalary.location_id == location_id,
                                                   StaffSalary.calendar_year == year_id).order_by(
             desc(StaffSalary.id)).all()
+
         for salary in staff_salaries:
             if salary.remaining_salary:
                 residue = salary.remaining_salary
@@ -151,22 +160,29 @@ def block_salary_classroom(user_id, location_id, year_id):
             teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.salary_id == salary.id,
                                                                      TeacherBlackSalary.teacher_id == teacher.id,
                                                                      TeacherBlackSalary.status == False).all()
+            user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
+                                                UserBooks.salary_location_id == salary.id).order_by(UserBooks.id).all()
+            book_payments = 0
+            for pay in user_books:
+                book_payments += pay.payment_sum
             black_salary = 0
             for black in teacher_black_salaries:
                 black_salary += black.total_salary
-            if salary.remaining_salary:
-                residue = salary.remaining_salary
-            elif salary.taken_money == salary.total_salary:
+            if salary.taken_money == salary.total_salary:
                 residue = 0
             else:
-                residue = salary.total_salary
+                taken_money = salary.taken_money if salary.taken_money else 0
+                residue = salary.total_salary - (taken_money + black_salary + book_payments)
+            salary.remaining_salary = residue
+            db.session.commit()
             info = {
                 "id": salary.id,
                 "salary": salary.total_salary,
                 "residue": residue,
                 "taken_salary": salary.taken_money,
                 "black_salary": black_salary,
-                "date": salary.month.date.strftime("%Y-%m")
+                "date": salary.month.date.strftime("%Y-%m"),
+                "debt": salary.debt if salary.debt else 0
             }
             teacher_salary_list.append(info)
     else:
@@ -215,27 +231,34 @@ def teacher_salary(user_id, location_id):
             desc(TeacherSalary.id)).all()
 
         for salary in teacher_salaries:
-            teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.salary_id == salary.id,
-                                                                     TeacherBlackSalary.teacher_id == teacher.id,
-                                                                     TeacherBlackSalary.status == False).all()
+            teacher_black_salaries = TeacherBlackSalary.query.filter(
+                TeacherBlackSalary.calendar_month == salary.calendar_month,
+                TeacherBlackSalary.teacher_id == teacher.id,
+                TeacherBlackSalary.status == False).all()
             black_salary = 0
             for black in teacher_black_salaries:
                 black_salary += black.total_salary
-
-            if salary.remaining_salary:
-                residue = salary.remaining_salary
-            elif salary.taken_money == salary.total_salary:
+            user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
+                                                UserBooks.salary_location_id == salary.id).order_by(UserBooks.id).all()
+            book_payments = 0
+            for pay in user_books:
+                book_payments += pay.payment_sum
+            if salary.taken_money == salary.total_salary:
                 residue = 0
             else:
-                residue = salary.total_salary
+                taken_money = salary.taken_money if salary.taken_money else 0
+                residue = salary.total_salary - (taken_money + black_salary + book_payments)
+            salary.remaining_salary = residue
 
+            db.session.commit()
             info = {
                 "id": salary.id,
                 "salary": salary.total_salary,
                 "residue": residue,
                 "taken_salary": salary.taken_money,
                 "black_salary": black_salary,
-                "date": salary.month.date.strftime("%Y-%m")
+                "date": salary.month.date.strftime("%Y-%m"),
+                "debt": salary.debt if salary.debt else 0
             }
             teacher_salary_list.append(info)
 
@@ -276,17 +299,36 @@ def teacher_salary_inside(salary_id, user_id):
     """
     staff_salary_update()
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
-
-    result = 0
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     black_salary = 0
+    salary_debt = 0
     if teacher:
-        teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.salary_id == salary_id,
-                                                                 TeacherBlackSalary.teacher_id == teacher.id,
-                                                                 TeacherBlackSalary.status == False).all()
-
+        salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
+        teacher_black_salaries = TeacherBlackSalary.query.filter(
+            TeacherBlackSalary.calendar_month == salary.calendar_month,
+            TeacherBlackSalary.teacher_id == teacher.id,
+            TeacherBlackSalary.status == False).all()
+        get_old_month = int(datetime.datetime.strftime(salary.month.date, "%m")) - 1
+        get_year = int(datetime.datetime.strftime(salary.month.date, "%Y"))
+        if get_old_month == 0:
+            get_old_month = 12
+            get_year -= 1
+        date = datetime.date(get_year, get_old_month, 1)
+        convert_year = str(get_year)
+        calendar_year = CalendarYear.query.filter(
+            CalendarYear.date == datetime.datetime.strptime(convert_year, "%Y")).first()
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date).first()
+        old_salary = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id,
+                                                TeacherSalary.calendar_year == calendar_year.id,
+                                                TeacherSalary.calendar_month == calendar_month.id).first()
+        if old_salary:
+            if old_salary.remaining_salary < 0:
+                salary.debt = old_salary.remaining_salary
+            else:
+                salary.debt = 0
+            db.session.commit()
         for black in teacher_black_salaries:
             black_salary += black.total_salary
-        salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
 
         salaries = TeacherSalaries.query.filter(TeacherSalaries.salary_location_id == salary_id).order_by(
             TeacherSalaries.id).all()
@@ -298,15 +340,18 @@ def teacher_salary_inside(salary_id, user_id):
         all_salaries = 0
         for sal in salaries:
             all_salaries += sal.payment_sum
+        taken_money = salary.taken_money if salary.taken_money else 0
+        debt = salary.debt if salary.debt else 0
+        result = salary.total_salary - (taken_money + black_salary + book_payments + debt)
 
-        result = salary.total_salary - (all_salaries + black_salary + book_payments)
         TeacherSalary.query.filter(TeacherSalary.id == salary_id).update({
             "remaining_salary": result,
             "taken_money": all_salaries,
         })
         db.session.commit()
-        update_teacher_salary_id(salary_id)
 
+        # update_teacher_salary_id(salary_id)
+        salary_debt = salary.debt if salary.debt else 0
     else:
         salary = StaffSalary.query.filter(StaffSalary.id == salary_id).first()
         user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
@@ -326,19 +371,16 @@ def teacher_salary_inside(salary_id, user_id):
     for book in user_books:
         list_salaries.append(book.convert_json())
 
-    if salary.remaining_salary:
-        exist_money = salary.remaining_salary
-    else:
-        exist_money = salary.total_salary
     return jsonify({
         "data": {
             "salary": salary.total_salary,
             "residue": salary.remaining_salary,
             "taken_salary": salary.taken_money,
-            "exist_salary": exist_money,
+            "exist_salary": salary.remaining_salary if salary.remaining_salary else salary.total_salary,
             "month": salary.month.date.strftime("%Y-%m"),
             "data": list_salaries,
-            "black_salary": black_salary
+            "black_salary": black_salary,
+            "salary_debt": salary_debt
         }
     })
 
@@ -353,10 +395,29 @@ def teacher_salary_inside_classroom(user_id, salary_id):
     teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.salary_id == salary_id,
                                                              TeacherBlackSalary.teacher_id == teacher.id,
                                                              TeacherBlackSalary.status == False).all()
+    salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
+    get_old_month = int(datetime.datetime.strftime(salary.month.date, "%m")) - 1
+    get_year = int(datetime.datetime.strftime(salary.month.date, "%Y"))
+    if get_old_month == 0:
+        get_old_month = 12
+        get_year -= 1
+    date = datetime.date(get_year, get_old_month, 1)
+    convert_year = str(get_year)
+    calendar_year = CalendarYear.query.filter(
+        CalendarYear.date == datetime.datetime.strptime(convert_year, "%Y")).first()
+    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date).first()
+    old_salary = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id,
+                                            TeacherSalary.calendar_year == calendar_year.id,
+                                            TeacherSalary.calendar_month == calendar_month.id).first()
+    if old_salary:
+        if old_salary.remaining_salary < 0:
+            salary.debt = old_salary.remaining_salary
+        else:
+            salary.debt = 0
+        db.session.commit()
 
     for black in teacher_black_salaries:
         black_salary += black.total_salary
-    salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
 
     salaries = TeacherSalaries.query.filter(TeacherSalaries.salary_location_id == salary_id).order_by(
         TeacherSalaries.id).all()
@@ -368,8 +429,10 @@ def teacher_salary_inside_classroom(user_id, salary_id):
     all_salaries = 0
     for sal in salaries:
         all_salaries += sal.payment_sum
+    taken_money = salary.taken_money if salary.taken_money else 0
+    debt = salary.debt if salary.debt else 0
+    result = salary.total_salary - (taken_money + black_salary + book_payments + debt)
 
-    result = salary.total_salary - (all_salaries + black_salary + book_payments)
     TeacherSalary.query.filter(TeacherSalary.id == salary_id).update({
         "remaining_salary": result,
         "taken_money": all_salaries,
@@ -400,7 +463,8 @@ def teacher_salary_inside_classroom(user_id, salary_id):
             "exist_salary": exist_money,
             "month": salary.month.date.strftime("%Y-%m"),
             "data": list_salaries,
-            "black_salary": black_salary
+            "black_salary": black_salary,
+            "salary_debt": salary.debt
         }
     })
 
@@ -414,11 +478,11 @@ def black_salary(teacher_id):
         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None)).order_by(
         TeacherBlackSalary.id).all()
     # calendar_month = CalendarMonth.query.filter(
-    #     CalendarMonth.date == datetime.datetime.strptime("2024-10", "%Y-%m")).first()
+    #     CalendarMonth.date == datetime.datetime.strptime("2024-12", "%Y-%m")).first()
     # print(teacher.id)
     # teach_black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == 23,
     #                                                      TeacherBlackSalary.calendar_month == calendar_month.id,
-    #                                                      TeacherBlackSalary.status != True
+    #                                                      TeacherBlackSalary.status == False
     #                                                      ).all()
     # print(teach_black_salary)
     # for teach in teach_black_salary:

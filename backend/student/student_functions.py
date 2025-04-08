@@ -11,7 +11,7 @@ from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
     Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentExcuses, StudentHistoryGroups, \
-    Groups, Contract_Students_Data, StudentCharity, GroupReason
+    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay
 
 
 @app.route(f'{api}/student_history2/<int:user_id>')
@@ -24,15 +24,17 @@ def student_history(user_id):
 
     history_rate_list = [
         {
-            "group_id": rate.group.id,
-            "group_name": rate.group.name.title(),
-            "subject": rate.subject.name,
-            "degree": rate.average_ball,
-            "month": rate.month.date.strftime("%h"),
-            "year": rate.year.date.strftime("%Y"),
-            "teacher_id": rate.group.teacher_id,
-            "teacher_name": Teachers.query.filter(Teachers.id == rate.group.teacher_id).first().user.name,
-            "teacher_surname": Teachers.query.filter(Teachers.id == rate.group.teacher_id).first().user.surname,
+            "group_id": rate.group.id if rate.group else 0,
+            "group_name": rate.group.name.title() if rate.group else "",
+            "subject": rate.subject.name if rate.subject else "",
+            "degree": rate.average_ball if rate.average_ball else 0,
+            "month": rate.month.date.strftime("%h") if rate.month else "",
+            "year": rate.year.date.strftime("%Y") if rate.year else "",
+            "teacher_id": rate.group.teacher_id if rate.group else 0,
+            "teacher_name": Teachers.query.filter(
+                Teachers.id == rate.group.teacher_id).first().user.name if rate.group else "",
+            "teacher_surname": Teachers.query.filter(
+                Teachers.id == rate.group.teacher_id).first().user.surname if rate.group else "",
         } for rate in history_rates
     ]
     years = [rate.year.date.strftime("%Y") for rate in history_rates]
@@ -40,14 +42,16 @@ def student_history(user_id):
         desc(StudentHistoryGroups.id)).all()
     history_group_list = [
         {
-            "group_id": gr.group.id,
-            "group_name": gr.group.name.title(),
-            "reason": gr.reason,
-            "joined_day": gr.joined_day.strftime("%Y-%m-%d"),
-            "left_day": gr.left_day.strftime("%Y-%m-%d") if gr.left_day else "",
-            "teacher_id": gr.group.teacher_id,
-            "teacher_name": Teachers.query.filter(Teachers.id == gr.group.teacher_id).first().user.name.title(),
-            "teacher_surname": Teachers.query.filter(Teachers.id == gr.group.teacher_id).first().user.surname.title(),
+            "group_id": gr.group.id if gr.group else 0,
+            "group_name": gr.group.name.title() if gr.group else "",
+            "reason": gr.reason if gr.reason else "",
+            "joined_day": gr.joined_day.strftime("%Y-%m-%d") if gr.joined_day else "",
+            "left_day": gr.left_day.strftime("%Y-%m-%d") if gr.left_day else "" if gr.left_day else "",
+            "teacher_id": gr.group.teacher_id if gr.group else 0,
+            "teacher_name": Teachers.query.filter(
+                Teachers.id == gr.group.teacher_id).first().user.name.title() if gr.group else "",
+            "teacher_surname": Teachers.query.filter(
+                Teachers.id == gr.group.teacher_id).first().user.surname.title() if gr.group else "",
         } for gr in student_groups
     ]
     years = list(dict.fromkeys(years))
@@ -140,21 +144,29 @@ def studyingStudents(id):
 def deletedStudents(id):
     reason = request.get_json()['type']
     user_list = db.session.query(Students).join(Students.user).options(contains_eager(Students.user)).filter(
-        Students.deleted_from_group != None, Users.location_id == id).order_by('id').all()
+        Students.deleted_from_group != None, Students.group == None, Users.location_id == id).join(
+        Students.deleted_from_group).join(
+        DeletedStudents.day) \
+        .order_by(desc(CalendarDay.date)).all()
     user_id = []
     for user in user_list:
         user_id.append(user.id)
     user_id = list(dict.fromkeys(user_id))
 
     if reason == "Hammasi":
-        students_list = DeletedStudents.query.filter(
-            DeletedStudents.student_id.in_([user_id for user_id in user_id])).order_by(
-            desc(DeletedStudents.calendar_day)).all()
+        students_list = (
+            DeletedStudents.query
+            .join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)  # Ensure correct join condition
+            .filter(DeletedStudents.student_id.in_(user_id))  # No need for list comprehension
+            .order_by(desc(CalendarDay.date))
+            .all()
+        )
     else:
         group_reason = GroupReason.query.filter(GroupReason.id == reason).first()
         students_list = DeletedStudents.query.filter(DeletedStudents.student_id.in_([user_id for user_id in user_id]),
-                                                     DeletedStudents.reason_id == group_reason.id).order_by(
-            desc(DeletedStudents.calendar_day)).all()
+                                                     DeletedStudents.reason_id == group_reason.id).join(
+            DeletedStudents.day).order_by(
+            desc(CalendarDay.date)).all()
 
     role = Roles.query.filter(Roles.type_role == "student").first()
 

@@ -687,12 +687,7 @@ def account_details(location_id):
                  Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
                  )).order_by(
             desc(StudentPayments.id)).all()
-        all_investment = db.session.query(
-            func.sum(Investment.amount)).join(CalendarDay,
-                                              CalendarDay.id == Investment.calendar_day).filter(
-            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Investment.location_id == location_id,
-                 Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
-                 )).first()[0] if investments else 0
+
 
         teacher_salaries = db.session.query(TeacherSalaries).join(TeacherSalaries.day).options(
             contains_eager(TeacherSalaries.day)).filter(
@@ -884,7 +879,8 @@ def account_details(location_id):
             "date": salary.day.date.strftime('%Y-%m-%d')
         } for salary in capitals]
         investment_list = iterate_models(investments)
-        all_investment = all_investment if all_investment else 0
+        # all_investment = all_investment if all_investment else 0
+        all_investment = sum([investment.amount for investment in investments])
         result = (all_payment + all_investment) - (
                 all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all + all_dividend)
         return jsonify({
