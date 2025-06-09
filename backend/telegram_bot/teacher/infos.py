@@ -1,7 +1,7 @@
 import pprint
 from datetime import datetime
 from app import app, api, desc, jsonify
-from backend.models.models import TeacherSalary, Teachers, CalendarYear, Locations
+from backend.models.models import TeacherSalary, Teachers, CalendarYear, Locations, TeacherSalaries
 
 
 @app.route(f'{api}/bot_teacher_salary_years/<int:teacher_id>', methods=["POST", "GET"])
@@ -18,9 +18,8 @@ def bot_teacher_salary_years(teacher_id):
 def bot_teacher_salary(teacher_id, year):
     teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
     get_year = CalendarYear.query.filter(CalendarYear.date == datetime(year, 1, 1)).first()
-    print(get_year.id)
+
     salary_list = []
-    print(teacher.locations)
     for location in teacher.locations:
         get_location = Locations.query.filter(Locations.id == location.id).first()
         teacher_salary = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher_id,
@@ -37,3 +36,27 @@ def bot_teacher_salary(teacher_id, year):
         }
         salary_list.append(info)
     return jsonify(salary_list)
+
+
+@app.route(f'{api}/bot_teacher_salary_details/<teacher_id>/<salary_id>')
+def bot_teacher_salary_details(teacher_id, salary_id):
+    teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
+    teacher_salary = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher_id,
+                                                TeacherSalary.id == salary_id).first()
+    daily_salaries = TeacherSalaries.query.filter(TeacherSalaries.teacher_id == teacher.id,
+                                                  TeacherSalaries.salary_location_id == teacher_salary.id).order_by(
+        desc(TeacherSalaries.id)).all()
+
+    info = {
+        "teacher_id": teacher.id,
+        "total_salary": teacher_salary.total_salary,
+        "taken_money": teacher_salary.taken_money,
+        "debt": teacher_salary.debt,
+        "remaining_salary": teacher_salary.remaining_salary,
+        "name": teacher.user.name,
+        "surname": teacher.user.surname,
+        "month": teacher_salary.month.date.strftime("%Y-%m"),
+        "location": teacher_salary.location.name,
+        "salary_list": [salary.convert_json() for salary in daily_salaries]
+    }
+    return info

@@ -430,8 +430,9 @@ class TeacherSalaries(db.Model):
             "id": self.id,
             "amount": self.payment_sum,
             "type_name": "Teacher salaries",
+            "payment_type": self.payment_type.name,
+            "reason": self.reason,
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
-
         }
 
 
