@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime
-
+# import pandas as pd
 import docx
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
@@ -106,6 +106,8 @@ def get_back_student(user_id):
 @app.route(f'{api}/studyingStudents/<int:id>', methods=['POST', 'GET'])
 @jwt_required()
 def studyingStudents(id):
+
+
     user_list = Users.query.join(Students).filter(Students.group != None, Users.location_id == id).order_by(
         Users.id).all()
     user_id = []

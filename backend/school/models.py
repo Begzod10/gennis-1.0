@@ -1,4 +1,4 @@
-from backend.models.models import Column, Integer, ForeignKey, String, relationship, db, Date
+from backend.models.models import Column, Users, Integer, ForeignKey, String, relationship, db, Date, Boolean
 from backend.school.list.regions import provinces_data, districts_data
 from flask.cli import with_appcontext
 import click
@@ -80,19 +80,24 @@ class SchoolInfo(db.Model):
     number = Column(Integer, nullable=False)
     region_id = Column(Integer, ForeignKey('region.id'), nullable=False)
     district_id = Column(Integer, ForeignKey('district.id'), nullable=False)
+    deleted = Column(Boolean, default=False)
+    phone_number = Column(String)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+    school_users = relationship("SchoolUser", backref="school", order_by="SchoolUser.id", lazy="select")
 
     def convert_json(self, entire=False):
         return {
             "id": self.id,
             "number": self.number,
-            "region_":
+            'phone_number': self.phone_number,
+            "region":
                 {
                     "id": self.region_id,
-                    "name": self.region.name
+                    "name": self.region.name_uz
                 },
             "district": {
                 "id": self.district_id,
-                "name": self.district.name
+                "name": self.district.name_uz
             }
         }
 
@@ -105,24 +110,48 @@ class SchoolInfo(db.Model):
         db.session.commit()
 
 
-class SchoolStudent(db.Model):
-    __tablename__ = "school_student"
+class SchoolUser(db.Model):
+    __tablename__ = "school_user"
     id = Column(Integer, primary_key=True)
     name = Column(String)
     surname = Column(String)
     phone = Column(String)
     school_id = Column(Integer, ForeignKey('school_info.id'))
+    type_user = Column(String, nullable=False)
+    percentage = Column(Integer)
+    deleted = Column(Boolean, default=False)
+    by_who = Column(Integer, ForeignKey("users.id"))
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+
+    from sqlalchemy.orm import foreign
+
+    users = relationship(
+        "Users",
+        backref="school_user",
+        primaryjoin="foreign(Users.school_user_id) == SchoolUser.id",
+        order_by="Users.id"
+    )
 
     def convert_json(self, entire=False):
+        user = Users.query.filter(Users.school_user_id == self.id).first()
+        by_who = Users.query.filter(Users.id == self.by_who).first() if self.by_who else None
+        teacher = SchoolUser.query.filter(SchoolUser.id == by_who.school_user_id).first() if by_who else None
+
         return {
             "id": self.id,
+            "user_infos": user.convert_json() if user else None,
             "name": self.name,
             "surname": self.surname,
+            "username": user.username if user else None,
             "phone": self.phone,
             "school": {
                 "id": self.school_id,
                 "number": self.school.number
-            }
+            },
+            "type": self.type_user,
+            "percentage": self.percentage,
+            "teacher": teacher.convert_json() if teacher else None
+
         }
 
     def add(self):
@@ -134,50 +163,18 @@ class SchoolStudent(db.Model):
         db.session.commit()
 
 
-class SchoolTeacher(db.Model):
-    __tablename__ = "school_teacher"
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    surname = Column(String)
-    phone = Column(String)
-    school_id = Column(Integer, ForeignKey('school_info.id'))
-    teacher_salary = relationship("SchoolTeacherSalary", backref="teacher_school", order_by="SchoolTeacherSalary.id",
-                                  lazy="select")
-    teacher_salary_day = relationship("SchoolTeacherSalaryDay", backref="teacher", order_by="SchoolTeacherSalaryDay.id",
-                                      lazy="select")
-    def convert_json(self, entire=False):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "surname": self.surname,
-            "phone": self.phone,
-            "school": {
-                "id": self.school_id,
-                "number": self.school.number
-            }
-        }
-
-    def add(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
-
-
-class SchoolTeacherSalary(db.Model):
-    __tablename__ = "school_teacher_salary"
+class SchoolUserSalary(db.Model):
+    __tablename__ = "school_user_salary"
     id = Column(Integer, primary_key=True)
     salary = Column(Integer)
     remaining = Column(Integer)
     taken = Column(Integer)
     calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
     calendar_year = Column(Integer, ForeignKey('calendaryear.id'))
-    teacher_id = Column(Integer, ForeignKey('school_teacher.id'))
-    teacher_salary_day = relationship("SchoolTeacherSalaryDay", backref="teacher_salary",
-                                      order_by="SchoolTeacherSalaryDay.id",
-                                      lazy="select")
+    school_user_id = Column(Integer, ForeignKey('school_user.id'))
+    school_salary_day = relationship("SchoolUserSalaryDay", backref="teacher_salary",
+                                     order_by="SchoolUserSalaryDay.id",
+                                     lazy="select")
 
     def convert_json(self, entire=False):
         return {
@@ -191,15 +188,24 @@ class SchoolTeacherSalary(db.Model):
             }
         }
 
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
 
-class SchoolTeacherSalaryDay(db.Model):
-    __tablename__ = "school_teacher_salary_day"
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+
+class SchoolUserSalaryDay(db.Model):
+    __tablename__ = "school_user_salary_day"
     id = Column(Integer, primary_key=True)
     salary = Column(Integer)
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
-    teacher_id = Column(Integer, ForeignKey('school_teacher.id'))
+    school_user_id = Column(Integer, ForeignKey('school_user.id'))
     payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'))
-    salary_id = Column(Integer, ForeignKey('school_teacher_salary.id'))
+    salary_id = Column(Integer, ForeignKey('school_user_salary.id'))
+    deleted = Column(Boolean, default=False)
 
     def convert_json(self, entire=False):
         return {
@@ -216,3 +222,35 @@ class SchoolTeacherSalaryDay(db.Model):
                 "name": self.payment_type.name
             }
         }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+
+class SchoolUserSalaryAttendance(db.Model):
+    __tablename__ = "school_user_salary_attendance"
+    id = Column(Integer, primary_key=True)
+    school_user_id = Column(Integer, ForeignKey('school_user.id'))
+    salary_per_day = Column(Integer)
+    attendance_day_id = Column(Integer, ForeignKey('attendancedays.id'))
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+    calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
+    calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+        }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()

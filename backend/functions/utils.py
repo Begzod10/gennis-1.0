@@ -6,6 +6,7 @@ from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, Acco
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
     TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries
 from dateutil.relativedelta import relativedelta
+from backend.school.models import SchoolUserSalary, SchoolUserSalaryAttendance, SchoolUserSalaryDay, SchoolUser
 from calendar import monthrange
 import uuid
 from datetime import datetime
@@ -629,3 +630,44 @@ def send_user_info(user):
     requests.post(f"{classroom_server}/api/update_user_info", json={
         "user": user.convert_json(),
     })
+
+
+def update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add):
+    school_user = SchoolUser.query.filter(SchoolUser.id == user.school_user_id).first()
+    if school_user:
+        user_school_get = Users.query.filter(Users.id == school_user.by_who).first()
+        school_user = SchoolUser.query.filter(SchoolUser.id == user_school_get.school_user_id).first()
+        salary_per_day = round((school_user.percentage / group.price) * 100)
+        school_user_salary_day = SchoolUserSalaryAttendance.query.filter(
+            SchoolUserSalaryAttendance.school_user_id == school_user.id,
+            SchoolUserSalaryAttendance.calendar_day == calendar_day.id,
+            SchoolUserSalaryAttendance.calendar_month == calendar_month.id,
+            SchoolUserSalaryAttendance.calendar_year == calendar_year.id
+        ).first()
+        if not school_user_salary_day:
+            school_user_salary_day = SchoolUserSalaryAttendance(school_user_id=school_user.id,
+                                                                salary_per_day=salary_per_day,
+                                                                calendar_day=calendar_day.id,
+                                                                calendar_month=calendar_month.id,
+                                                                calendar_year=calendar_year.id,
+                                                                attendance_day_id=attendance_add.id)
+            school_user_salary_day.add()
+
+        all_salaries_month = SchoolUserSalaryAttendance.query.filter(
+            SchoolUserSalaryAttendance.school_user_id == school_user.id,
+            SchoolUserSalaryAttendance.calendar_month == calendar_month.id,
+            SchoolUserSalaryAttendance.calendar_year == calendar_year.id
+        ).all()
+        all_salaries_sum = sum([salary.salary_per_day for salary in all_salaries_month])
+        exist_salary_month = SchoolUserSalary.query.filter(SchoolUserSalary.school_user_id == school_user.id,
+                                                           SchoolUserSalary.calendar_month == calendar_month.id,
+                                                           SchoolUserSalary.calendar_year == calendar_year.id).first()
+        if not exist_salary_month:
+            exist_salary_month = SchoolUserSalary(school_user_id=school_user.id,
+                                                  calendar_month=calendar_month.id,
+                                                  calendar_year=calendar_year.id,
+                                                  salary=all_salaries_sum)
+            exist_salary_month.add()
+        else:
+            exist_salary_month.salary = all_salaries_sum
+            db.session.commit()

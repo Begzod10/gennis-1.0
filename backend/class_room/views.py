@@ -4,7 +4,7 @@ from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, Cale
     DeletedTeachers, Locations
 from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id, \
-    find_calendar_date
+    find_calendar_date, update_school_salary
 from datetime import datetime
 from backend.functions.debt_salary_update import salary_debt
 from flask_jwt_extended import jwt_required, create_refresh_token, create_access_token, get_jwt_identity
@@ -40,17 +40,11 @@ def login2():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
 
-        # role = Roles.query.filter_by(type_role="director").first()
-        # location = Locations.query.filter(Locations.id == 3).first()
-        # exist_user = Users.query.filter(Users.username == "dr_mamur").first()
-        # if not exist_user:
-        #     user = Users(username="dr_mamur", name="dr_mamur", surname="dr_mamur",
-        #                  password=generate_password_hash("12345678"), role_id=role.id,
-        #                  location_id=location.id, director=True, user_id=check_exist_id(), born_day=18, born_month=10,
-        #                  born_year=1998, calendar_year=calendar_year.id, calendar_month=calendar_month.id,
-        #                  calendar_day=calendar_day.id)
-        #     db.session.add(user)
-        #     db.session.commit()
+        subject = Subjects.query.filter(Subjects.name == "Smm").first()
+        if not subject:
+            subject = Subjects(name="Smm", ball_number=2)
+            db.session.add(subject)
+            db.session.commit()
         username = get_json_field('username')
         password = get_json_field('password')
         username_sign = Users.query.filter_by(username=username).first()
@@ -81,7 +75,8 @@ def login2():
                     "access_token": access_token,
                     "refresh_token": create_refresh_token(identity=username_sign.user_id),
                 },
-                "success": True
+                "success": True,
+                "type_user": role.type_role
             })
         else:
             return jsonify({
@@ -317,6 +312,10 @@ def make_attendance_classroom():
                                             discount_per_day=discount_per_day)
             db.session.add(attendance_add)
             db.session.commit()
+
+        user = Users.query.filter(Users.id == student.user_id).first()
+        if user.school_user_id:
+            update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
         attendance_days = AttendanceDays.query.filter(AttendanceDays.attendance_id == attendance.id,
                                                       AttendanceDays.teacher_ball != None).all()
         total_ball = 0
@@ -355,6 +354,7 @@ def make_attendance_classroom():
             else:
                 black_salary.total_salary += salary_per_day
                 db.session.commit()
+
     return jsonify({
         "message": "O'quvchilar davomat qilindi",
         "status": "success",

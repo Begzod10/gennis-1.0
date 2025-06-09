@@ -126,6 +126,7 @@ class StudentPayments(db.Model):
             "calendar_year": self.calendar_year,
             "amount": self.payment_sum,
             "payment_type_id": self.payment_type_id,
+            "payment_type": PaymentTypes.query.get(self.payment_type_id).name,
             "account_period_id": self.account_period_id,
             "payment": self.payment,
             "by_who": self.by_who,
@@ -731,6 +732,16 @@ class TeacherSalary(db.Model):
     debt = Column(Integer)
     old_id = Column(Integer)
     extra = Column(Integer)
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "total_salary": self.total_salary,
+            "remaining_salary": self.remaining_salary,
+            "taken_money": self.taken_money,
+            "debt": self.debt,
+            "month": self.month.date.strftime("%Y-%m"),
+        }
 
 
 class TeacherBlackSalary(db.Model):

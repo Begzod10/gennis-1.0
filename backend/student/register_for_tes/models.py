@@ -15,6 +15,13 @@ class School(db.Model):
     name = db.Column(db.String(100), nullable=False)
     number = db.Column(db.Integer, nullable=False)
 
+    def convert_json(self, entire=False):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'number': self.number
+        }
+
     def __str__(self):
         return self.name
 

@@ -11,6 +11,17 @@ class Group_Room_Week(db.Model):
     end_time = Column(DateTime)
     location_id = Column(Integer, ForeignKey('locations.id'))
 
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "group_id": self.group_id,
+            "room_id": self.room_id,
+            "week_id": self.week_id,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "location_id": self.location_id
+        }
+
 
 db.Table('time_table_student',
          db.Column("student_id", db.Integer, db.ForeignKey('students.id')),

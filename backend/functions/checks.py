@@ -15,8 +15,8 @@ def check_username():
 
     body = {}
     username = request.get_json()
-    print(username)
-    find_username_users = Users.query.filter_by(username=username).first()
+    find_username_users = Users.query.filter_by(username=username).filter(
+        or_(Users.deleted == False, Users.deleted == None)).first()
 
     body['found'] = True if find_username_users else False
     # if not body['found']:
@@ -51,7 +51,8 @@ def check_exist_username(user_id):
     """
     username = request.get_json()['username']
     user = Users.query.filter(Users.id == user_id).first()
-    exist_username = Users.query.filter(and_(Users.username == username, Users.username != user.username)).first()
+    exist_username = Users.query.filter(and_(Users.username == username, Users.username != user.username)).filter(
+        or_(Users.deleted == False, Users.deleted == None)).first()
 
     error = True if exist_username else False
     # if not error:

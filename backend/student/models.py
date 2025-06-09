@@ -266,5 +266,10 @@ class StudentTest(db.Model):
                 "id": self.group_test.id,
                 "name": self.group_test.name,
                 "level": self.group_test.level
-            }
+            },
+            "date": self.day.date.strftime("%Y-%m-%d"),
+            "group_id": self.group_id,
+            "subject_id": self.subject_id,
+            "group_name": self.group.name,
+            "subject_name": self.subject.name
         }

@@ -174,6 +174,7 @@ def change_student_info(user_id):
                     #                 "found": True,
                     #                 "msg": f"Studentni bu {subject.name} guruh ochilgan!"
                     #             })
+
                     while student.subject:
                         for sub in student.subject:
                             student.subject.remove(sub)
@@ -251,5 +252,3 @@ def debt_reason(user_id):
         "success": True,
         "msg": "Ma'lumot kiritildi"
     })
-
-

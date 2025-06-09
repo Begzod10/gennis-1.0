@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identi
     unset_jwt_cookies
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import app, api, db, jsonify, contains_eager, request
+from app import app, api, db, jsonify, contains_eager, request, or_, desc
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
     deleted_students_filter, debt_students, deleted_reg_students_filter
@@ -147,43 +147,43 @@ def refresh():
     })
 
 
-@app.route(f'{api}/login', methods=['POST', 'GET'])
-def login():
-    if request.method == "POST":
-
-        username = get_json_field('username')
-        password = get_json_field('password')
-        username_sign = Users.query.filter_by(username=username).first()
-
-        if username_sign and check_password_hash(username_sign.password, password):
-            access_token = create_access_token(identity=username)
-            # if username_sign.role_id == 5 or username_sign.role_id == 4:
-            #     return jsonify({
-            #         'class': True,
-            #         "access_token": access_token,
-            #     })
-            role = Roles.query.filter(Roles.id == username_sign.role_id).first()
-            refresh_age(username_sign.id)
-            return jsonify({
-                "data": {
-                    "username": username_sign.username,
-                    "surname": username_sign.surname.title(),
-                    "name": username_sign.name.title(),
-                    "id": username_sign.id,
-                    "access_token": access_token,
-                    "role": role.role,
-                    "observer": username_sign.observer,
-                    "refresh_token": create_refresh_token(identity=username),
-                    "location_id": username_sign.location_id
-                },
-                "success": True
-            })
-
-        else:
-            return jsonify({
-                "success": False,
-                "msg": "Username yoki parol noturg'i"
-            })
+# @app.route(f'{api}/login', methods=['POST', 'GET'])
+# def login():
+#     if request.method == "POST":
+#
+#         username = get_json_field('username')
+#         password = get_json_field('password')
+#         username_sign = Users.query.filter_by(username=username).first()
+#
+#         if username_sign and check_password_hash(username_sign.password, password):
+#             access_token = create_access_token(identity=username)
+#             # if username_sign.role_id == 5 or username_sign.role_id == 4:
+#             #     return jsonify({
+#             #         'class': True,
+#             #         "access_token": access_token,
+#             #     })
+#             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
+#             refresh_age(username_sign.id)
+#             return jsonify({
+#                 "data": {
+#                     "username": username_sign.username,
+#                     "surname": username_sign.surname.title(),
+#                     "name": username_sign.name.title(),
+#                     "id": username_sign.id,
+#                     "access_token": access_token,
+#                     "role": role.role,
+#                     "observer": username_sign.observer,
+#                     "refresh_token": create_refresh_token(identity=username),
+#                     "location_id": username_sign.location_id
+#                 },
+#                 "success": True
+#             })
+#
+#         else:
+#             return jsonify({
+#                 "success": False,
+#                 "msg": "Username yoki parol noturg'i"
+#             })
 
 
 @app.route(f"{api}/logout", methods=["POST"])
@@ -202,7 +202,8 @@ def register():
         json_request = request.get_json()
 
         username = json_request['username']
-        username_check = Users.query.filter_by(username=username).first()
+        username_check = Users.query.filter_by(username=username).filter(
+            or_(Users.deleted == False, Users.deleted == None)).first()
 
         morning_shift = None
         night_shift = None
@@ -234,6 +235,7 @@ def register():
         comment = json_request['comment']
         location = json_request['location']
         studyLang = json_request['language']
+        school_user_id = json_request['school_user_id'] if 'school_user_id' in json_request else None
         if not studyLang:
             studyLang = "Uz"
         language = EducationLanguage.query.filter_by(id=studyLang).first()
@@ -263,6 +265,7 @@ def register():
                     location_id=location.id, user_id=user_id, username=username, born_day=birthDay,
                     born_month=birthMonth, comment=comment, calendar_day=calendar_day.id, director=director,
                     calendar_month=calendar_month.id, calendar_year=calendar_year.id, role_id=role.id,
+                    school_user_id=school_user_id,
                     born_year=birthYear, age=age, father_name=fatherName, balance=0)
         db.session.add(add)
 
@@ -323,7 +326,8 @@ def register_teacher():
     if request.method == "POST":
         get_json = request.get_json()
         username = get_json['username']
-        username_check = Users.query.filter_by(username=username).first()
+        username_check = Users.query.filter_by(username=username).filter(
+            or_(Users.deleted == False, Users.deleted == None)).first()
         if username_check:
             return jsonify({
                 "message": "Username is already exists",
@@ -388,7 +392,8 @@ def register_staff():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     get_json = request.get_json()
     username = get_json['username']
-    username_check = Users.query.filter_by(username=username).first()
+    username_check = Users.query.filter_by(username=username).filter(
+        or_(Users.deleted == False, Users.deleted == None)).first()
     if username_check:
         return jsonify({
             "message": "Username is already exists",
@@ -397,7 +402,6 @@ def register_staff():
         })
     name = get_json['name']
     surname = get_json['surname']
-    pprint(get_json)
     fatherName = get_json['father_name']
     year = get_json['birth_day'][:4]
     month = get_json['birth_day'][5:7]
@@ -672,7 +676,7 @@ def profile(user_id):
     refresh_age(user_get.id)
     att_count = 0
     if teacher_get:
-        groups = Groups.query.filter(Groups.teacher_id == teacher_get.id, 
+        groups = Groups.query.filter(Groups.teacher_id == teacher_get.id,
                                      Groups.status == True).order_by(Groups.id).all()
         att_count = db.session.query(AttendanceDays).join(AttendanceDays.group).options(
             contains_eager(AttendanceDays.group)).filter(

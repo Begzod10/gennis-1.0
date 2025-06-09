@@ -683,10 +683,10 @@ def account_details(location_id):
 
         investments = db.session.query(Investment).join(Investment.day).options(
             contains_eager(Investment.day)).filter(
-            and_(CalendarDay.date >= ot, CalendarDay.date <= do, StudentPayments.location_id == location_id,
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Investment.location_id == location_id,
                  Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
                  )).order_by(
-            desc(StudentPayments.id)).all()
+            desc(Investment.id)).all()
 
 
         teacher_salaries = db.session.query(TeacherSalaries).join(TeacherSalaries.day).options(

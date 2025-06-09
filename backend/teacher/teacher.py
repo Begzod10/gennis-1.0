@@ -15,10 +15,12 @@ from backend.student.class_model import Student_Functions
 from backend.group.class_model import Group_Functions
 from datetime import datetime
 from .utils import get_students_info, prepare_scores
-from backend.functions.utils import find_calendar_date, update_salary, iterate_models, get_json_field
+from backend.functions.utils import find_calendar_date, update_salary, iterate_models, get_json_field, \
+    update_school_salary
 from backend.models.models import Users, Attendance, Students, AttendanceDays, Teachers, Groups, Locations, Subjects, \
     StudentCharity, Roles, TeacherBlackSalary, GroupReason, TeacherObservationDay, DeletedStudents, \
     TeacherGroupStatistics
+from backend.school.models import SchoolUser, SchoolUserSalary, SchoolUserSalaryDay, SchoolUserSalaryAttendance
 from datetime import timedelta
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear
 from sqlalchemy import func
@@ -321,6 +323,7 @@ def make_attendance():
     if 'reason' in student:
         reason = student['reason']
     student_get = Students.query.filter(Students.user_id == student_id).first()
+
     if student_get.debtor != 4:
         homework = 0
         dictionary = 0
@@ -479,6 +482,7 @@ def make_attendance():
         salary_location = salary_debt(student_id=student_get.id, group_id=group_id, attendance_id=attendance_add.id,
                                       status_attendance=False, type_attendance="add")
         update_salary(teacher_id=teacher.user_id)
+
         if student_get.debtor == 2:
             black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
                                                            TeacherBlackSalary.student_id == student_get.id,
@@ -498,7 +502,10 @@ def make_attendance():
             else:
                 black_salary.total_salary += salary_per_day
                 db.session.commit()
-        # requests.post(f"{classroom_server}/api/update_student_balance/{student_get.user.id}/gennis", json={
+        user = Users.query.filter(Users.id == student_id).first()
+        if user.school_user_id:
+            update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
+            # requests.post(f"{classroom_server}/api/update_student_balance/{student_get.user.id}/gennis", json={
         #     "balance": student_get.user.balance
         # })
         return jsonify({

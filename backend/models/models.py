@@ -98,7 +98,7 @@ class CalendarYear(db.Model):
     account_payable_history = relationship("AccountPayableHistory", backref="year", order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="year", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
-    school_teacher_salary = relationship("SchoolTeacherSalary", backref="year", order_by="SchoolTeacherSalary.id")
+    school_user_salary = relationship("SchoolUserSalary", backref="year", order_by="SchoolUserSalary.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
@@ -176,7 +176,7 @@ class CalendarMonth(db.Model):
                                            order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="month", order_by="TaskRatingsMonthly.id")
-    school_teacher_salary = relationship("SchoolTeacherSalary", backref="month", order_by="SchoolTeacherSalary.id")
+    school_user_salary = relationship("SchoolUserSalary", backref="month", order_by="SchoolUserSalary.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -277,8 +277,8 @@ class CalendarDay(db.Model):
     dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="day", order_by="MainOverhead.id")
     account_payable_history = relationship("AccountPayableHistory", backref="day", order_by="AccountPayableHistory.id")
-    school_teacher_salary_day = relationship("SchoolTeacherSalaryDay", backref="day",
-                                             order_by="SchoolTeacherSalaryDay.id")
+    school_teacher_salary_day = relationship("SchoolUserSalaryDay", backref="day",
+                                             order_by="SchoolUserSalaryDay.id")
 
     def convert_json(self, entire=False):
         return {
@@ -438,6 +438,14 @@ class Users(db.Model):
     tasks_statistics = relationship("TasksStatistics", backref="user", order_by='TasksStatistics.id')
     tasks_daily_statistics = relationship("TaskDailyStatistics", backref="user", order_by='TaskDailyStatistics.id')
     camp_staffs = relationship("CampStaff", backref="user", order_by='CampStaff.id')
+    school_user_id = Column(Integer, ForeignKey('school_user.id'))
+    school_users = relationship(
+        "SchoolUser",
+        backref="user",
+        primaryjoin="foreign(SchoolUser.by_who) == Users.id",
+        order_by="SchoolUser.id"
+    )
+    deleted = Column(Boolean, default=False)
 
     def convert_json(self, entire=False):
         if not entire:
@@ -490,7 +498,8 @@ class Users(db.Model):
                     "debtor": self.student.debtor,
                     "extra_payment": self.student.extra_payment,
                     "representative_name": self.student.representative_name,
-                    "representative_surname": self.student.representative_surname
+                    "representative_surname": self.student.representative_surname,
+                    "id": self.student.id
                 }
                 for subject in self.student.subject:
                     info['student']['subjects'].append(
@@ -509,6 +518,7 @@ class Users(db.Model):
                 info["teacher"] = {
                     "subjects": [],
                     "group": [],
+                    "id": self.teacher.id
                 }
                 for subject in self.teacher.subject:
                     info['teacher']['subjects'].append(

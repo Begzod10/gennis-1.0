@@ -426,16 +426,17 @@ def add_group_students2(group_id):
         msg = "O'quvchi guruhga qo'shildi"
         if len(student_id_list) > 1:
             msg = "O'quvchilar guruhga qo'shildi"
-        print('st',student_id_list)
+        print('st', student_id_list)
         students_checked = db.session.query(Students).join(Students.user).options(contains_eager(Students.user)).filter(
             Users.id.in_([user_id for user_id in student_id_list]),
         ).order_by(
             'id').all()
         print(students_checked)
         for st in students_checked:
-            for sub in st.subject:
-                if sub.name == subject.name:
-                    st.subject.remove(subject)
+
+            if subject in st.subject:
+                st.subject.remove(subject)
+                db.session.commit()
             st.group.append(group)
             group_history = StudentHistoryGroups(teacher_id=group.teacher_id, student_id=st.id, group_id=group.id,
                                                  joined_day=calendar_day.date)

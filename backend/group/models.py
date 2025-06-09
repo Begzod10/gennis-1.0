@@ -200,7 +200,7 @@ class AttendanceDays(db.Model):
         }
 
     def convert_json(self, entire=False):
-        if self.status == 1:
+        if self.status == 1 or self.status == 2:
             status = True
         else:
             status = False
@@ -210,6 +210,8 @@ class AttendanceDays(db.Model):
             "homework": self.homework,
             "dictionary": self.dictionary,
             "activeness": self.activeness,
+            "average_ball": self.average_ball,
+            "ball_status": self.status,
             "status": status,
             "student": {
                 "id": self.student.id,
@@ -253,3 +255,5 @@ class GroupTest(db.Model):
             "percentage": self.percentage,
             "file": self.file
         }
+
+
