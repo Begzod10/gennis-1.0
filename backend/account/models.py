@@ -682,14 +682,14 @@ class AccountingInfo(db.Model):
     calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
     location_id = Column(Integer, ForeignKey('locations.id'))
     all_payments = Column(Integer, default=0)
-    all_teacher_salaries = Column(Integer, default=0)
-    all_staff_salaries = Column(Integer, default=0)
-    all_overhead = Column(Integer, default=0)
-    all_capital = Column(Integer, default=0)
-    all_charity = Column(Integer, default=0)
-    all_investment = Column(Integer, default=0)
-    all_dividend = Column(Integer, default=0)
-    current_cash = Column(Integer, default=0)
+    all_teacher_salaries = Column(BigInteger, default=0)
+    all_staff_salaries = Column(BigInteger, default=0)
+    all_overhead = Column(BigInteger, default=0)
+    all_capital = Column(BigInteger, default=0)
+    all_charity = Column(BigInteger, default=0)
+    all_investment = Column(BigInteger, default=0)
+    all_dividend = Column(BigInteger, default=0)
+    current_cash = Column(BigInteger, default=0)
     old_cash = Column(Integer, default=0)
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
 
@@ -735,13 +735,22 @@ class TeacherSalary(db.Model):
     extra = Column(Integer)
 
     def convert_json(self, entire=False):
+        total = db.session.query(
+            func.sum(TeacherBlackSalary.total_salary)
+        ).filter(
+            TeacherBlackSalary.calendar_month == self.calendar_month,
+            TeacherBlackSalary.teacher_id == self.teacher_id,
+            TeacherBlackSalary.location_id == self.location_id,
+            TeacherBlackSalary.status == False
+        ).scalar()
         return {
             "id": self.id,
-            "total_salary": self.total_salary,
+            "total_salary": self.total_salary + self.extra if self.extra else self.total_salary,
             "remaining_salary": self.remaining_salary,
             "taken_money": self.taken_money,
             "debt": self.debt,
             "month": self.month.date.strftime("%Y-%m"),
+            "black_salary": total if total else 0
         }
 
 

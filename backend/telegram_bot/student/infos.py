@@ -3,7 +3,7 @@ from datetime import datetime
 from app import app, api, desc, jsonify
 from backend.models.models import StudentPayments, Students, Attendance, Users, Group_Room_Week, Week, AttendanceDays, \
     CalendarDay, \
-    CalendarYear, CalendarMonth, AttendanceHistoryStudent, StudentTest, GroupTest, Teachers, Groups
+    CalendarYear, CalendarMonth, AttendanceHistoryStudent, StudentTest, GroupTest, Teachers, Groups, TeacherSalary
 from backend.functions.utils import iterate_models, find_calendar_date
 
 
@@ -139,5 +139,20 @@ def bot_student_test_results(student_id):
 def bot_student_balance(student_id, user_type):
     student = Students.query.filter(Students.id == student_id).first()
     teacher = Teachers.query.filter(Teachers.id == student_id).first()
-    balance = student.user.balance if user_type == "student" else teacher.user.balance
+    balance = 0
+    if user_type == "student":
+        balance = student.user.balance
+    else:
+        last_two_salaries = (
+            TeacherSalary.query
+            .filter(TeacherSalary.teacher_id == teacher.id)
+            .order_by(
+                TeacherSalary.id.desc())  # or use .order_by(TeacherSalary.created_at.desc()) if you have a timestamp
+            .limit(2)
+            .all()
+        )
+        if last_two_salaries:
+            for salary in last_two_salaries:
+                balance += salary.total_salary if not salary.remaining_salary else salary.remaining_salary
+
     return jsonify({"balance": balance})

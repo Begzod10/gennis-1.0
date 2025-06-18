@@ -672,7 +672,7 @@ def profile(user_id):
     teacher_get = Teachers.query.filter(Teachers.user_id == user_id).first()
     staff_get = Staff.query.filter(Staff.user_id == user_id).first()
     director_get = Users.query.filter(Users.id == user_id).first()
-    old_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime("2025-01", "%Y-%m")).first().id
+    old_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime("2025-01", "%Y-%m")).first()
     refresh_age(user_get.id)
     att_count = 0
     if teacher_get:
@@ -681,7 +681,7 @@ def profile(user_id):
         att_count = db.session.query(AttendanceDays).join(AttendanceDays.group).options(
             contains_eager(AttendanceDays.group)).filter(
             Groups.teacher_id == teacher_get.id, Groups.id.in_([group.id for group in groups])).join(
-            AttendanceDays.day).filter(CalendarDay.month_id == old_month).count()
+            AttendanceDays.day).filter(CalendarDay.month_id == old_month.id).count() if old_month else 0
 
     salary_status = True
     role = ''
@@ -863,7 +863,7 @@ def profile(user_id):
                 },
                 "fathersName": {
                     "name": "Otasining Ismi",
-                    "value": user_get.father_name.title(),
+                    "value": user_get.father_name.title() if user_get.father_name else "",
                     "order": 3
                 },
                 "age": {
@@ -949,6 +949,7 @@ def profile(user_id):
     else:
         i = 0
         location_list = [loc.id for loc in teacher_get.locations] if teacher_get else []
+        subject_list = []
         if teacher_get:
             salary_status = False
             link = {
@@ -957,6 +958,7 @@ def profile(user_id):
                 "iconClazz": "fa-dollar-sign",
                 "type": "link"
             }
+            subject_list = [{"name": sub.name.title()} for sub in teacher_get.subject]
             username = teacher_get.user.username
             role = Roles.query.filter(Roles.id == user_get.role_id).first()
 
@@ -1056,7 +1058,8 @@ def profile(user_id):
                 "birth": True,
                 "comment": True,
                 "language": True,
-                "color": True
+                "color": True,
+                "subject": True
             },
             "username": user_get.username,
             "type_role": type_role,
@@ -1110,12 +1113,18 @@ def profile(user_id):
                     "value": user_get.born_year,
                     "display": "none"
                 },
+                "subject": {
+                    "name": "Fan",
+                    "value": subject_list,
+                    "order": 8
+                },
 
             },
 
             "links": links_f,
             "location_list": location_list,
             "groups": group_list,
+            "subjects": subject_list,
 
         }
         if type_role == "Teacher":

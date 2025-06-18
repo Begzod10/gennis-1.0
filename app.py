@@ -8,7 +8,12 @@ from backend.models.models import *
 from flask_restful import Api
 # from flask_admin import Admin
 import logging
+import hmac
+import hashlib
+import os
+import subprocess
 
+GITHUB_SECRET = b''  # optional
 logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(
@@ -121,6 +126,7 @@ from backend.account.debit_credit.views import *
 from backend.school.views import *
 from backend.telegram_bot.route import *
 
+
 # from backend.models.views import *
 
 # teacher observation, attendance, teacher_group_statistics
@@ -129,6 +135,28 @@ from backend.telegram_bot.route import *
 # @app.route('/flask_static/<path:filename>')
 # def flask_admin_static(filename):
 #     return send_from_directory('static', filename)
+
+@app.route("/api/payload", methods=["POST"])
+def payload():
+    # (Optional) verify signature
+    if GITHUB_SECRET:
+        signature = request.headers.get("X-Hub-Signature-256")
+        body = request.get_data()
+        expected = 'sha256=' + hmac.new(GITHUB_SECRET, body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            return "Invalid signature", 403
+
+    # Run deploy script
+    subprocess.Popen(["/home/gennis/deploy_bot.sh"])
+    repo_path = "/home/gennis/gennis_bot"
+    pull_result = subprocess.run(
+        ["git", "pull"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True
+    )
+    print("GIT PULL:", pull_result.stdout)
+    return "Updated", 200
 
 
 if __name__ == '__main__':

@@ -72,7 +72,7 @@ def get_students(location_id):
         role_teacher = Roles.query.filter(Roles.type_role == "teacher").first()
 
         teachers = db.session.query(Teachers).join(Teachers.user).options(contains_eager(Teachers.user)).filter(
-        ).join(Teachers.locations).options(contains_eager(Teachers.locations)).filter(
+            Teachers.deleted == None).join(Teachers.locations).options(contains_eager(Teachers.locations)).filter(
             Locations.id == location_id).order_by(Teachers.id).all()
         for teacher in teachers:
             teacher_time_start = db.session.query(Group_Room_Week).join(Group_Room_Week.teacher).options(
@@ -426,12 +426,10 @@ def add_group_students2(group_id):
         msg = "O'quvchi guruhga qo'shildi"
         if len(student_id_list) > 1:
             msg = "O'quvchilar guruhga qo'shildi"
-        print('st', student_id_list)
         students_checked = db.session.query(Students).join(Students.user).options(contains_eager(Students.user)).filter(
             Users.id.in_([user_id for user_id in student_id_list]),
         ).order_by(
             'id').all()
-        print(students_checked)
         for st in students_checked:
 
             if subject in st.subject:

@@ -84,11 +84,32 @@ def change_student_info(user_id):
                 add = PhoneList(phone=json['phone'], user_id=user_id, personal=True)
                 db.session.add(add)
                 db.session.commit()
+
+                subjects = json['selectedSubjects']
+
+                if subjects:
+                    teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
+                    while teacher.subject:
+                        for sub in teacher.subject:
+                            teacher.subject.remove(sub)
+                            db.session.commit()
+                    for sub in subjects:
+                        subject = Subjects.query.filter(Subjects.id == sub['id']).first()
+                        teacher.subject.append(subject)
+                        db.session.commit()
+
+                else:
+                    while teacher.subject:
+                        for sub in teacher.subject:
+                            teacher.subject.remove(sub)
+                            db.session.commit()
                 if teacher:
                     Teachers.query.filter(Teachers.user_id == user_id).update({
                         "table_color": json['color']
                     })
                     db.session.commit()
+
+
                 # send_user_info(user)
                 return jsonify({
                     "success": True,

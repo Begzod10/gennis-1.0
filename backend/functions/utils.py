@@ -89,7 +89,7 @@ def refreshdatas(location_id=0):
         db.session.add(calendar_day)
         db.session.commit()
     update_all_datas()
-    update_period(location_id)
+    # update_period(location_id)
     account_period = AccountingPeriod.query.order_by(desc(AccountingPeriod.id)).first()
     CalendarDay.query.filter(CalendarDay.id == calendar_day.id).update({'account_period_id': account_period.id})
     db.session.commit()

@@ -1,7 +1,9 @@
 import pprint
 from datetime import datetime
-from app import app, api, desc, jsonify
-from backend.models.models import TeacherSalary, Teachers, CalendarYear, Locations, TeacherSalaries
+from app import app, api, desc, jsonify, db
+from backend.models.models import TeacherSalary, Teachers, CalendarYear, Locations, TeacherSalaries, TeacherBlackSalary, \
+    CalendarDay
+from sqlalchemy import func
 
 
 @app.route(f'{api}/bot_teacher_salary_years/<int:teacher_id>', methods=["POST", "GET"])
@@ -44,12 +46,22 @@ def bot_teacher_salary_details(teacher_id, salary_id):
     teacher_salary = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher_id,
                                                 TeacherSalary.id == salary_id).first()
     daily_salaries = TeacherSalaries.query.filter(TeacherSalaries.teacher_id == teacher.id,
-                                                  TeacherSalaries.salary_location_id == teacher_salary.id).order_by(
-        desc(TeacherSalaries.id)).all()
+                                                  TeacherSalaries.salary_location_id == teacher_salary.id).join(
+        TeacherSalaries.day).order_by(
+        desc(CalendarDay.date)).all()
+
+    total = db.session.query(
+        func.sum(TeacherBlackSalary.total_salary)
+    ).filter(
+        TeacherBlackSalary.calendar_month == teacher_salary.calendar_month,
+        TeacherBlackSalary.teacher_id == teacher_id,
+        TeacherBlackSalary.location_id == teacher_salary.location_id,
+        TeacherBlackSalary.status == False
+    ).scalar()
 
     info = {
         "teacher_id": teacher.id,
-        "total_salary": teacher_salary.total_salary,
+        "total_salary": teacher_salary.total_salary + teacher_salary.extra if teacher_salary.extra else teacher_salary.total_salary,
         "taken_money": teacher_salary.taken_money,
         "debt": teacher_salary.debt,
         "remaining_salary": teacher_salary.remaining_salary,
@@ -57,6 +69,7 @@ def bot_teacher_salary_details(teacher_id, salary_id):
         "surname": teacher.user.surname,
         "month": teacher_salary.month.date.strftime("%Y-%m"),
         "location": teacher_salary.location.name,
-        "salary_list": [salary.convert_json() for salary in daily_salaries]
+        "salary_list": [salary.convert_json() for salary in daily_salaries],
+        "black_salary": total if total else 0
     }
     return info
