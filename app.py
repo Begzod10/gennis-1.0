@@ -13,6 +13,8 @@ import hashlib
 import os
 import subprocess
 
+from backend.parent.views import register_parent_views
+
 GITHUB_SECRET = b''  # optional
 logging.basicConfig(level=logging.DEBUG)
 
@@ -45,6 +47,10 @@ classroom_server = "https://classroom.gennis.uz"
 # telegram_bot_server = "http://127.0.0.1:5000"
 django_server = "https://school.gennis.uz"
 # django_server = "http://192.168.1.14:7622"
+
+
+api = 'api/'
+register_parent_views(api, app)
 
 # test block
 from backend.student.register_for_tes.resources import *

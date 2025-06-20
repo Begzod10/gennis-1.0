@@ -38,8 +38,9 @@ from backend.lead.models import *
 from backend.for_programmers.models import *
 from backend.tasks.models.models import *
 from backend.account.profile.models import *
-from backend.school.models import *
 
+from backend.parent.models import *
+# from backend.school.models import *
 
 class CalendarYear(db.Model):
     __tablename__ = "calendaryear"
@@ -341,6 +342,7 @@ class Locations(db.Model):
     investments = relationship("Investment", backref="location", order_by="Investment.id")
     task_rating = relationship("TaskRatings", backref="location", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="location", order_by="TaskRatingsMonthly.id")
+    parents = relationship("Parent", backref="location", order_by="Parent.id")
 
     def convert_json(self, entire=False):
         return {
