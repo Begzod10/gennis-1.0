@@ -63,6 +63,7 @@ def create_test(group_id):
         year, month, day = get_or_creat_datetime(year, month, day)
         test_get.name = json_file.get('name')
         test_get.level = json_file['level']
+        test_get.number_tests = json_file['number']
         test_get.calendar_year = year.id
         test_get.calendar_day = day.id
         test_get.calendar_month = month.id

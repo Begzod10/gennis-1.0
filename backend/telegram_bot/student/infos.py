@@ -153,6 +153,6 @@ def bot_student_balance(student_id, user_type):
         )
         if last_two_salaries:
             for salary in last_two_salaries:
-                balance += salary.total_salary if not salary.remaining_salary else salary.remaining_salary
+                balance += salary.remaining_salary
 
     return jsonify({"balance": balance})

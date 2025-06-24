@@ -290,12 +290,21 @@ def group_profile(group_id):
 
     week_names = [time.week.eng_name for time in group_time_table]
 
-    target_dates = get_dates_for_weekdays(week_names)
+    target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
 
-    lesson_plans = LessonPlan.query.filter(LessonPlan.group_id == group.id, LessonPlan.date.in_(target_dates),
-                                           LessonPlan.main_lesson == None, LessonPlan.homework == None).all()
+    lesson_plans = LessonPlan.query.filter(
+        LessonPlan.group_id == group.id,
+        LessonPlan.date.in_(target_dates),
+        LessonPlan.main_lesson == None,
+        LessonPlan.homework == None
+    ).all()
+    filled_lesson_plan = LessonPlan.query.filter(
+        LessonPlan.group_id == group.id,
+        LessonPlan.date.in_(target_dates),
+        LessonPlan.main_lesson != None,
+        LessonPlan.homework != None).first()
 
-    if not lesson_plans:
+    if not filled_lesson_plan:
         errors.append("Bu hafta lesson plan qilinmagan.")
     else:
         for lesson_plan in lesson_plans:

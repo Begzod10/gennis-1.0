@@ -108,9 +108,9 @@ def block_salary(user_id, location_id, year_id):
             else:
                 taken_money = salary.taken_money if salary.taken_money else 0
                 if salary.extra:
-                    residue = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments + debt)
+                    residue = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments - debt)
                 else:
-                    residue = salary.total_salary - (taken_money + black_salary + book_payments + debt)
+                    residue = salary.total_salary - (taken_money + black_salary + book_payments - debt)
             salary.remaining_salary = residue
             db.session.commit()
             info = {
@@ -261,9 +261,9 @@ def teacher_salary(user_id, location_id):
             else:
                 taken_money = salary.taken_money if salary.taken_money else 0
                 if salary.extra:
-                    residue = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments + debt)
+                    residue = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments - debt)
                 else:
-                    residue = salary.total_salary - (taken_money + black_salary + book_payments + debt)
+                    residue = salary.total_salary - (taken_money + black_salary + book_payments - debt)
             salary.remaining_salary = residue
 
             db.session.commit()
@@ -320,10 +320,6 @@ def teacher_salary_inside(salary_id, user_id):
     salary_debt = 0
     if teacher:
         salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
-        if salary.id == 1611:
-            if salary.extra != 500000:
-                salary.extra = 500000
-                db.session.commit()
         teacher_black_salaries = TeacherBlackSalary.query.filter(
             TeacherBlackSalary.calendar_month == salary.calendar_month,
             TeacherBlackSalary.teacher_id == teacher.id,
@@ -366,9 +362,9 @@ def teacher_salary_inside(salary_id, user_id):
         taken_money = salary.taken_money if salary.taken_money else 0
         debt = salary.debt if salary.debt else 0
         if salary.extra:
-            result = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments + debt)
+            result = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments - debt)
         else:
-            result = salary.total_salary - (taken_money + black_salary + book_payments + debt)
+            result = salary.total_salary - (taken_money + black_salary + book_payments - debt)
 
         TeacherSalary.query.filter(TeacherSalary.id == salary_id).update({
             "remaining_salary": result,
@@ -463,9 +459,9 @@ def teacher_salary_inside_classroom(user_id, salary_id):
     taken_money = salary.taken_money if salary.taken_money else 0
     debt = salary.debt if salary.debt else 0
     if salary.extra:
-        result = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments + debt)
+        result = (salary.total_salary + salary.extra) - (taken_money + black_salary + book_payments - debt)
     else:
-        result = salary.total_salary - (taken_money + black_salary + book_payments + debt)
+        result = salary.total_salary - (taken_money + black_salary + book_payments - debt)
 
     TeacherSalary.query.filter(TeacherSalary.id == salary_id).update({
         "remaining_salary": result,

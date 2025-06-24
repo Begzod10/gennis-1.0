@@ -2,9 +2,105 @@ from datetime import datetime
 
 from app import app, request, jsonify, db, contains_eager
 from backend.group.test import api
-from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
+
 from backend.models.models import GroupTest, CalendarYear, CalendarMonth, StudentTest, Groups, Students
+
+from backend.functions.small_info import user_photo_folder, checkFile
+
+from backend.functions.utils import get_or_creat_datetime, find_calendar_date, iterate_models, get_json_field, \
+    filter_month_day
+
+from flask import request, jsonify
 from flask_jwt_extended import jwt_required
+import os
+import json
+from werkzeug.utils import secure_filename
+import pprint
+
+
+@app.route(f'{api}/create_test_classroom/<int:group_id>', methods=["POST", "PUT", "DELETE"])
+def create_test_classroom(group_id):
+    # File upload
+    url = ""
+    if 'file' in request.files:
+        app.config['UPLOAD_FOLDER'] = user_photo_folder()
+        photo = request.files['file']
+        if photo and checkFile(photo.filename):
+            filename = secure_filename(photo.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            photo.save(filepath)
+            url = f"static/img_folder/{filename}"
+        else:
+            return jsonify({"success": False, "msg": "Invalid file format"}), 400
+
+    # Read and parse info field
+    if request.method == "POST" or request.method == "PUT":
+        info = request.form.get("info")
+        if not info:
+            return jsonify({"success": False, "msg": "Missing 'info'"}), 400
+
+        try:
+            data = json.loads(info)
+        except json.JSONDecodeError:
+            return jsonify({"success": False, "msg": "Invalid JSON in 'info'"}), 400
+
+        try:
+            year, month, day = data['date'][:4], data['date'][5:7], data['date'][8:]
+            year, month, day = get_or_creat_datetime(year, month, day)
+        except:
+            return jsonify({"success": False, "msg": "Invalid date format"}), 400
+
+        if request.method == "POST":
+            group = Groups.query.filter(Groups.id == group_id).first()
+            if not group:
+                return jsonify({"success": False, "msg": "Group not found"}), 404
+
+            test = GroupTest(
+                name=data['name'],
+                group_id=group_id,
+                subject_id=group.subject_id,
+                level=data['level'],
+                calendar_year=year.id,
+                calendar_month=month.id,
+                calendar_day=day.id,
+                number_tests=data['number'],
+                file=url
+            )
+            test.add()
+            return jsonify({
+                "success": True,
+                "msg": "Test created",
+                "test": test.convert_json()
+            })
+
+        elif request.method == "PUT":
+            test = GroupTest.query.get(data.get("test_id"))
+            if not test:
+                return jsonify({"success": False, "msg": "Test not found"}), 404
+
+            test.name = data.get("name", test.name)
+            test.level = data.get("level", test.level)
+            test.number_tests = data.get("number", test.number_tests)
+            test.calendar_year = year.id
+            test.calendar_month = month.id
+            test.calendar_day = day.id
+            if url:
+                test.file = url
+            db.session.commit()
+            return jsonify({
+                "success": True,
+                "msg": "Test updated",
+                "test": test.convert_json()
+            })
+
+    elif request.method == "DELETE":
+        test = GroupTest.query.get(request.get_json().get("test_id"))
+        if not test:
+            return jsonify({"success": False, "msg": "Test not found"}), 404
+
+        db.session.delete(test)
+        db.session.commit()
+        return jsonify({"success": True, "msg": "Test deleted"})
 
 
 @app.route(f'{api}/filter_datas_in_group_classroom/<int:group_id>', methods=["POST", "GET"])

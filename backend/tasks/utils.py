@@ -218,6 +218,21 @@ def update_debt_progress(location_id):
         db.session.add(task_statistics)
         db.session.commit()
 
+    # task_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
+    #                                           TaskStudents.tasksstatistics_id == task_statistics.id,
+    #                                           TaskStudents.calendar_day == calendar_day.id,
+    #                                           ).all()
+    # for st in task_students:
+    #     added_excuses = StudentExcuses.query.filter(
+    #         StudentExcuses.added_date == calendar_day.date,
+    #         StudentExcuses.student_id == st.student_id
+    #     ).first()
+    #     if added_excuses:
+    #         db.session.delete(added_excuses)
+    #         db.session.commit()
+    #     db.session.delete(st)
+    #     db.session.commit()
+
     task_student = TaskStudents.query.filter(TaskStudents.task_id == task.id,
                                              TaskStudents.tasksstatistics_id == task_statistics.id,
                                              TaskStudents.calendar_day == calendar_day.id,

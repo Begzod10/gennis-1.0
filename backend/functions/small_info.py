@@ -53,5 +53,6 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'svg', 'xlsx', 'docx', 'doc',
 
 def checkFile(filename):
     value = '.' in filename
+
     type_file = filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     return value and type_file
