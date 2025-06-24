@@ -14,7 +14,7 @@ from backend.models.models import Locations, AccountingPeriod, Teachers, Calenda
 
 @app.route(f'{api}/block_information2', defaults={"location_id": None})
 @app.route(f'{api}/block_information2/<int:location_id>')
-@jwt_required()
+# @jwt_required()
 def block_information2(location_id):
     """
 

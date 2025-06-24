@@ -1,4 +1,4 @@
-from app import app, api, or_, db, contains_eager, extract, jsonify, request, desc
+from app import db, jsonify, request
 from backend.student.models import Students
 from backend.parent.models import Parent
 
@@ -7,14 +7,13 @@ from flask import Blueprint
 crud_parent_bp = Blueprint('parent_crud', __name__)
 
 
-@crud_parent_bp.route('/crud/', defaults={'pk': None}, methods=['GET', 'POST', 'PUT', 'DELETE'])
+@crud_parent_bp.route('/crud/', methods=['POST'])
 @crud_parent_bp.route('/crud/<int:id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
-def parent_detail(id):
-    parent = Parent.query.get_or_404(id)
-
+def parent_detail(id=None):
     if request.method == 'POST':
         data = request.json
-        check_username = Parent.query.filter(Parent.username == data.get('username'))
+        check_username = Parent.query.filter(Parent.username == data.get('username')).first()
+
         if check_username:
             return jsonify({'error': 'Username mavjud'})
 
@@ -25,13 +24,16 @@ def parent_detail(id):
             phone=data.get('phone'),
             address=data.get('address'),
             location_id=data.get('location_id'),
-            born_date=data.get('born_date'),
+            born_date=data.get('birth_day'),
             sex=data.get('sex')
         )
         new_parent.add()
         return jsonify(new_parent.convert_json())
     if request.method == 'GET':
+        parent = Parent.query.get_or_404(id)
         return jsonify(parent.convert_json())
+
+    parent = Parent.query.get_or_404(id)
 
     if request.method == 'PUT':
         data = request.json
@@ -70,8 +72,8 @@ def add_students_to_parent(id):
     students = Students.query.filter(Students.id.in_(student_ids)).all()
 
     for st in students:
-        if st not in parent.students:
-            parent.students.append(st)
+        if st not in parent.student:
+            parent.student.append(st)
 
     db.session.commit()
     return jsonify(parent.convert_json()), 200
@@ -81,12 +83,11 @@ def add_students_to_parent(id):
 def remove_students_from_parent(id):
     parent = Parent.query.get_or_404(id)
     data = request.json
-    student_ids = data.get('student_ids', [])
+    student_id = data.get('student_id', [])
 
-    students = Students.query.filter(Students.id.in_(student_ids)).all()
-    for st in students:
-        if st in parent.students:
-            parent.students.remove(st)
+    student = Students.query.filter(Students.id == student_id).first()
+    if student in parent.student:
+        parent.student.remove(student)
 
     db.session.commit()
     return jsonify(parent.convert_json()), 200

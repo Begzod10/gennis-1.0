@@ -579,7 +579,7 @@ def get_teachers():
 
 
 @app.route(f"{api}/get_teachers_location/<int:location_id>", methods=["GET"])
-@jwt_required()
+# @jwt_required()
 def get_teachers_location(location_id):
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
@@ -611,7 +611,7 @@ def get_teachers_location(location_id):
             "language": teach.user.language.name,
             "age": teach.user.age,
             "role": role,
-            "phone": teach.user.phone[0].phone,
+            # "phone": teach.user.phone[0].phone,
             "reg_date": teach.user.day.date.strftime("%Y-%m-%d"),
             "status": status,
             "photo_profile": teach.user.photo_profile,

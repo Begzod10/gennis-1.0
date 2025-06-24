@@ -14,26 +14,29 @@ class Parent(db.Model):
     username = Column(String)
 
     def convert_json(self, entire=False):
+
         return {
-            "id": self.user.id,
-            "name": self.user.name,
-            "surname": self.user.surname,
-            "username": self.user.username,
-            "phone": self.user.phone,
-            "address": self.user.language.name,
+            "id": self.id,
+            "name": self.name,
+            "surname": self.surname,
+            "username": self.username,
+            "phone": self.phone,
+            "address": self.address,
             "location": {
                 "id": self.location_id,
                 "name": self.location.name
             }
             ,
-            "born_date": self.born_date.strftime("%Y-%m-%d"),
+            "birth_day": self.born_date.strftime("%Y-%m-%d"),
             "sex": self.sex,
             "children": [
                 {
+                    "id": st.id,
                     "name": st.user.name,
                     "surname": st.user.surname,
                     "balance": st.user.balance,
-                    "lesson_time": st.time_table[0].start_time.strftime("%H:%M"),
+                    "lesson_times": [{"time": ls.start_time.strftime("%H:%M")} for ls in st.time_table],
+                    "subjects": [subject.name for subject in st.subject]
                 } for st in self.student
             ]
         }

@@ -40,6 +40,8 @@ from backend.tasks.models.models import *
 from backend.account.profile.models import *
 
 from backend.parent.models import *
+
+
 # from backend.school.models import *
 
 class CalendarYear(db.Model):
@@ -99,9 +101,10 @@ class CalendarYear(db.Model):
     account_payable_history = relationship("AccountPayableHistory", backref="year", order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="year", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
+
     school_user_salary = relationship("SchoolUserSalary", backref="year", order_by="SchoolUserSalary.id")
 
-    # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
+    student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
         months = (
@@ -177,9 +180,10 @@ class CalendarMonth(db.Model):
                                            order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="month", order_by="TaskRatingsMonthly.id")
+
     school_user_salary = relationship("SchoolUserSalary", backref="month", order_by="SchoolUserSalary.id")
 
-    # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
+    student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
         return {
@@ -278,6 +282,7 @@ class CalendarDay(db.Model):
     dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="day", order_by="MainOverhead.id")
     account_payable_history = relationship("AccountPayableHistory", backref="day", order_by="AccountPayableHistory.id")
+
     school_teacher_salary_day = relationship("SchoolUserSalaryDay", backref="day",
                                              order_by="SchoolUserSalaryDay.id")
 
