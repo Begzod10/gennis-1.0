@@ -53,9 +53,7 @@ def group_profile_classroom(group_id):
         LessonPlan.main_lesson != None,
         LessonPlan.homework != None).first()
 
-    if not filled_lesson_plan:
-        errors.append("Bu hafta lesson plan qilinmagan.")
-    else:
-        for lesson_plan in lesson_plans:
-            errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
+
+    for lesson_plan in lesson_plans:
+        errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
     return jsonify({'user_id_list': user_id_list, "errors": errors})

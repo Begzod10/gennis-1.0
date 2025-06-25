@@ -1,7 +1,7 @@
 from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
-    DeletedTeachers, Locations
+    DeletedTeachers, Locations, LessonPlan, Group_Room_Week
 from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id, \
     find_calendar_date, update_school_salary
@@ -15,6 +15,8 @@ from datetime import timedelta
 from pprint import pprint
 import requests
 from werkzeug.security import generate_password_hash
+
+from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
 
 
 # @app.route(f'{api}/update_users_datas')
@@ -277,6 +279,22 @@ def make_attendance_classroom():
             ball -= late_days
             if ball < 0:
                 ball = 0
+        group_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
+            Group_Room_Week.id).all()
+        week_names = [time.week.eng_name for time in group_time_table]
+
+        target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
+
+        lesson_plans = LessonPlan.query.filter(
+            LessonPlan.group_id == group.id,
+            LessonPlan.date.in_(target_dates),
+            LessonPlan.main_lesson == None,
+            LessonPlan.homework == None
+        ).all()
+
+        fine = 0
+        if len(lesson_plans) > 0 or ball < 5:
+            fine = round(salary_per_day / group.attendance_days)
         if not type_status:
             attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student.id,
                                             calendar_day=calendar_day.id, attendance_id=attendance.id,
@@ -286,6 +304,8 @@ def make_attendance_classroom():
                                             salary_per_day=salary_per_day, group_id=group_id,
                                             location_id=group.location_id,
                                             discount_per_day=discount_per_day, teacher_ball=ball,
+                                            fine=fine,
+
                                             discount=discount_status)
             db.session.add(attendance_add)
             db.session.commit()
@@ -296,7 +316,9 @@ def make_attendance_classroom():
                                             balance_with_discount=balance_with_discount,
                                             salary_per_day=salary_per_day, group_id=group_id,
                                             location_id=group.location_id, discount=discount_status,
-                                            discount_per_day=discount_per_day)
+                                            discount_per_day=discount_per_day,
+                                            fine=fine,
+                                            )
             db.session.add(attendance_add)
             db.session.commit()
         else:
@@ -309,7 +331,9 @@ def make_attendance_classroom():
                                             location_id=group.location_id, teacher_id=teacher.id,
                                             balance_with_discount=balance_with_discount,
                                             salary_per_day=salary_per_day, discount=discount_status,
-                                            discount_per_day=discount_per_day)
+                                            discount_per_day=discount_per_day,
+                                            fine=fine,
+                                            )
             db.session.add(attendance_add)
             db.session.commit()
 

@@ -11,7 +11,7 @@ from pprint import pprint
 
 
 @app.route(f'{api}/create_group_tools')
-@jwt_required()
+# @jwt_required()
 def create_group_tools():
     course_types = CourseTypes.query.order_by('id').all()
     subjects = Subjects.query.order_by('id').all()
@@ -704,7 +704,7 @@ def filtered_groups(group_id):
 
 
 @app.route(f'{api}/filtered_groups2/<int:location_id>')
-@jwt_required()
+# @jwt_required()
 def filtered_groups2(location_id):
     groups = Groups.query.filter(Groups.location_id == location_id,
 

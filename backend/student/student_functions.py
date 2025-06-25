@@ -106,8 +106,6 @@ def get_back_student(user_id):
 @app.route(f'{api}/studyingStudents/<int:id>', methods=['POST', 'GET'])
 @jwt_required()
 def studyingStudents(id):
-
-
     user_list = Users.query.join(Students).filter(Students.group != None, Users.location_id == id).order_by(
         Users.id).all()
     user_id = []
@@ -122,6 +120,7 @@ def studyingStudents(id):
     list_students = [
         {
             "id": st.user.id,
+            "student_id": st.id,
             "name": st.user.name.title(),
             "surname": st.user.surname.title(),
             "username": st.user.username,
@@ -214,6 +213,7 @@ def newStudents(location_id):
     list_students = [
         st.convert_json() for st in students
     ]
+
     return jsonify({
         "newStudents": list_students
     })

@@ -1241,7 +1241,7 @@ def user_time_table_classroom(user_id, location_id):
     weeks = []
 
     if student:
-        week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
+        week_days = Week.query.filter(Week.location_id == student.user.location_id).order_by(Week.order).all()
         for week in week_days:
             weeks.append(week.name)
         groups = db.session.query(Groups).join(Groups.student).options(contains_eager(Groups.student)).filter(

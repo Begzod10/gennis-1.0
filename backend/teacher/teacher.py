@@ -19,11 +19,12 @@ from backend.functions.utils import find_calendar_date, update_salary, iterate_m
     update_school_salary
 from backend.models.models import Users, Attendance, Students, AttendanceDays, Teachers, Groups, Locations, Subjects, \
     StudentCharity, Roles, TeacherBlackSalary, GroupReason, TeacherObservationDay, DeletedStudents, \
-    TeacherGroupStatistics
+    TeacherGroupStatistics, Group_Room_Week, LessonPlan
 from backend.school.models import SchoolUser, SchoolUserSalary, SchoolUserSalaryDay, SchoolUserSalaryAttendance
 from datetime import timedelta
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear
 from sqlalchemy import func
+from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
 
 
 def analyze(attendances, teacher, type_rating=None):
@@ -425,6 +426,21 @@ def make_attendance():
             ball -= late_days
             if ball < 0:
                 ball = 0
+        group_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
+            Group_Room_Week.id).all()
+        week_names = [time.week.eng_name for time in group_time_table]
+
+        target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
+
+        lesson_plans = LessonPlan.query.filter(
+            LessonPlan.group_id == group.id,
+            LessonPlan.date.in_(target_dates),
+            LessonPlan.main_lesson == None,
+            LessonPlan.homework == None
+        ).all()
+        fine = 0
+        if len(lesson_plans) > 0 or ball < 5:
+            fine = round(salary_per_day / group.attendance_days)
         if not type_status:
             attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student_get.id,
                                             calendar_day=calendar_day.id, attendance_id=attendance_get.id,
@@ -434,7 +450,8 @@ def make_attendance():
                                             salary_per_day=salary_per_day, group_id=group_id,
                                             location_id=group.location_id,
                                             discount_per_day=discount_per_day, date=datetime.now(),
-                                            discount=discount_status, teacher_ball=ball)
+                                            discount=discount_status, teacher_ball=ball,
+                                            fine=fine)
             db.session.add(attendance_add)
             db.session.commit()
         elif homework == 0 and dictionary == 0 and active == 0:
@@ -445,7 +462,8 @@ def make_attendance():
                                             salary_per_day=salary_per_day, group_id=group_id,
                                             location_id=group.location_id, discount=discount_status,
                                             discount_per_day=discount_per_day, date=datetime.now(),
-                                            teacher_ball=ball, calling_status=True
+                                            teacher_ball=ball, calling_status=True,
+                                            fine=fine
                                             )
             db.session.add(attendance_add)
             db.session.commit()
@@ -461,7 +479,7 @@ def make_attendance():
                                             balance_with_discount=balance_with_discount,
                                             salary_per_day=salary_per_day, discount=discount_status,
                                             discount_per_day=discount_per_day, date=datetime.now(), teacher_ball=ball,
-                                            calling_status=True
+                                            calling_status=True, fine=fine
                                             )
             db.session.add(attendance_add)
             db.session.commit()
@@ -579,7 +597,7 @@ def get_teachers():
 
 
 @app.route(f"{api}/get_teachers_location/<int:location_id>", methods=["GET"])
-@jwt_required()
+# @jwt_required()
 def get_teachers_location(location_id):
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
@@ -611,7 +629,7 @@ def get_teachers_location(location_id):
             "language": teach.user.language.name,
             "age": teach.user.age,
             "role": role,
-            "phone": teach.user.phone[0].phone,
+            # "phone": teach.user.phone[0].phone,
             "reg_date": teach.user.day.date.strftime("%Y-%m-%d"),
             "status": status,
             "photo_profile": teach.user.photo_profile,

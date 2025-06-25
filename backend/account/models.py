@@ -733,6 +733,8 @@ class TeacherSalary(db.Model):
     debt = Column(Integer)
     old_id = Column(Integer)
     extra = Column(Integer)
+    total_fine = Column(Integer, default=0)
+
 
     def convert_json(self, entire=False):
         total = db.session.query(

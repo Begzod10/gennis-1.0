@@ -181,6 +181,7 @@ class AttendanceDays(db.Model):
     teacher_ball = Column(Integer)
     calling_status = Column(Boolean, default=False)
     calling_date = Column(DateTime)
+    fine = Column(Integer, default=0)
 
     def to_dict(self, entire=False):
         if self.status == 1 or self.status == 2:
@@ -255,5 +256,3 @@ class GroupTest(db.Model):
             "percentage": self.percentage,
             "file": self.file
         }
-
-

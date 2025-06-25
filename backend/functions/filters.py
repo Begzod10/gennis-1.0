@@ -14,7 +14,7 @@ from backend.models.models import Locations, AccountingPeriod, Teachers, Calenda
 
 @app.route(f'{api}/block_information2', defaults={"location_id": None})
 @app.route(f'{api}/block_information2/<int:location_id>')
-@jwt_required()
+# @jwt_required()
 def block_information2(location_id):
     """
 
@@ -693,7 +693,7 @@ def update_lesson_plan(group_id):
     plan_days = weekday_from_date(plan_days, current_month, current_year, week_list)
     group = Groups.query.filter(Groups.id == group_id).first()
     current_day2 = datetime.now().day
-    current_day2 += 5
+    current_day2 += 7
     for day in plan_days:
         if current_day2 >= day:
             date_get = str(current_year) + "-" + str(current_month) + "-" + str(day)

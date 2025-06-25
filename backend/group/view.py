@@ -298,29 +298,13 @@ def group_profile(group_id):
         LessonPlan.main_lesson == None,
         LessonPlan.homework == None
     ).all()
-    filled_lesson_plan = LessonPlan.query.filter(
-        LessonPlan.group_id == group.id,
-        LessonPlan.date.in_(target_dates),
-        LessonPlan.main_lesson != None,
-        LessonPlan.homework != None).first()
 
-    if not filled_lesson_plan:
-        errors.append("Bu hafta lesson plan qilinmagan.")
-    else:
-        for lesson_plan in lesson_plans:
-            errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
 
-    # calendar_days = CalendarDay.query.filter(CalendarDay.date.in_(target_dates)).all()
-    # teacher_observations = TeacherObservationDay.query.filter(TeacherObservationDay.group_id == group.id,
-    #                                                           TeacherObservationDay.teacher_id == teacher.user.id,
-    #                                                           TeacherObservationDay.calendar_day.in_(
-    #                                                               [day.id for day in calendar_days])).all()
-    #
-    # if not teacher_observations:
-    #     errors.append("Bu hafta teacher observation qilinmagan.")
-    # else:
-    #     for teacher_observation in teacher_observations:
-    #         errors.append(f"{teacher_observation.day.date} shu kunda teacher observation qilinmagan.")
+
+    for lesson_plan in lesson_plans:
+        errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
+
+
     return jsonify({
         "locationId": group.location_id,
         "groupName": group.name.title(),

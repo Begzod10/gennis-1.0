@@ -2,10 +2,11 @@ from app import app, api, contains_eager, db, request
 from flask import jsonify
 from flask_jwt_extended import jwt_required
 from backend.functions.utils import find_calendar_date, get_json_field
-from backend.models.models import AttendanceHistoryStudent, Students, Groups, Roles, Week, Group_Room_Week, Rooms
+from backend.models.models import AttendanceHistoryStudent, Students, Groups, Roles, Week, Group_Room_Week, Rooms, Users
 from datetime import datetime
 from backend.functions.filters import update_lesson_plan, old_current_dates
 from backend.group.class_model import Group_Functions
+from backend.student.class_model import Student_Functions
 
 
 @app.route(f'{api}/group_dates2_classroom/<int:group_id>')
@@ -151,4 +152,66 @@ def group_time_table_classroom(group_id):
         "success": True,
         "data": table_list,
         "days": weeks
+    })
+
+
+@app.route(f'{api}/combined_attendances_classroom/<int:student_id>/', methods=["POST", "GET"])
+def combined_attendances_classroom(student_id):
+    student = Students.query.filter(Students.user_id == student_id).first()
+    st_functions = Student_Functions(student_id=student.id)
+    if request.method == "GET":
+        current_month = datetime.now().month
+        if len(str(current_month)) == 1:
+            current_month = "0" + str(current_month)
+        current_year = datetime.now().year
+        return jsonify({
+            "data": st_functions.attendance_filter_student(month=current_month, year=current_year)
+        })
+    else:
+        year = get_json_field('year')
+
+        month = get_json_field('month')
+
+        return jsonify({
+            "data": st_functions.attendance_filter_student(month=month, year=year)
+        })
+
+
+@app.route(f'{api}/student_group_dates2_classroom/<int:student_id>/')
+def student_group_dates2_classroom(student_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    year_list = []
+    month_list = []
+    student = Students.query.filter(Students.user_id == student_id).first()
+    attendance_month = AttendanceHistoryStudent.query.filter(
+        AttendanceHistoryStudent.student_id == student.id,
+    ).order_by(AttendanceHistoryStudent.id).all()
+
+    for attendance in attendance_month:
+        year = AttendanceHistoryStudent.query.filter(AttendanceHistoryStudent.student_id == student.id,
+
+                                                     AttendanceHistoryStudent.calendar_year == attendance.calendar_year).all()
+        info = {
+            'year': '',
+            'months': []
+        }
+        if info['year'] != attendance.year.date.strftime("%Y"):
+            info['year'] = attendance.year.date.strftime("%Y")
+        for month in year:
+            if attendance.year.date.strftime("%Y") not in year_list:
+                year_list.append(attendance.year.date.strftime("%Y"))
+            if month.month.date.strftime("%m") not in info['months']:
+                info['months'].append(month.month.date.strftime("%m"))
+                info['months'].sort()
+        month_list.append(info)
+
+    day_dict = {gr['year']: gr for gr in month_list}
+    filtered_list = list(day_dict.values())
+    return jsonify({
+        "data": {
+            "months": filtered_list,
+            "years": year_list,
+            "current_year": calendar_year.date.strftime("%Y"),
+            "current_month": calendar_month.date.strftime("%m"),
+        }
     })
