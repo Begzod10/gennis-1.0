@@ -439,8 +439,9 @@ def make_attendance():
             LessonPlan.homework == None
         ).all()
         fine = 0
-        if len(lesson_plans) > 0 or ball < 5:
-            fine = round(salary_per_day / group.attendance_days)
+        # if teacher.user.username != "rimefara_teach":
+        #     if len(lesson_plans) > 0 or ball < 5:
+        #         fine = round(salary_per_day / group.attendance_days)
         if not type_status:
             attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student_get.id,
                                             calendar_day=calendar_day.id, attendance_id=attendance_get.id,

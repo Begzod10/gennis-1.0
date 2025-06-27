@@ -8,10 +8,10 @@ from werkzeug.utils import secure_filename
 
 from app import app, api, request, jsonify, db, contains_eager, desc
 from backend.functions.small_info import checkFile, user_contract_folder
-from backend.functions.utils import find_calendar_date, update_week
+from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
     Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentExcuses, StudentHistoryGroups, \
-    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay
+    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, Subjects
 
 
 @app.route(f'{api}/student_history2/<int:user_id>')
@@ -206,32 +206,16 @@ def deletedStudents(id):
 @jwt_required()
 def newStudents(location_id):
     update_week(location_id)
-    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
-                                                 Students.subject != None,
-                                                 Students.deleted_from_register == None).order_by(
-        desc(Students.id)).all()
-    list_students = [
-        st.convert_json() for st in students
-    ]
 
+    students = Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
+        Students.user).filter(Users.location_id == int(location_id)).order_by(desc(Students.id)).all()
+    # subjects = Subjects.query.filter(Subjects.student == None).order_by(Subjects.id).all()
+    # for sub in subjects:
+    #     sub.disabled = True
+    #     db.session.commit()
     return jsonify({
-        "newStudents": list_students
-    })
-
-
-@app.route(f"{api}/newStudentsDeleted/<int:location_id>", methods=["GET"])
-@jwt_required()
-def newStudentsDeleted(location_id):
-    update_week(location_id)
-    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
-                                                 Students.subject != None,
-                                                 Students.deleted_from_register != None).order_by(
-        desc(Students.id)).all()
-    list_students = [
-        st.convert_json() for st in students
-    ]
-    return jsonify({
-        "newStudents": list_students
+        "newStudents": iterate_models(students),
+        # "emptySubjects": iterate_models(subjects)
     })
 
 
@@ -254,6 +238,22 @@ def get_filtered_students_list(location_id):
                 }
             subjects_with_students[subject.id]["students"].append(student.convert_json())
     return jsonify(list(subjects_with_students.values()))
+
+
+@app.route(f"{api}/newStudentsDeleted/<int:location_id>", methods=["GET"])
+@jwt_required()
+def newStudentsDeleted(location_id):
+    update_week(location_id)
+    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
+                                                 Students.subject != None,
+                                                 Students.deleted_from_register != None).order_by(
+        desc(Students.id)).all()
+    list_students = [
+        st.convert_json() for st in students
+    ]
+    return jsonify({
+        "newStudents": list_students
+    })
 
 
 @app.route(f'{api}/new_del_students/<location_id>')

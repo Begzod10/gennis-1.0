@@ -655,6 +655,12 @@ class Subjects(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
 
 class SubjectLevels(db.Model):
     __tablename__ = "subjectlevels"

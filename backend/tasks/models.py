@@ -1,34 +1,8 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from sqlalchemy import String, Integer, Boolean, Column, ForeignKey, DateTime, or_, and_, desc, func, ARRAY, JSON, \
     extract, Date, BigInteger
-from sqlalchemy.orm import contains_eager
+from backend.models.models import db
+
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func, functions
-from pprint import pprint
-import uuid
-
-db = SQLAlchemy()
-
-
-def db_setup(app):
-    app.config.from_object('backend.models.config')
-    db.app = app
-    db.init_app(app)
-    Migrate(app, db)
-    return db
-
-
-from backend.home_page.models import *
-from backend.account.models import *
-from backend.time_table.models import *
-from backend.group.models import *
-from backend.student.models import *
-from backend.teacher.models import *
-from backend.certificate.models import *
-from backend.book.models import *
-from backend.lead.models import *
-from backend.for_programmers.models import *
 
 
 class Tasks(db.Model):

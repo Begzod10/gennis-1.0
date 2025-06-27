@@ -196,8 +196,11 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
     total_fine = 0
     for salary in attendance_teacher_salary:
         total_salary += salary.salary_per_day
-        total_fine += salary.fine
-
+        # if teacher.user.username != "rimefara_teach":
+        #     total_fine += salary.fine if salary.fine else 0
+        # else:
+        #     salary.fine = 0
+        #     db.session.commit()
     salary_location = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
                                                  TeacherSalary.teacher_id == teacher.id,
                                                  TeacherSalary.calendar_year == attendance.calendar_year,
@@ -234,10 +237,10 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
     black_salary = 0
     for salary in black_salaries:
         black_salary += salary.total_salary
-
+    debt = salary_location.debt if salary_location.debt else 0
     if salary_location.taken_money:
         remaining_salary = salary_location.total_salary - (
-                salary_location.taken_money + black_salary + salary_location.total_fine_attendance + salary_location.total_fine_lesson_plan)
+                salary_location.taken_money + black_salary + salary_location.total_fine - debt)
         TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
                                    TeacherSalary.teacher_id == teacher.id,
                                    TeacherSalary.calendar_year == attendance.calendar_year,
