@@ -464,7 +464,6 @@ class Users(db.Model):
                 },
                 "name": self.name.title(),
                 "surname": self.surname.title(),
-                # "username": self.username.title(),
                 "username": self.username,
                 "password": self.password,
                 "father_name": self.father_name.title() if self.father_name else "",

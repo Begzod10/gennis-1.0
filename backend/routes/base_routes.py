@@ -248,7 +248,6 @@ def register():
 
         a = datetime.today().year
         age = a - birthYear
-        print(age)
         users = Users.query.all()
 
         if len(users) == 0:

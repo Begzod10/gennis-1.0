@@ -292,7 +292,7 @@ def make_attendance_classroom():
             LessonPlan.homework == None
         ).all()
 
-        # fine = 0
+        fine = 0
         # if len(lesson_plans) > 0 or ball < 5:
         #     fine = round(salary_per_day / group.attendance_days)
         if not type_status:
