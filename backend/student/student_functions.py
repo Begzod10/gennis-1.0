@@ -130,6 +130,7 @@ def studyingStudents(id):
             "comment": st.user.comment,
             'money': st.user.balance,
             "role": role.role,
+            "phone": st.user.phone[0].phone if st.user.phone[0].phone != 0 else 0,
             "subjects": [sub.name for sub in st.subject],
             "photo_profile": st.user.photo_profile,
             "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0

@@ -1,6 +1,6 @@
 import pprint
 
-from app import request, db, classroom_server
+from app import request, db
 import requests
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, AccountingPeriod, Professions, PaymentTypes, \
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
@@ -627,6 +627,7 @@ def check_exist_id(user_id=None):
 
 
 def send_user_info(user):
+    from app import classroom_server
     requests.post(f"{classroom_server}/api/update_user_info", json={
         "user": user.convert_json(),
     })

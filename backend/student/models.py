@@ -77,7 +77,7 @@ class Students(db.Model):
     user_id = Column(Integer, ForeignKey('users.id'))
     subject = relationship('Subjects', secondary="student_subject", backref="student", order_by="Subjects.id")
     group = relationship('Groups', secondary="student_group", backref="student", lazy="select")
-    parent = relationship('Parent', secondary="parent_child", backref="student", lazy="select")
+    parent_get = relationship('Parent', secondary="parent_child", backref="student", lazy="select")
     ball_time = Column(DateTime)
     attendance = relationship("Attendance", backref="student", order_by="Attendance.id")
     attendance_days = relationship("AttendanceDays", backref="student", order_by="AttendanceDays.id")

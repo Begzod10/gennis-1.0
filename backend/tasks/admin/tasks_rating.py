@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 from app import db, jsonify, request, desc
 from backend.functions.utils import find_calendar_date
 from backend.models.models import Locations as Location
-from backend.models.models import TaskRatingsMonthly, TaskRatings, CalendarMonth,TaskDailyStatistics
+from backend.models.models import TaskRatingsMonthly, TaskRatings, CalendarMonth, TaskDailyStatistics
 from backend.models.models import Users, Students, CalendarDay, TaskStudents, StudentCallingInfo, LeadInfos, Lead
 from backend.tasks.utils import filter_new_leads
 from backend.tasks.utils import filter_new_students
@@ -46,6 +46,7 @@ def task_rating_statistics():
 
     return jsonify({"data": task_rating_list})
 
+
 @task_rating_bp.route('/task_rating', methods=['GET'])
 @jwt_required()
 def task_rating():
@@ -71,7 +72,7 @@ def task_rating():
             return jsonify({"error": "Date format must be YYYY-MM-DD or YYYY-MM"}), 400
 
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    locations = Location.query.all()
+    locations = Location.query.order_by(Location.id).all()
     results = []
 
     for location in locations:

@@ -347,7 +347,6 @@ class Locations(db.Model):
     investments = relationship("Investment", backref="location", order_by="Investment.id")
     task_rating = relationship("TaskRatings", backref="location", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="location", order_by="TaskRatingsMonthly.id")
-    parents = relationship("Parent", backref="location", order_by="Parent.id")
 
     def convert_json(self, entire=False):
         return {
@@ -453,6 +452,8 @@ class Users(db.Model):
         order_by="SchoolUser.id"
     )
     deleted = Column(Boolean, default=False)
+    parent = relationship("Parent", uselist=False, backref="user", order_by="Parent.id")
+    address = Column(String)
 
     def convert_json(self, entire=False):
         if not entire:
