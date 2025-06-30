@@ -1,7 +1,7 @@
 from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
-    DeletedTeachers, Locations, LessonPlan, Group_Room_Week
+    DeletedTeachers, Locations, LessonPlan, Group_Room_Week, Parent
 from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id, \
     find_calendar_date, update_school_salary
@@ -50,6 +50,7 @@ def login2():
         username = get_json_field('username')
         password = get_json_field('password')
         username_sign = Users.query.filter_by(username=username).first()
+
         if username_sign and check_password_hash(username_sign.password, password):
             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
             access_token = create_access_token(identity=username_sign.user_id)
@@ -60,7 +61,7 @@ def login2():
             #         "success": False,
             #         "msg": "Username yoki parol noturg'i"
             #     })
-
+            parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
             return jsonify({
                 'class': class_status,
                 "type_platform": "gennis",
@@ -78,7 +79,8 @@ def login2():
                     "refresh_token": create_refresh_token(identity=username_sign.user_id),
                 },
                 "success": True,
-                "type_user": role.type_role
+                "type_user": role.type_role,
+                "parent": parent.convert_json() if parent else {}
             })
         else:
             return jsonify({

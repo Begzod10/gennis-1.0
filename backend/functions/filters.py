@@ -678,31 +678,36 @@ def old_current_dates(group_id=0, observation=False):
     return data
 
 
+from datetime import datetime, timedelta
+
+
 def update_lesson_plan(group_id):
     time_table_group = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
         Group_Room_Week.id).all()
-    week_list = []
-    for time_table in time_table_group:
-        week_list.append(time_table.week.eng_name)
-    current_year = datetime.now().year
-    current_month = datetime.now().month
-    plan_days = []
-    number_days = number_of_days_in_month(current_year, current_month)
-    for num in range(1, number_days + 1):
-        plan_days.append(num)
-    plan_days = weekday_from_date(plan_days, current_month, current_year, week_list)
+
+    week_list = [timetable.week.eng_name for timetable in time_table_group]
+
     group = Groups.query.filter(Groups.id == group_id).first()
-    current_day2 = datetime.now().day
-    current_day2 += 7
-    for day in plan_days:
-        if current_day2 >= day:
-            date_get = str(current_year) + "-" + str(current_month) + "-" + str(day)
-            date_get = datetime.strptime(date_get, "%Y-%m-%d")
-            exist = LessonPlan.query.filter(LessonPlan.date == date_get, LessonPlan.group_id == group_id,
-                                            LessonPlan.teacher_id == group.teacher_id).first()
+    today = datetime.now().date()
+    future_day = today + timedelta(days=7)
+
+    current_day = today
+    while current_day <= future_day:
+        weekday_name = current_day.strftime("%A")
+        if weekday_name in week_list:
+            exist = LessonPlan.query.filter(
+                LessonPlan.date == current_day,
+                LessonPlan.group_id == group_id,
+                LessonPlan.teacher_id == group.teacher_id
+            ).first()
             if not exist:
-                lesson_plan_add = LessonPlan(group_id=group_id, teacher_id=group.teacher_id, date=date_get)
+                lesson_plan_add = LessonPlan(
+                    group_id=group_id,
+                    teacher_id=group.teacher_id,
+                    date=current_day
+                )
                 lesson_plan_add.add()
+        current_day += timedelta(days=1)
 
 
 def weekday_from_date(day_list, month, year, week_list):

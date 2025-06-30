@@ -24,6 +24,7 @@ class Parent(db.Model):
             "children": [
                 {
                     "id": st.id,
+                    "user_id": st.user_id,
                     "name": st.user.name,
                     "surname": st.user.surname,
                     "balance": st.user.balance,
