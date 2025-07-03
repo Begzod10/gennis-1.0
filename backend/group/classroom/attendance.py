@@ -11,7 +11,6 @@ from backend.student.class_model import Student_Functions
 
 @app.route(f'{api}/group_dates2_classroom/<int:group_id>')
 def group_dates2_classroom(group_id):
-    print(group_id)
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     year_list = []
     month_list = []

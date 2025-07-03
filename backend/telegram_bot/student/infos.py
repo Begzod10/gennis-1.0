@@ -11,6 +11,7 @@ from backend.functions.utils import iterate_models, find_calendar_date
 def bot_student_payments(student_id):
     student_payments = StudentPayments.query.filter(StudentPayments.student_id == student_id).order_by(
         desc(StudentPayments.id)).all()
+    print(len(student_payments))
     return jsonify({"payments": iterate_models(student_payments)})
 
 
@@ -20,7 +21,10 @@ def bot_student_time_table(pk, user_type):
     teacher = Teachers.query.filter(Teachers.id == pk).first()
 
     table_list = []
-    group = student.group if user_type == "student" else teacher.group
+    if user_type == "student" or user_type == "parent":
+        group = student.group
+    else:
+        group = teacher.group
 
     group = Groups.query.filter(Groups.id.in_([gr.id for gr in group]), Groups.deleted == False,
                                 Groups.status == True).order_by(Groups.id).all()
@@ -140,7 +144,7 @@ def bot_student_balance(student_id, user_type):
     student = Students.query.filter(Students.id == student_id).first()
     teacher = Teachers.query.filter(Teachers.id == student_id).first()
     balance = 0
-    if user_type == "student":
+    if user_type == "student" or user_type == "parent":
         balance = student.user.balance
     else:
         last_two_salaries = (

@@ -34,6 +34,8 @@ def lesson_plan_list_classroom(group_id, date):
             years_list.append(plan.date.strftime("%Y"))
     month_list = list(dict.fromkeys(month_list))
     years_list = list(dict.fromkeys(years_list))
+    days_list = list(dict.fromkeys(days_list))
+    days_list.sort()
     month_list.sort()
     years_list.sort()
     return jsonify({
@@ -55,6 +57,11 @@ def get_lesson_plan_classroom(group_id):
     date = year + "-" + month + "-" + day
     date = datetime.strptime(date, "%Y-%m-%d")
     status = True if calendar_day.date < date else False
+    # get_lesson_plans = LessonPlan.query.filter(LessonPlan.group_id == group_id, LessonPlan.date == date).all()
+    # if len(get_lesson_plans) > 0:
+    #     if not get_lesson_plans[1].objective:
+    #         db.session.delete(get_lesson_plans[1])
+    #         db.session.commit()
     lesson_plan = LessonPlan.query.filter(LessonPlan.group_id == group_id, LessonPlan.date == date).first()
     return jsonify({
         "lesson_plan": lesson_plan.convert_json(),

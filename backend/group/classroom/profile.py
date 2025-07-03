@@ -53,7 +53,6 @@ def group_profile_classroom(group_id):
         LessonPlan.main_lesson != None,
         LessonPlan.homework != None).first()
 
-
     for lesson_plan in lesson_plans:
-        errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
+        errors.append(f"{lesson_plan.date.strftime('%m-%d')} shu kunda lesson plan qilinmagan.")
     return jsonify({'user_id_list': user_id_list, "errors": errors})

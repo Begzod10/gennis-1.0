@@ -333,6 +333,7 @@ def teacher_salary_inside(salary_id, user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     black_salary = 0
     salary_debt = 0
+    total_fine = 0
     if teacher:
         salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
         teacher_black_salaries = TeacherBlackSalary.query.filter(
@@ -424,7 +425,7 @@ def teacher_salary_inside(salary_id, user_id):
             "data": list_salaries,
             "black_salary": black_salary,
             "salary_debt": salary_debt,
-            "total_fine": salary.total_fine
+            "total_fine": total_fine
         }
     })
 

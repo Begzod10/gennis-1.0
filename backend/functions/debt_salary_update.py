@@ -196,16 +196,25 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
     total_fine = 0
     for salary in attendance_teacher_salary:
         total_salary += salary.salary_per_day
-        # if teacher.user.username != "rimefara_teach":
-        #     total_fine += salary.fine if salary.fine else 0
-        # else:
-        #     salary.fine = 0
-        #     db.session.commit()
+        total_fine += salary.fine if salary.fine else 0
+        db.session.commit()
     salary_location = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
                                                  TeacherSalary.teacher_id == teacher.id,
                                                  TeacherSalary.calendar_year == attendance.calendar_year,
-
                                                  TeacherSalary.calendar_month == attendance.calendar_month).first()
+    salary_locations = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
+                                                  TeacherSalary.teacher_id == teacher.id,
+                                                  TeacherSalary.calendar_year == attendance.calendar_year,
+                                                  TeacherSalary.calendar_month == attendance.calendar_month).all()
+    if len(salary_locations) > 1:
+        black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
+                                                         TeacherBlackSalary.salary_id == salary_locations[1].id).all()
+        for black_salary in black_salaries:
+            db.session.delete(black_salary)
+            db.session.commit()
+        db.session.delete(salary_locations[1])
+        db.session.commit()
+
     if not salary_location:
 
         salary_location = TeacherSalary(location_id=group.location_id,
@@ -217,18 +226,10 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
         db.session.add(salary_location)
         db.session.commit()
     else:
-        TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
-                                   TeacherSalary.teacher_id == teacher.id,
-                                   TeacherSalary.calendar_year == attendance.calendar_year,
-                                   TeacherSalary.calendar_month == attendance.calendar_month,
-                                   ).update(
-            {"total_salary": total_salary, 'status': False, "total_fine": total_fine,
-             })
+        salary_location.total_fine = total_fine
+        salary_location.total_salary = total_salary
+        salary_location.status = False
         db.session.commit()
-    salary_location = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
-                                                 TeacherSalary.teacher_id == teacher.id,
-                                                 TeacherSalary.calendar_year == attendance.calendar_year,
-                                                 TeacherSalary.calendar_month == attendance.calendar_month).first()
 
     black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id).filter(
         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None,
