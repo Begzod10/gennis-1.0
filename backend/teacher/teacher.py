@@ -439,8 +439,13 @@ def make_attendance():
             LessonPlan.homework == None
         ).all()
         fine = 0
-
-        if len(lesson_plans) > 0 or ball < 5:
+        today_lesson_plan = LessonPlan.query.filter(LessonPlan.group_id == group.id,
+                                                    LessonPlan.teacher_id == teacher.id,
+                                                    LessonPlan.date == calendar_day.date,
+                                                    LessonPlan.main_lesson == None, LessonPlan.homework == None,
+                                                    LessonPlan.dictionary == None, LessonPlan.active == None,
+                                                    LessonPlan.resources == None, LessonPlan.assessment == None).first()
+        if today_lesson_plan > 0 or ball < 5:
             fine = round(salary_per_day / group.attendance_days)
         if not type_status:
             attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student_get.id,
