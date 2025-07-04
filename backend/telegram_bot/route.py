@@ -1,2 +1,3 @@
-from .student.infos import api
-from .teacher.infos import api
+from .student.infos import *
+from .teacher.infos import *
+from .parent.infos import *
