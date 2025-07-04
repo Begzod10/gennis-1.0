@@ -443,9 +443,9 @@ def make_attendance():
                                                     LessonPlan.teacher_id == teacher.id,
                                                     LessonPlan.date == calendar_day.date,
                                                     LessonPlan.main_lesson == None, LessonPlan.homework == None,
-                                                    LessonPlan.dictionary == None, LessonPlan.active == None,
+                                                    LessonPlan.activities == None, LessonPlan.objective == None,
                                                     LessonPlan.resources == None, LessonPlan.assessment == None).first()
-        if today_lesson_plan > 0 or ball < 5:
+        if today_lesson_plan or ball < 5:
             fine = round(salary_per_day / group.attendance_days)
         if not type_status:
             attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student_get.id,
