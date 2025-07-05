@@ -3,7 +3,8 @@ from datetime import datetime
 from app import app, api, desc, jsonify
 from backend.models.models import StudentPayments, Students, Attendance, Users, Group_Room_Week, Week, AttendanceDays, \
     CalendarDay, \
-    CalendarYear, CalendarMonth, AttendanceHistoryStudent, StudentTest, GroupTest, Teachers, Groups, TeacherSalary
+    CalendarYear, CalendarMonth, AttendanceHistoryStudent, StudentTest, GroupTest, Teachers, Groups, TeacherSalary, \
+    StudentHistoryGroups
 from backend.functions.utils import iterate_models, find_calendar_date
 
 
@@ -97,10 +98,12 @@ def bot_student_attendances(student_id, set_year, set_month):
     set_month = datetime.strptime(set_month, "%Y-%m")
     calendar_year = CalendarYear.query.filter(CalendarYear.date == set_year).first()
     calendar_month = CalendarMonth.query.filter(CalendarMonth.date == set_month).first()
-
-    student = Students.query.filter(Students.id == student_id).first()
+    student_history_groups = StudentHistoryGroups.query.filter(StudentHistoryGroups.student_id == student_id).all()
+    group_ids = [gr.group_id for gr in student_history_groups]
+    group_ids = list(dict.fromkeys(group_ids))
+    group = Groups.query.filter(Groups.id.in_(group_ids)).order_by(Groups.id).all()
     attendance_list = []
-    for gr in student.group:
+    for gr in group:
         info = {
             "id": gr.id,
             "name": gr.name,
@@ -115,8 +118,9 @@ def bot_student_attendances(student_id, set_year, set_month):
                                               Attendance.calendar_month == calendar_month.id).join(
             AttendanceDays.day).order_by(
             CalendarDay.date).all()
-        info["attendances"] = iterate_models(attendance)
-        attendance_list.append(info)
+        if len(attendance) != 0:
+            info["attendances"] = iterate_models(attendance)
+            attendance_list.append(info)
     return jsonify({"attendances": attendance_list})
 
 
@@ -124,7 +128,12 @@ def bot_student_attendances(student_id, set_year, set_month):
 def bot_student_test_results(student_id):
     student = Students.query.filter(Students.id == student_id).first()
     tests = []
-    for gr in student.group:
+    student_tests = StudentTest.query.filter(StudentTest.student_id == student_id).order_by(desc(StudentTest.id)).all()
+    group_ids = [gr.group_id for gr in student_tests]
+    group_ids = list(dict.fromkeys(group_ids))
+
+    groups = Groups.query.filter(Groups.id.in_(group_ids)).join(Groups.test).order_by(GroupTest.calendar_day).all()
+    for gr in groups:
         student_tests = StudentTest.query.filter(StudentTest.group_id == gr.id,
                                                  StudentTest.student_id == student_id).order_by(
             desc(StudentTest.id)).all()
@@ -160,3 +169,40 @@ def bot_student_balance(student_id, user_type):
                 balance += salary.remaining_salary
 
     return jsonify({"balance": balance})
+
+
+@app.route(f'{api}/bot_user_balance/<student_id>/<user_type>')
+def bot_user_balance(platform_id, user_type):
+    student = Students.query.filter(Students.id == platform_id).first()
+    teacher = Teachers.query.filter(Teachers.id == platform_id).first()
+    balance = 0
+    if user_type == "student" or user_type == "teacher":
+        if user_type == "student":
+            balance = student.user.balance
+
+        elif user_type == "teacher":
+            last_two_salaries = (
+                TeacherSalary.query
+                .filter(TeacherSalary.teacher_id == teacher.id)
+                .order_by(
+                    TeacherSalary.id.desc())  # or use .order_by(TeacherSalary.created_at.desc()) if you have a timestamp
+                .limit(2)
+                .all()
+            )
+            if last_two_salaries:
+                for salary in last_two_salaries:
+                    balance += salary.remaining_salary
+
+        return jsonify({"balance": balance})
+    else:
+        parent = Parent.query.filter(Parent.id == platform_id).first()
+        infos = []
+        for st in parent.student:
+            info = {
+                "id": st.id,
+                "name": st.user.name,
+                "surname": st.user.surname,
+                "balance": st.user.balance
+            }
+            infos.append(info)
+        return jsonify({"student_list": infos})
