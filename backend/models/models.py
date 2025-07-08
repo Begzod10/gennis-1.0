@@ -487,6 +487,7 @@ class Users(db.Model):
                 },
                 "student": {},
                 "teacher": {},
+                "parent": self.parent.convert_json() if self.parent else {},
                 "phone": []
             }
             for phone in self.phone:
