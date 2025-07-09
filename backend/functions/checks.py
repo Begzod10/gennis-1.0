@@ -1,4 +1,4 @@
-from app import app, request, jsonify, django_server
+from app import app, request, jsonify, school_server
 from backend.models.models import *
 from backend.functions.utils import api
 from flask_jwt_extended import *

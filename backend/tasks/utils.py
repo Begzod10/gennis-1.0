@@ -244,7 +244,8 @@ def update_debt_progress(location_id):
         TaskStudents.student).filter(Students.debtor != 4, Students.debtor != 0).all()
 
     if task_student:
-        students = Students.query.filter(Students.id.in_([st.student_id for st in in_progress_tasks])).all()
+        students = Students.query.filter(Students.id.in_([st.student_id for st in in_progress_tasks])).join(
+            Students.students_tasks).filter(TaskStudents.status == False).all()
     else:
 
         students = filter_debts(location_id)

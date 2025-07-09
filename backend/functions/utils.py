@@ -67,6 +67,7 @@ def refreshdatas(location_id=0):
     :param location_id:
     :return:
     """
+
     calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
     if not calendar_year:
         calendar_year = CalendarYear(date=new_year())

@@ -29,3 +29,5 @@ def clone_group_info(group):
         }
         group_info['course'] = level_info
     return group_info
+
+

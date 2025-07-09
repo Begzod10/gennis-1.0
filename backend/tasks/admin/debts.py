@@ -6,7 +6,7 @@ from backend.models.models import Users, Students, or_, DeletedStudents, Calenda
     StudentCallingInfo, LeadInfos, Lead
 from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
 from sqlalchemy import asc
-
+import pytz
 from backend.tasks.utils import update_debt_progress, update_all_ratings, black_students_count
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -112,54 +112,64 @@ def student_debts_completed(location_id, date):
 def call_to_debts():
     refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
+
+    local_tz = pytz.timezone("Asia/Tashkent")
+    calendar_dt = datetime.datetime.combine(calendar_day.date, datetime.time.min)
+    calendar_dt = local_tz.localize(calendar_dt)
+
     data = request.get_json()
     reason = data.get('comment')
     select = data.get('select')
     to_date = data.get('date')
     user_id = data.get('id')
+
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     student = Students.query.filter(Students.user_id == user_id).first()
-    task_statistics = TasksStatistics.query.filter(TasksStatistics.calendar_day == calendar_day.id,
-                                                   TasksStatistics.task_id == task_type.id,
-                                                   TasksStatistics.location_id == student.user.location_id).first()
-    month = datetime.datetime.strptime("2024-08", "%Y-%m")
+    task_statistics = TasksStatistics.query.filter(
+        TasksStatistics.calendar_day == calendar_day.id,
+        TasksStatistics.task_id == task_type.id,
+        TasksStatistics.location_id == student.user.location_id
+    ).first()
+
     if to_date:
         to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
+        to_date = local_tz.localize(datetime.datetime.combine(to_date.date(), datetime.time.min))
     else:
-        to_date = calendar_day.date + datetime.timedelta(days=1)
+        to_date = calendar_dt + datetime.timedelta(days=1)
+    task_student = TaskStudents.query.filter(
+        TaskStudents.task_id == task_type.id,
+        TaskStudents.tasksstatistics_id == task_statistics.id,
+        TaskStudents.student_id == student.id
+    ).first()
+    if to_date > calendar_dt:
+        exist_excuse = StudentExcuses.query.filter(
+            StudentExcuses.added_date == calendar_day.date,
+            StudentExcuses.student_id == student.id,
+            StudentExcuses.to_date == to_date.date()
+        ).first()
 
-    if to_date > calendar_day.date:
-        exist_excuse = StudentExcuses.query.filter(StudentExcuses.added_date == calendar_day.date,
-                                                   StudentExcuses.student_id == student.id).first()
         if not exist_excuse:
-            if select == "tel ko'tardi":
-
-                new_excuse = StudentExcuses(reason=reason,
-                                            to_date=to_date,
-                                            added_date=calendar_day.date,
-                                            student_id=student.id)
-
-            else:
-                new_excuse = StudentExcuses(reason="tel ko'tarmadi",
-                                            to_date=to_date,
-                                            added_date=calendar_day.date,
-                                            student_id=student.id)
-
+            new_excuse = StudentExcuses(
+                reason=reason if select == "tel ko'tardi" else "tel ko'tarmadi",
+                to_date=to_date.date(),
+                added_date=calendar_day.date,
+                student_id=student.id
+            )
             db.session.add(new_excuse)
             db.session.commit()
 
-        task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
-                                                 TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                 TaskStudents.student_id == student.id).first()
+        if task_student:
+            task_student.status = True
+            db.session.commit()
 
-        task_student.status = True
-        db.session.commit()
     students, task_statistics = update_debt_progress(student.user.location_id)
     task_daily_statistics = update_all_ratings(student.user.location_id)
+
     return jsonify({
         "status": "true",
         "message": "ma'lumot kiritildi",
         "student_id": student.id,
+        'task_student': task_student.convert_json() if task_student else None,
         "task_statistics": task_statistics.convert_json(),
         "task_daily_statistics": task_daily_statistics.convert_json()
     })
@@ -227,11 +237,19 @@ def add_blacklist2(user_id):
 @jwt_required()
 def get_comment(user_id, type_comment):
     student = Students.query.filter(Students.user_id == user_id).first()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     if type_comment == "debtors":
+        task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
+        task_student = TaskStudents.query.filter(
+            TaskStudents.task_id == task.id,
+            TaskStudents.student_id == student.id,
+            TaskStudents.calendar_day == calendar_day.id,
+        ).first()
         return jsonify({
             "comments": iterate_models(StudentExcuses.query.filter(StudentExcuses.student_id == student.id).order_by(
                 desc(StudentExcuses.id)).all()),
-            "info": Students.query.filter(Students.user_id == user_id).first().convert_json()
+            "info": Students.query.filter(Students.user_id == user_id).first().convert_json(),
+            "task_student": task_student.convert_json()
         })
     elif type_comment == "newStudents":
         return jsonify({

@@ -1,12 +1,14 @@
 import pprint
 from datetime import datetime
-from app import app, api, desc, jsonify, db
 from backend.models.models import TeacherSalary, Teachers, CalendarYear, Locations, TeacherSalaries, TeacherBlackSalary, \
     CalendarDay
-from sqlalchemy import func
+from sqlalchemy import func, desc
+from flask import jsonify, Blueprint
+from app import db
+teacher_bp = Blueprint('teacher', __name__)
 
 
-@app.route(f'{api}/bot_teacher_salary_years/<int:teacher_id>', methods=["POST", "GET"])
+@teacher_bp.route(f'salary/years/<int:teacher_id>', methods=["POST", "GET"])
 def bot_teacher_salary_years(teacher_id):
     teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
     teacher_salary = TeacherSalary.query.filter(Teachers.id == teacher_id).all()
@@ -16,7 +18,7 @@ def bot_teacher_salary_years(teacher_id):
     return jsonify({'years': [year.date.strftime("%Y") for year in years]})
 
 
-@app.route(f'{api}/bot_teacher_salary/<int:teacher_id>/<int:year>', methods=["POST", "GET"])
+@teacher_bp.route(f'salary/<int:teacher_id>/<int:year>', methods=["POST", "GET"])
 def bot_teacher_salary(teacher_id, year):
     teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
     get_year = CalendarYear.query.filter(CalendarYear.date == datetime(year, 1, 1)).first()
@@ -40,7 +42,7 @@ def bot_teacher_salary(teacher_id, year):
     return jsonify(salary_list)
 
 
-@app.route(f'{api}/bot_teacher_salary_details/<teacher_id>/<salary_id>')
+@teacher_bp.route(f'salary/details/<teacher_id>/<salary_id>')
 def bot_teacher_salary_details(teacher_id, salary_id):
     teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
     teacher_salary = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher_id,

@@ -6,15 +6,18 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from backend.models.models import *
 from flask_restful import Api
-# from flask_admin import Admin
+from flask_admin import Admin
 import logging
 import hmac
 import hashlib
-import os
 import subprocess
-
+from flask import request, Response
 from backend.parent.views import register_parent_views
+from backend.telegram_bot.views import register_telegram_bot_routes
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 GITHUB_SECRET = b''  # optional
 logging.basicConfig(level=logging.DEBUG)
 
@@ -33,26 +36,23 @@ apis = Api(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
 register_commands(app)
-# admin = Admin(
-#     app,
-#     name='Gennis',
-#     template_mode='bootstrap3',
-#     static_url_path='/flask_static'
-# )
+admin = Admin(
+    app,
+    name='Gennis',
+    template_mode='bootstrap3',
+    static_url_path='/flask_static'
+)
 
+classroom_server = os.getenv("CLASSROOM_SERVER_URL")
 
-# classroom_server = "http://192.168.1.15:5001"
-
-classroom_server = "https://classroom.gennis.uz"
-# telegram_bot_server = "http://127.0.0.1:5000"
-django_server = "https://school.gennis.uz"
-# django_server = "http://192.168.1.14:7622"
-
+school_server = os.getenv("SCHOOL_SERVER_URL")
 
 api = 'api/'
 from backend.tasks.admin.views import register_task_rating_views
+
 register_parent_views(api, app)
 register_task_rating_views(api, app)
+register_telegram_bot_routes(api, app)
 # test block
 from backend.student.register_for_tes.resources import *
 
@@ -106,7 +106,7 @@ from backend.routes.get_api import *
 from backend.class_room.views import *
 
 # bot
-from backend.telegram_bot.route import *
+from backend.telegram_bot.views import *
 
 # book
 from backend.book.main import *
@@ -131,17 +131,35 @@ from backend.account.profile.views import *
 from backend.account.debit_credit.views import *
 
 from backend.school.views import *
-from backend.telegram_bot.route import *
 
+from backend.models.views import *
 
-# from backend.models.views import *
 
 # teacher observation, attendance, teacher_group_statistics
 
 
-# @app.route('/flask_static/<path:filename>')
-# def flask_admin_static(filename):
-#     return send_from_directory('static', filename)
+def check_auth(username, password):
+    return username == 'rimefara' and password == 'top12'
+
+
+def authenticate():
+    return Response(
+        'Unauthorized access.', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
+@app.before_request
+def require_auth_for_admin():
+    if request.path.startswith('/admin'):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+
+
+@app.route('/flask_static/<path:filename>')
+def flask_admin_static(filename):
+    return send_from_directory('static', filename)
+
 
 @app.route("/api/payload", methods=["POST"])
 def payload():
@@ -162,7 +180,6 @@ def payload():
         capture_output=True,
         text=True
     )
-    print("GIT PULL:", pull_result.stdout)
     return "Updated", 200
 
 

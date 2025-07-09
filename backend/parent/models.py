@@ -28,6 +28,7 @@ class Parent(db.Model):
                     "name": st.user.name,
                     "surname": st.user.surname,
                     "balance": st.user.balance,
+                    "user": st.user.convert_json(),
                     # "lesson_times": [{"time": ls.start_time.strftime("%H:%M")} for ls in st.time_table],
                     "subjects": [subject.name for subject in st.subject]
                 } for st in self.student

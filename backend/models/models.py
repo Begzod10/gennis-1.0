@@ -539,6 +539,8 @@ class Users(db.Model):
                     if not group.deleted and group.status:
                         group_info = clone_group_info(group)
                         info['teacher']['group'].append(group_info)
+            elif self.parent:
+                info['parent'] = self.parent.convert_json(entire=True)
             return info
         else:
             return {

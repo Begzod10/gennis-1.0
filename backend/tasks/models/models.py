@@ -85,6 +85,16 @@ class TaskStudents(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "student_id": self.student_id,
+            "tasksstatistics_id": self.tasksstatistics_id,
+            "task_id": self.task_id,
+            "status": self.status
+            # "calendar_day": self.calendar_day.date.strftime("%Y-%m-%d")
+        }
+
 
 class BlackStudents(db.Model):
     __tablename__ = "black_students"

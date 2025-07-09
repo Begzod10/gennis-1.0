@@ -1,19 +1,52 @@
+import pprint
 from datetime import datetime
 
 from flask_jwt_extended import jwt_required
 
-from app import app, jsonify
+from app import app, jsonify, request
 from backend.functions.utils import api, find_calendar_date, get_json_field, iterate_models
 
 from backend.lead.models import Lead, LeadInfos
 
 from backend.tasks.utils import filter_new_leads, update_all_ratings
 from backend.models.models import db, CalendarDay, TasksStatistics, TaskDailyStatistics, Tasks
+import asyncio
+from backend.vats.vats_process import VatsProcess, wait_until_call_finished
+
+
+@app.route(f"{api}/test-call", methods=["POST"])
+async def test_call():
+    data = request.get_json()
+
+    user = data.get("user")  # e.g. "admin"
+    phone = data.get("phone")  # e.g. "998901234567"
+    clid = data.get("clid")  # optional
+
+    if not user or not phone:
+        return jsonify({"error": "Missing 'user' or 'phone'"}), 400
+
+    vats = VatsProcess()
+    result = await vats.call_client(user, phone, clid)
+    return jsonify(result)
 
 
 @app.route(f'{api}/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
-def task_leads(location_id, date):
+async def task_leads(location_id, date):
+    vats = VatsProcess()
+
+    # users_online = await vats.get_online_users()
+    users = await vats.list_all_users()
+    # calls = await vats.get_today_calls()
+    # calls = await vats.get_and_log_today_calls_for_user("turon_center")
+    # pprint.pprint(users)
+    # call_response = await vats.call_client("tis_sergeli", "949200232")
+    # callid = call_response.get("callid")
+    #
+    # print("[INFO] Waiting for call to finish...")
+    # final_info = await wait_until_call_finished(vats, callid)
+    # print("[CALL ENDED]", final_info)
+
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     date = datetime.strptime(date, "%Y-%m-%d")
     if date == calendar_day.date:
@@ -23,6 +56,7 @@ def task_leads(location_id, date):
         leads = []
         task_statistics = None
         daily_statistics = None
+
     return jsonify(
         {"leads": iterate_models(leads), "task_statistics": task_statistics.convert_json() if task_statistics else None,
          "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None}), 200
@@ -41,14 +75,11 @@ def completed_leads(location_id, date):
 
         table = False
     elif date > calendar_day.date:
-
         leads = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False, Lead.location_id == location_id,
                                                                LeadInfos.day == date).all()
         task_statistics = None
         daily_statistics = None
-
     else:
-
         leads = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False, Lead.location_id == location_id,
                                                                LeadInfos.added_date == date).all()
         task_statistics = TasksStatistics.query.filter(TasksStatistics.task_id == task_type.id,

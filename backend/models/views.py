@@ -47,7 +47,7 @@ class ProfessionAdmin(ModelView):
 
 
 admin.add_view(UserAdmin(Users, db.session))
-admin.add_view(SubjectAdmin(Students, db.session))
+admin.add_view(StudentAdmin(Students, db.session))
 admin.add_view(RoleAdmin(Roles, db.session))
 admin.add_view(SubjectAdmin(Subjects, db.session))
 admin.add_view(EducationLanguageAdmin(EducationLanguage, db.session))

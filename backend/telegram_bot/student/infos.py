@@ -1,57 +1,48 @@
 import pprint
 from datetime import datetime
-from app import app, api, desc, jsonify
-from backend.models.models import StudentPayments, Students, Attendance, Users, Group_Room_Week, Week, AttendanceDays, \
+
+from backend.models.models import StudentPayments, Students, Attendance, AttendanceDays, \
     CalendarDay, \
-    CalendarYear, CalendarMonth, AttendanceHistoryStudent, StudentTest, GroupTest, Teachers, Groups, TeacherSalary, \
+    CalendarYear, CalendarMonth, AttendanceHistoryStudent, StudentTest, GroupTest, Groups, \
     StudentHistoryGroups
 from backend.functions.utils import iterate_models, find_calendar_date
+from flask import Blueprint, jsonify
+from sqlalchemy import desc
+
+student_bp = Blueprint('student', __name__)
 
 
-@app.route(f'{api}/bot_student_payments/<student_id>')
+@student_bp.route(f'payments/<student_id>')
 def bot_student_payments(student_id):
     student_payments = StudentPayments.query.filter(StudentPayments.student_id == student_id).order_by(
         desc(StudentPayments.id)).all()
-    print(len(student_payments))
     return jsonify({"payments": iterate_models(student_payments)})
 
 
-@app.route(f'{api}/bot_student_time_table/<pk>/<user_type>')
-def bot_student_time_table(pk, user_type):
-    student = Students.query.filter(Students.id == pk).first()
-    teacher = Teachers.query.filter(Teachers.id == pk).first()
+@student_bp.route(f'test/results/<student_id>')
+def bot_student_test_results(student_id):
+    tests = []
+    student_tests = StudentTest.query.filter(StudentTest.student_id == student_id).order_by(desc(StudentTest.id)).all()
+    group_ids = [gr.group_id for gr in student_tests]
+    group_ids = list(dict.fromkeys(group_ids))
 
-    table_list = []
-    if user_type == "student" or user_type == "parent":
-        group = student.group
-    else:
-        group = teacher.group
-
-    group = Groups.query.filter(Groups.id.in_([gr.id for gr in group]), Groups.deleted == False,
-                                Groups.status == True).order_by(Groups.id).all()
-    for gr in group:
+    groups = Groups.query.filter(Groups.id.in_(group_ids)).join(Groups.test).order_by(GroupTest.calendar_day).all()
+    for gr in groups:
+        student_tests = StudentTest.query.filter(StudentTest.group_id == gr.id,
+                                                 StudentTest.student_id == student_id).order_by(
+            desc(StudentTest.id)).all()
         info = {
             "id": gr.id,
             "name": gr.name,
             "teacher": f"{gr.teacher[0].user.name} {gr.teacher[0].user.surname}",
             "subject": gr.subject.name,
-            "lessons": []
+            "tests": iterate_models(student_tests)
         }
-        student_time_table = Group_Room_Week.query.filter(
-            Group_Room_Week.group_id == gr.id).join(Week).order_by(Week.order).all()
-        for time in student_time_table:
-            info["lessons"].append({
-                "day": time.week.name,
-                "room": time.room.name,
-                "from": time.start_time.strftime("%H:%M"),
-                "to": time.end_time.strftime("%H:%M"),
-                "order": time.week.order
-            })
-        table_list.append(info)
-    return jsonify({"table_list": table_list})
+        tests.append(info)
+    return jsonify({"test_results": tests})
 
 
-@app.route(f'{api}/student_attendance_dates/<int:student_id>')
+@student_bp.route(f'attendance/dates/<int:student_id>')
 def student_attendance_dates(student_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     year_list = []
@@ -62,7 +53,6 @@ def student_attendance_dates(student_id):
     ).order_by(AttendanceHistoryStudent.id).all()
     for attendance in attendance_month:
         year = AttendanceHistoryStudent.query.filter(AttendanceHistoryStudent.student_id == student.id,
-
                                                      AttendanceHistoryStudent.calendar_year == attendance.calendar_year).all()
         info = {
             'year': '',
@@ -91,7 +81,7 @@ def student_attendance_dates(student_id):
     })
 
 
-@app.route(f'{api}/bot_student_attendances/<student_id>/<set_year>/<set_month>')
+@student_bp.route(f'attendances/<student_id>/<set_year>/<set_month>')
 def bot_student_attendances(student_id, set_year, set_month):
     set_month = set_year + "-" + set_month
     set_year = datetime.strptime(set_year, "%Y")
@@ -124,85 +114,44 @@ def bot_student_attendances(student_id, set_year, set_month):
     return jsonify({"attendances": attendance_list})
 
 
-@app.route(f'{api}/bot_student_test_results/<student_id>')
-def bot_student_test_results(student_id):
-    student = Students.query.filter(Students.id == student_id).first()
-    tests = []
-    student_tests = StudentTest.query.filter(StudentTest.student_id == student_id).order_by(desc(StudentTest.id)).all()
-    group_ids = [gr.group_id for gr in student_tests]
+@student_bp.route(f'scores/<student_id>/<set_year>/<set_month>')
+def scores(student_id, set_year, set_month):
+    set_month = set_year + "-" + set_month
+    set_year = datetime.strptime(set_year, "%Y")
+    set_month = datetime.strptime(set_month, "%Y-%m")
+    calendar_year = CalendarYear.query.filter(CalendarYear.date == set_year).first()
+    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == set_month).first()
+    student_history_groups = StudentHistoryGroups.query.filter(StudentHistoryGroups.student_id == student_id).all()
+    group_ids = [gr.group_id for gr in student_history_groups]
     group_ids = list(dict.fromkeys(group_ids))
-
-    groups = Groups.query.filter(Groups.id.in_(group_ids)).join(Groups.test).order_by(GroupTest.calendar_day).all()
-    for gr in groups:
-        student_tests = StudentTest.query.filter(StudentTest.group_id == gr.id,
-                                                 StudentTest.student_id == student_id).order_by(
-            desc(StudentTest.id)).all()
-        info = {
-            "id": gr.id,
-            "name": gr.name,
-            "teacher": f"{gr.teacher[0].user.name} {gr.teacher[0].user.surname}",
-            "subject": gr.subject.name,
-            "tests": iterate_models(student_tests)
-        }
-        tests.append(info)
-    return jsonify({"test_results": tests})
-
-
-@app.route(f'{api}/bot_student_balance/<student_id>/<user_type>')
-def bot_student_balance(student_id, user_type):
-    student = Students.query.filter(Students.id == student_id).first()
-    teacher = Teachers.query.filter(Teachers.id == student_id).first()
-    balance = 0
-    if user_type == "student" or user_type == "parent":
-        balance = student.user.balance
-    else:
-        last_two_salaries = (
-            TeacherSalary.query
-            .filter(TeacherSalary.teacher_id == teacher.id)
-            .order_by(
-                TeacherSalary.id.desc())  # or use .order_by(TeacherSalary.created_at.desc()) if you have a timestamp
-            .limit(2)
-            .all()
-        )
-        if last_two_salaries:
-            for salary in last_two_salaries:
-                balance += salary.remaining_salary
-
-    return jsonify({"balance": balance})
-
-
-@app.route(f'{api}/bot_user_balance/<student_id>/<user_type>')
-def bot_user_balance(platform_id, user_type):
-    student = Students.query.filter(Students.id == platform_id).first()
-    teacher = Teachers.query.filter(Teachers.id == platform_id).first()
-    balance = 0
-    if user_type == "student" or user_type == "teacher":
-        if user_type == "student":
-            balance = student.user.balance
-
-        elif user_type == "teacher":
-            last_two_salaries = (
-                TeacherSalary.query
-                .filter(TeacherSalary.teacher_id == teacher.id)
-                .order_by(
-                    TeacherSalary.id.desc())  # or use .order_by(TeacherSalary.created_at.desc()) if you have a timestamp
-                .limit(2)
-                .all()
-            )
-            if last_two_salaries:
-                for salary in last_two_salaries:
-                    balance += salary.remaining_salary
-
-        return jsonify({"balance": balance})
-    else:
-        parent = Parent.query.filter(Parent.id == platform_id).first()
-        infos = []
-        for st in parent.student:
+    group = Groups.query.filter(Groups.id.in_(group_ids)).order_by(Groups.id).all()
+    score_list = []
+    for gr in group:
+        got_scored = AttendanceDays.query.filter(AttendanceDays.student_id == student_id,
+                                                 AttendanceDays.group_id == gr.id).join(
+            AttendanceDays.attendance).filter(Attendance.calendar_year == calendar_year.id,
+                                              AttendanceDays.average_ball != None,
+                                              Attendance.calendar_month == calendar_month.id).join(
+            AttendanceDays.day).order_by(
+            CalendarDay.date).all()
+        average = 0
+        if len(got_scored) > 0:
             info = {
-                "id": st.id,
-                "name": st.user.name,
-                "surname": st.user.surname,
-                "balance": st.user.balance
+                "id": gr.id,
+                "name": gr.name,
+                "teacher": f"{gr.teacher[0].user.name} {gr.teacher[0].user.surname}",
+                "subject": gr.subject.name,
+                "score": [],
+                "current_month": calendar_month.date.strftime("%Y-%m"),
+                "average_ball": 0,
+                "dictionary_status": True if gr.subject.ball_number and gr.subject.ball_number > 2 else False
             }
-            infos.append(info)
-        return jsonify({"student_list": infos})
+            for ball in got_scored:
+                average += ball.average_ball
+            average = round(average / len(got_scored))
+            info['score'] = iterate_models(got_scored)
+            info['average_ball'] = average
+            score_list.append(info)
+    return jsonify({
+        "score_list": score_list
+    })
