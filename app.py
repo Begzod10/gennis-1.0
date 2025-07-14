@@ -15,6 +15,8 @@ import subprocess
 
 from backend.parent.views import register_parent_views
 
+# from backend.class_room.urls import register_classroom_views
+
 GITHUB_SECRET = b''  # optional
 logging.basicConfig(level=logging.DEBUG)
 
@@ -51,8 +53,10 @@ django_server = "https://school.gennis.uz"
 
 api = 'api/'
 from backend.tasks.admin.views import register_task_rating_views
+
 register_parent_views(api, app)
 register_task_rating_views(api, app)
+# register_classroom_views(api, app)
 # test block
 from backend.student.register_for_tes.resources import *
 

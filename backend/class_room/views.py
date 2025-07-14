@@ -1,4 +1,8 @@
+from sqlalchemy.orm import joinedload
+
 from app import app, db, request, jsonify, or_, contains_eager, classroom_server
+from backend.account.models import StudentPayments, BookPayments
+from backend.group.models import AttendanceHistoryStudent, GroupTest
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
     DeletedTeachers, Locations, LessonPlan, Group_Room_Week, Parent
@@ -11,12 +15,16 @@ from flask_jwt_extended import jwt_required, create_refresh_token, create_access
 from backend.functions.filters import old_current_dates
 from backend.group.class_model import Group_Functions
 from backend.student.class_model import Student_Functions
+from backend.student.models import StudentTest
 from datetime import timedelta
 from pprint import pprint
 import requests
 from werkzeug.security import generate_password_hash
-
+from flask import Blueprint
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
+from backend.models.models import Week
+
+classroom_bp = Blueprint('classroom', __name__)
 
 
 # @app.route(f'{api}/update_users_datas')
@@ -533,3 +541,205 @@ def get_datas():
     return jsonify({
         "msg": "Zo'r"
     })
+
+
+@app.route(f'{api}/student_attendance_dates_classroom/<username>')
+def student_attendance_dates_classroom(username):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    year_list = []
+    month_list = []
+    user = Users.query.filter(Users.username == username).first()
+    student = Students.query.filter(Students.id == user.student.id).first()
+    attendance_month = AttendanceHistoryStudent.query.filter(
+        AttendanceHistoryStudent.student_id == student.id,
+    ).order_by(AttendanceHistoryStudent.id).all()
+    for attendance in attendance_month:
+        year = AttendanceHistoryStudent.query.filter(AttendanceHistoryStudent.student_id == student.id,
+
+                                                     AttendanceHistoryStudent.calendar_year == attendance.calendar_year).all()
+        info = {
+            'year': '',
+            'months': []
+        }
+        if info['year'] != attendance.year.date.strftime("%Y"):
+            info['year'] = attendance.year.date.strftime("%Y")
+        for month in year:
+            if attendance.year.date.strftime("%Y") not in year_list:
+                year_list.append(attendance.year.date.strftime("%Y"))
+            if month.month.date.strftime("%m") not in info['months']:
+                info['months'].append(month.month.date.strftime("%m"))
+                info['months'].sort()
+        month_list.append(info)
+
+    day_dict = {gr['year']: gr for gr in month_list}
+    filtered_list = list(day_dict.values())
+    year_list = list(reversed(year_list))
+    return jsonify({
+        "data": {
+            "months": filtered_list,
+            "years": year_list,
+            "current_year": calendar_year.date.strftime("%Y"),
+            "current_month": calendar_month.date.strftime("%m"),
+        }
+    })
+
+
+@app.route(f"{api}/get_student_group_list/<username>", methods=['GET'])
+def get_student_group_list(username):
+    user = Users.query.filter(Users.username == username).first()
+    student = Students.query.filter(Students.id == user.student.id).first()
+    group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "name": gr.subject.name} for gr in
+                  student.group]
+    return jsonify({
+        "group_list": group_list
+    })
+
+
+@app.route(f'{api}/get_student_attendance_days_list/<username>/',
+           defaults={"group_id": None, "year": None, "month": None})
+@app.route(f"{api}/get_student_attendance_days_list/<username>/<group_id>/<year>/<month>", methods=['GET'])
+def get_student_attendance_days_list(username, group_id, year, month):
+    user = Users.query.filter_by(username=username).first()
+    student = Students.query.filter_by(user_id=user.id).first()
+    uzbek_weekdays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+    today = datetime.today().date()
+    week_result = []
+
+    if year and month:
+        calendar_days = CalendarDay.query.filter(
+            db.extract('year', CalendarDay.date) == int(year),
+            db.extract('month', CalendarDay.date) == int(month)
+        ).order_by(CalendarDay.date).all()
+    else:
+        start_of_week = today - timedelta(days=today.weekday())
+        calendar_days = []
+        for i in range(7):
+            current_date = start_of_week + timedelta(days=i)
+            day = CalendarDay.query.filter(db.func.date(CalendarDay.date) == current_date).first()
+            calendar_days.append(day if day else CalendarDay(date=current_date))
+
+    groups = [Groups.query.get(int(group_id))] if group_id and group_id != "None" else student.group
+
+    for day in calendar_days:
+        if not day: continue
+
+        weekday_index = day.date.weekday()
+        info = {
+            "date": day.date.strftime("%d"),
+            "weekday": uzbek_weekdays[weekday_index],
+            "attendances": [],
+            "is_today": day.date == today
+        }
+
+        for gr in groups:
+            timetable = gr.time_table[0] if gr.time_table else None
+            attendance_info = {
+                "group": gr.subject.name,
+                "time": f"{timetable.start_time.strftime('%H:%M')} / {timetable.end_time.strftime('%H:%M')}" if timetable else "Noma'lum",
+                "day_status": bool(day.id),
+                "status": ""
+            }
+
+            if day.id:
+                attendance_day = AttendanceDays.query.filter_by(
+                    student_id=student.id,
+                    calendar_day=day.id,
+                    group_id=gr.id
+                ).first()
+                if attendance_day:
+                    attendance_info['status'] = "Keldi" if attendance_day.status in [1, 2] else "Kelmadi"
+                    attendance_info["average_ball"] = attendance_day.average_ball
+                else:
+                    attendance_info['status'] = "Davomat qilinmagan"
+            else:
+                attendance_info['status'] = "Kun mavjud emas"
+
+            info['attendances'].append(attendance_info)
+        week_result.append(info)
+
+    return jsonify({"msg": week_result})
+
+
+@app.route(f"{api}/student_payments_list/<username>")
+def student_payments_list(username):
+    user = Users.query.filter(Users.username == username).first()
+    student = Students.query.filter(Students.user_id == user.id).first()
+    attendance_histories = AttendanceHistoryStudent.query.filter(
+        AttendanceHistoryStudent.student_id == student.id).order_by(AttendanceHistoryStudent.id).all()
+    student_payments = StudentPayments.query.filter(StudentPayments.student_id == student.id,
+                                                    StudentPayments.payment == True).order_by(
+        StudentPayments.id).all()
+    history_list = []
+    book_payments = BookPayments.query.filter(BookPayments.student_id == student.id).order_by(
+        BookPayments.id).all()
+
+    book_payment_list = [
+        {
+            "id": bk_payment.id,
+            "payment": bk_payment.payment_sum,
+            "date": bk_payment.day.date.strftime("%Y-%m-%d")
+        } for bk_payment in book_payments
+    ]
+    history_list = [
+        {
+            "group_name": att.group.subject.name if att.group else "Ma'lumot yo'q",
+            "total_debt": att.total_debt,
+            "payment": att.payment,
+            "remaining_debt": att.remaining_debt,
+            "discount": att.total_discount,
+            "present": att.present_days + att.scored_days,
+            "absent": att.absent_days,
+            "days": att.present_days + att.absent_days,
+            "month": att.month.date.strftime("%Y-%m")
+        } for att in attendance_histories
+    ]
+    payment_list = [
+        {
+            "id": payment.id,
+            "payment": payment.payment_sum,
+            "date": payment.day.date.strftime("%Y-%m-%d"),
+            "type_payment": payment.payment_type.name
+        } for payment in student_payments
+    ]
+
+    student_payments = StudentPayments.query.filter(StudentPayments.student_id == student.id,
+                                                    StudentPayments.payment == False).order_by(
+        StudentPayments.id).all()
+    discount_list = [
+        {
+            "id": payment.id,
+            "payment": payment.payment_sum,
+            "date": payment.day.date.strftime("%Y-%m-%d"),
+
+        } for payment in student_payments
+    ]
+    return jsonify({
+        "data": {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "debts": history_list,
+            "payments": payment_list,
+            "discounts": discount_list,
+            "bookPayments": book_payment_list
+        }
+    })
+
+
+@app.route(f'{api}/filter_test_classroom/<int:group_id>/<month>/<year>', methods=['GET'])
+def filter_test_classroom(group_id, month, year):
+    month = f"{year}-{month}"
+    calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
+    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime(month, "%Y-%m"),
+                                                CalendarMonth.year_id == calendar_year.id).first()
+
+    student_tests = StudentTest.query \
+        .join(GroupTest, StudentTest.group_test_id == GroupTest.id) \
+        .filter(
+        GroupTest.calendar_month == calendar_month.id,
+        StudentTest.group_id == group_id
+    ) \
+        .options(joinedload(StudentTest.group_test)) \
+        .all()
+
+    return jsonify({"tests": iterate_models(student_tests)})
