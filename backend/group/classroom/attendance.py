@@ -1,12 +1,14 @@
 from app import app, api, contains_eager, db, request
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from backend.functions.utils import find_calendar_date, get_json_field
-from backend.models.models import AttendanceHistoryStudent, Students, Groups, Roles, Week, Group_Room_Week, Rooms, Users
+from backend.functions.utils import find_calendar_date, get_json_field, update_salary
+from backend.models.models import AttendanceHistoryStudent, Students, Groups, Roles, Week, Group_Room_Week, Rooms, \
+    Users, Attendance, AttendanceDays, Teachers, TeacherBlackSalary
 from datetime import datetime
 from backend.functions.filters import update_lesson_plan, old_current_dates
 from backend.group.class_model import Group_Functions
 from backend.student.class_model import Student_Functions
+from backend.functions.debt_salary_update import salary_debt
 
 
 @app.route(f'{api}/group_dates2_classroom/<int:group_id>')
@@ -211,4 +213,41 @@ def student_group_dates2_classroom(student_id):
             "current_year": calendar_year.date.strftime("%Y"),
             "current_month": calendar_month.date.strftime("%m"),
         }
+    })
+
+
+@app.route(
+    f'{api}/delete_attendance_classroom/<int:attendance_id>/<int:student_id>/<int:group_id>', methods=["GET"])
+def delete_attendance_classroom(attendance_id, student_id, group_id):
+    student = Students.query.filter(Students.user_id == student_id).first()
+    attendancedays = AttendanceDays.query.filter(AttendanceDays.id == attendance_id).first()
+    attendace_get = Attendance.query.filter(Attendance.id == attendancedays.attendance_id).first()
+    group = Groups.query.filter(Groups.id == group_id).first()
+    teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
+    black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
+                                                   TeacherBlackSalary.student_id == student.id,
+                                                   TeacherBlackSalary.calendar_month == attendace_get.calendar_month,
+                                                   TeacherBlackSalary.calendar_year == attendace_get.calendar_year,
+                                                   TeacherBlackSalary.status == False,
+                                                   TeacherBlackSalary.location_id == student.user.location_id,
+                                                   ).first()
+    salary_per_day = attendancedays.salary_per_day
+    if black_salary:
+        if black_salary.total_salary:
+            black_salary.total_salary -= salary_per_day
+            db.session.commit()
+        else:
+            db.session.delete(black_salary)
+            db.session.commit()
+    salary_debt(student_id=student.id, group_id=group_id, attendance_id=attendance_id, status_attendance=True,
+                type_attendance=True)
+    st_functions = Student_Functions(student_id=student.id)
+    st_functions.update_debt()
+    st_functions.update_balance()
+
+    update_salary(teacher_id=teacher.user_id)
+
+    return jsonify({
+        "success": True,
+        "msg": "Davomat o'chirildi"
     })

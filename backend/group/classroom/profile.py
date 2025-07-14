@@ -42,13 +42,13 @@ def group_profile_classroom(group_id):
     target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
 
     lesson_plans = LessonPlan.query.filter(
-        LessonPlan.group_id == group.id,
+        LessonPlan.group_id == group.id if group else None,
         LessonPlan.date.in_(target_dates),
         LessonPlan.main_lesson == None,
         LessonPlan.homework == None
     ).all()
     filled_lesson_plan = LessonPlan.query.filter(
-        LessonPlan.group_id == group.id,
+        LessonPlan.group_id == group.id if group else None,
         LessonPlan.date.in_(target_dates),
         LessonPlan.main_lesson != None,
         LessonPlan.homework != None).first()
