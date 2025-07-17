@@ -23,6 +23,7 @@ class Parent(db.Model):
             'address': self.user.address,
             "children": [
                 {
+
                     "id": st.id,
                     "user_id": st.user_id,
                     "name": st.user.name,
@@ -30,6 +31,18 @@ class Parent(db.Model):
                     "balance": st.user.balance,
                     "user": st.user.convert_json(),
                     # "lesson_times": [{"time": ls.start_time.strftime("%H:%M")} for ls in st.time_table],
+                    "student_id": st.id,
+                    # "user_id": st.user_id,
+                    # "name": st.user.name,
+                    # "surname": st.user.surname,
+                    # "balance": st.user.balance,
+                    # "password": st.user.password,
+                    # "age": st.user.age,
+                    # "father_name": st.user.father_name,
+                    # "born_day" : st.user.born_day,
+                    # "born_month" : st.user.born_month,
+                    # "born_year" : st.user.born_year,
+
                     "subjects": [subject.name for subject in st.subject]
                 } for st in self.student
             ]

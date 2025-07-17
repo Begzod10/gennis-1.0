@@ -294,9 +294,9 @@ def update_account(account_id):
         all_capital = accounting_info.all_capital
     result = (all_payments + old_cash) - (teachers_salaries + all_staff_salaries + all_overhead + all_capital)
 
-    AccountingInfo.query.filter(AccountingInfo.id == accounting_info.id).update(
-        {'current_cash': result, "old_cash": old_cash})
-    db.session.commit()
+    # AccountingInfo.query.filter(AccountingInfo.id == accounting_info.id).update(
+    #     {'current_cash': result, "old_cash": old_cash})
+    # db.session.commit()
 
 
 def update_salary(teacher_id):

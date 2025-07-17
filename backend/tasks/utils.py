@@ -261,14 +261,21 @@ def update_debt_progress(location_id):
                                                 student_id=st.id, calendar_day=calendar_day.id)
                 add_task_student.add()
 
-    completed_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
-                                                   TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                   TaskStudents.status == True,
-                                                   TaskStudents.calendar_day == calendar_day.id).join(
-        TaskStudents.student).filter(Students.debtor != 4).count()
+    completed_students = (
+        db.session.query(func.count(func.distinct(TaskStudents.student_id)))
+        .filter(
+            TaskStudents.task_id == task.id,
+            TaskStudents.tasksstatistics_id == task_statistics.id,
+            TaskStudents.status == True,
+            TaskStudents.calendar_day == calendar_day.id
+        )
+        .join(TaskStudents.student)
+        .filter(Students.debtor != 4)
+        .scalar()
+    )
 
     task_statistics.completed_tasks = completed_students
-    task_statistics.in_progress_tasks = len(in_progress_tasks)
+    task_statistics.in_progress_tasks = len(students)
     task_statistics.total_tasks = task_statistics.in_progress_tasks + task_statistics.completed_tasks
     if task_statistics.total_tasks != 0:
         task_statistics.completed_tasks_percentage = round(

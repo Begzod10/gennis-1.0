@@ -94,7 +94,6 @@ def teacher_statistics(location_id):
     month = get_json_field('month') if 'month' in request.get_json() else None
     month = datetime.strptime(month, "%Y-%m") if month else None
     type_rating = get_json_field('type_rating') if 'type_rating' in request.get_json() else None
-    print(type_rating)
     if year != "all" and not month:
         calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
         for teacher in teachers:

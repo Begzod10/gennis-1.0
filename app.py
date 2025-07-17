@@ -18,6 +18,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# from backend.class_room.urls import register_classroom_views
+
+
 GITHUB_SECRET = b''  # optional
 logging.basicConfig(level=logging.DEBUG)
 
@@ -53,6 +57,9 @@ from backend.tasks.admin.views import register_task_rating_views
 register_parent_views(api, app)
 register_task_rating_views(api, app)
 register_telegram_bot_routes(api, app)
+
+# register_classroom_views(api, app)
+
 # test block
 from backend.student.register_for_tes.resources import *
 

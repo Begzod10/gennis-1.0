@@ -137,8 +137,10 @@ class Students(db.Model):
             "balance": self.user.balance,
             "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor != None else 0,
             'subjects': [subject.name for subject in self.subject],
-            "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
-            "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
+            # "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
+            "phone": "",
+            # "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
+            "parent": "",
             "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None,
             "debtor": self.debtor
         }
@@ -264,9 +266,9 @@ class StudentTest(db.Model):
             "student_surname": self.student.user.surname,
             "student_id": self.student.user.id,
             "test_info": {
-                "id": self.group_test.id,
-                "name": self.group_test.name,
-                "level": self.group_test.level
+                "id": self.group_test.id if self.group_test else None,
+                "name": self.group_test.name if self.group_test else None,
+                "level": self.group_test.level if self.group_test else None
             },
             "date": self.day.date.strftime("%Y-%m-%d"),
             "group_id": self.group_id,

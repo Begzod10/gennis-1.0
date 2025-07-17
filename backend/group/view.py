@@ -166,7 +166,8 @@ def group_profile(group_id):
         },
         "eduLang": {
             "name": "O'qitish tili",
-            "value": group.language.name
+            "value": group.language.name,
+            "id": group.language.id
         },
         "studentsLength": {
             "name": "Studentlar soni",
@@ -174,11 +175,12 @@ def group_profile(group_id):
         },
         "groupPrice": {
             "name": "Guruh narxi",
-            "value": group.price
+            "value": group.price,
         },
         "groupCourseType": {
             "name": "Kurs turi",
-            "value": group.course_type.name
+            "value": group.course_type.name,
+            "id": group.course_type.id
         },
         "groupLevel": {
             "name": "Level",

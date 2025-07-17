@@ -28,8 +28,8 @@ def change_group_info(group_id):
     if level_id == {}:
         level_id = None
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
-    language = EducationLanguage.query.filter(EducationLanguage.name == language).first()
-    course_type = CourseTypes.query.filter(CourseTypes.name == course_type).first()
+    language = EducationLanguage.query.filter(EducationLanguage.id == language).first()
+    course_type = CourseTypes.query.filter(CourseTypes.id == course_type).first()
     group = Groups.query.filter(Groups.id == group_id).first()
     old_teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
 
