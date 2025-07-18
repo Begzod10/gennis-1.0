@@ -69,6 +69,7 @@ def login2():
             #         "success": False,
             #         "msg": "Username yoki parol noturg'i"
             #     })
+            location = Locations.query.filter(Locations.id == username_sign.location_id).first()
             parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
             return jsonify({
                 'class': class_status,
@@ -88,7 +89,9 @@ def login2():
                 },
                 "success": True,
                 "type_user": role.type_role,
-                "parent": parent.convert_json() if parent else {}
+                "parent": parent.convert_json() if parent else {},
+                "location": location.convert_json()
+
             })
         else:
             return jsonify({
@@ -558,12 +561,12 @@ def get_datas():
     })
 
 
-@app.route(f'{api}/student_attendance_dates_classroom/<username>')
-def student_attendance_dates_classroom(username):
+@app.route(f'{api}/student_attendance_dates_classroom/<platform_id>')
+def student_attendance_dates_classroom(platform_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     year_list = []
     month_list = []
-    user = Users.query.filter(Users.username == username).first()
+    user = Users.query.filter(Users.id == platform_id).first()
     student = Students.query.filter(Students.id == user.student.id).first()
     attendance_month = AttendanceHistoryStudent.query.filter(
         AttendanceHistoryStudent.student_id == student.id,
@@ -599,9 +602,9 @@ def student_attendance_dates_classroom(username):
     })
 
 
-@app.route(f"{api}/get_student_group_list/<username>", methods=['GET'])
-def get_student_group_list(username):
-    user = Users.query.filter(Users.username == username).first()
+@app.route(f"{api}/get_student_group_list/<platform_id>", methods=['GET'])
+def get_student_group_list(platform_id):
+    user = Users.query.filter(Users.id == platform_id).first()
     student = Students.query.filter(Students.id == user.student.id).first()
     group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "name": gr.subject.name} for gr in
                   student.group]
@@ -610,11 +613,11 @@ def get_student_group_list(username):
     })
 
 
-@app.route(f'{api}/get_student_attendance_days_list/<username>/',
+@app.route(f'{api}/get_student_attendance_days_list/<platform_id>/',
            defaults={"group_id": None, "year": None, "month": None})
-@app.route(f"{api}/get_student_attendance_days_list/<username>/<group_id>/<year>/<month>", methods=['GET'])
-def get_student_attendance_days_list(username, group_id, year, month):
-    user = Users.query.filter_by(username=username).first()
+@app.route(f"{api}/get_student_attendance_days_list/<platform_id>/<group_id>/<year>/<month>", methods=['GET'])
+def get_student_attendance_days_list(platform_id, group_id, year, month):
+    user = Users.query.filter_by(id=platform_id).first()
     student = Students.query.filter_by(user_id=user.id).first()
     uzbek_weekdays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
     today = datetime.today().date()
@@ -675,9 +678,9 @@ def get_student_attendance_days_list(username, group_id, year, month):
     return jsonify({"msg": week_result})
 
 
-@app.route(f"{api}/student_payments_list/<username>")
-def student_payments_list(username):
-    user = Users.query.filter(Users.username == username).first()
+@app.route(f"{api}/student_payments_list/<platform_id>")
+def student_payments_list(platform_id):
+    user = Users.query.filter(Users.id == platform_id).first()
     student = Students.query.filter(Students.user_id == user.id).first()
     attendance_histories = AttendanceHistoryStudent.query.filter(
         AttendanceHistoryStudent.student_id == student.id).order_by(AttendanceHistoryStudent.id).all()
