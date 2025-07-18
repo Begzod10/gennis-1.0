@@ -245,6 +245,27 @@ def update_all_datas():
     #     methodist = Roles(type_role="methodist", role="d32q69n53")
     #     methodist.add()
     #
+
+    main_admin = Professions.query.filter(Professions.name == "Main_Admin").first()
+    if not main_admin:
+        main_admin = Professions(name="Main_Admin")
+        main_admin.add()
+
+    main_admin = Roles.query.filter(Roles.type_role == "main_admin", Roles.role == "22ada11daw").first()
+    if not main_admin:
+        main_admin = Roles(type_role="main_admin", role="22ada11daw")
+        main_admin.add()
+
+    # editor = Professions.query.filter(Professions.name == "Editor").first()
+    # if not editor:
+    #     editor = Professions(name="Editor")
+    #     editor.add()
+    #
+    # editor = Roles.query.filter(Roles.type_role == "editor", Roles.role == "n41c88z45").first()
+    # if not editor:
+    #     editor = Roles(type_role="editor", role="n41c88z45")
+    #     editor.add()
+    #
     # editor = Professions.query.filter(Professions.name == "Muxarir").first()
     # if not editor:
     #     editor = Professions(name="Muxarir")
