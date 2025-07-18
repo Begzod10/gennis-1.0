@@ -49,12 +49,6 @@ def login2():
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
-
-        subject = Subjects.query.filter(Subjects.name == "Smm").first()
-        if not subject:
-            subject = Subjects(name="Smm", ball_number=2)
-            db.session.add(subject)
-            db.session.commit()
         username = get_json_field('username')
         password = get_json_field('password')
         username_sign = Users.query.filter_by(username=username).first()
