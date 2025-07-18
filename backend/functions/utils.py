@@ -1,10 +1,9 @@
 import pprint
-
-from app import request, db
+from flask import request
 import requests
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, AccountingPeriod, Professions, PaymentTypes, \
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
-    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries
+    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries, db
 from dateutil.relativedelta import relativedelta
 from backend.school.models import SchoolUserSalary, SchoolUserSalaryAttendance, SchoolUserSalaryDay, SchoolUser
 from calendar import monthrange

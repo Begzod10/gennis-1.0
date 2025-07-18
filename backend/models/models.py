@@ -454,6 +454,7 @@ class Users(db.Model):
     deleted = Column(Boolean, default=False)
     parent = relationship("Parent", uselist=False, backref="user", order_by="Parent.id")
     address = Column(String)
+    telegram_id = Column(String)
 
     def convert_json(self, entire=False):
         if not entire:

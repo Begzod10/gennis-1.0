@@ -1,4 +1,4 @@
-from backend.models.models import Students, Group_Room_Week, Week, Teachers, Groups, TeacherSalary, Parent
+from backend.models.models import Students, Group_Room_Week, Week, Teachers, Groups, TeacherSalary, Parent, Users, db
 
 from flask import Blueprint, jsonify
 from sqlalchemy import desc
@@ -99,3 +99,12 @@ def bot_user_balance(platform_id, user_type):
             }
             infos.append(info)
         return jsonify({"student_list": infos})
+
+
+@user_bp.route(f'telegram_id/<platform_id>/<telegram_id>')
+def bot_user_telegram_id(platform_id, telegram_id):
+    user = Users.query.filter(Users.id == platform_id).first()
+    if user:
+        user.telegram_id = telegram_id
+        db.session.commit()
+    return jsonify({"telegram_id": telegram_id})

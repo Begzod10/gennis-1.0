@@ -1,9 +1,10 @@
 from datetime import datetime
 import requests
-from app import contains_eager, db, desc
+from sqlalchemy import func, and_, or_, desc
+from sqlalchemy.orm import contains_eager
 from backend.functions.utils import find_calendar_date
 from backend.models.models import CalendarYear, CalendarDay, CalendarMonth, StudentExcuses, AttendanceDays, Attendance, \
-    AttendanceHistoryStudent, Students, Users, StudentCharity, StudentPayments, BookPayments, Groups
+    AttendanceHistoryStudent, Students, Users, StudentCharity, StudentPayments, BookPayments, Groups, db
 
 
 class Student_Functions:
@@ -90,6 +91,7 @@ class Student_Functions:
             if student.combined_debt:
                 if -user.balance >= -student.combined_debt:
                     Students.query.filter_by(id=self.student_id).update({"debtor": 2})
+
     def update_debt(self):
         student = Students.query.filter_by(id=self.student_id).first()
         combined_debt = 0

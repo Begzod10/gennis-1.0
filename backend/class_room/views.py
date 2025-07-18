@@ -1,5 +1,5 @@
 from sqlalchemy.orm import joinedload
-
+from backend.teacher.utils import send_telegram_message
 from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.account.models import StudentPayments, BookPayments
 from backend.group.models import AttendanceHistoryStudent, GroupTest
@@ -395,7 +395,7 @@ def make_attendance_classroom():
         else:
             black_salary.total_salary += salary_per_day
             db.session.commit()
-
+    send_telegram_message(student.id, attendance_add.id, group_id)
     return jsonify({
         "message": f"{student.user.name} {student.user.surname} davomat qilindi",
         "status": "success",

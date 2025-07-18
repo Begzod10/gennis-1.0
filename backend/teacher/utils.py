@@ -1,11 +1,88 @@
 from app import db, jsonify, contains_eager, or_
 from .models import TeacherObservation
-from backend.models.models import CalendarYear, CalendarMonth, Students, Groups
+from backend.models.models import CalendarYear, CalendarMonth, Students, Groups, AttendanceDays, Users, Parent, Subjects
 from datetime import datetime
 from backend.functions.utils import get_json_field
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # for teachers.py
+
+def send_telegram_message(student_id, attendance_id, group_id):
+    import os
+    import requests
+    from flask import current_app
+    get_group = Groups.query.get(group_id)
+    get_subject = Subjects.query.get(get_group.subject_id)
+    bot_token = os.getenv("TOKEN")
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+    attendance = AttendanceDays.query.get(attendance_id)
+    student = Students.query.get(student_id)
+
+    if not attendance or not student:
+        return {"error": "Invalid student or attendance"}
+
+    # Get parent(s)
+    parents = student.parent
+
+    # Student full name
+    full_name = f"{student.user.name.title()} {student.user.surname.title()}"
+
+    # Attendance status interpretation
+    if attendance.status == 0:
+        status_text = "❌ Darsda yo‘q"
+        scores_text = ""
+    elif attendance.status == 2:
+        status_text = "✅ Darsda qatnashdi"
+        if get_subject.ball_number > 2:
+            scores_text = (
+                f"\n📚 <b>Lug'at:</b> {attendance.dictionary or 0}"
+                f"\n📝 <b>Uy vazifa:</b> {attendance.homework or 0}"
+                f"\n🎯 <b>Faollik:</b> {attendance.activeness or 0}"
+                f"\n📊 <b>O'rtacha ball:</b> {attendance.average_ball or 0}"
+            )
+        else:
+            scores_text = (
+                f"\n📝 <b>Uy vazifa:</b> {attendance.homework or 0}"
+                f"\n🎯 <b>Faollik:</b> {attendance.activeness or 0}"
+                f"\n📊 <b>O'rtacha ball:</b> {attendance.average_ball or 0}"
+            )
+    else:
+        status_text = "⛔ Noma'lum status"
+        scores_text = ""
+
+    text = (
+        f"<b>{full_name}</b>\n"
+        f"<b>Sana:</b> {attendance.date.strftime('%Y-%m-%d')}\n"
+        f"{status_text}"
+        f"{scores_text}"
+    )
+
+    # Send to all parents
+
+    for parent in parents:
+        user = Users.query.get(parent.user_id)
+        if user and user.telegram_id:
+            payload = {
+                "chat_id": user.telegram_id,
+                "text": text,
+                "parse_mode": "HTML"
+            }
+            response = requests.post(url, data=payload)
+    if student.user.telegram_id:
+        payload = {
+            "chat_id": student.user.telegram_id,
+            "text": text,
+            "parse_mode": "HTML"
+        }
+        response = requests.post(url, data=payload)
+    return {"status": "done"}
+
 
 def prepare_scores(subject_ball_number):
     base_scores = [
@@ -43,5 +120,3 @@ def get_students_info(group_id, hour2):
         }
         student_list.append(student_info)
     return student_list
-
-
