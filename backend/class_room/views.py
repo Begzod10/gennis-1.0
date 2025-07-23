@@ -649,6 +649,15 @@ def get_student_attendance_days_list(username, group_id, year, month):
                 if attendance_day:
                     attendance_info['status'] = "Keldi" if attendance_day.status in [1, 2] else "Kelmadi"
                     attendance_info["average_ball"] = attendance_day.average_ball
+                    if attendance_day.average_ball in [4, 5]:
+                        attendance_info["color"] = "green"
+                    elif attendance_day.average_ball == 3:
+                        attendance_info["color"] = "yellow"
+                    elif attendance_day.average_ball == 2:
+                        attendance_info["color"] = "red"
+                    else:
+                        attendance_info["color"] = "gray"
+
                 else:
                     attendance_info['status'] = "Davomat qilinmagan"
             else:
