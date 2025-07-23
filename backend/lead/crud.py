@@ -1,16 +1,18 @@
+from datetime import datetime
+
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
 from app import app, request, jsonify
 from backend.functions.utils import api, find_calendar_date, get_json_field, desc, CalendarMonth, AccountingPeriod, \
     refreshdatas, iterate_models
-from backend.models.models import db, Subjects
-from .models import Lead, LeadInfos
-from datetime import datetime
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.tasks.models.models import Tasks, TasksStatistics, TaskDailyStatistics
-from backend.student.calling_to_students import change_statistics
-from backend.models.models import Users
-from backend.lead.functions import update_task_statistics, update_posted_tasks, get_lead_tasks, \
+from backend.lead.functions import update_posted_tasks, get_lead_tasks, \
     get_completed_lead_tasks
+from backend.models.models import Subjects
+from backend.models.models import Users
 from backend.models.models import db, extract
+from backend.student.calling_to_students import change_statistics
+from backend.tasks.models.models import Tasks, TasksStatistics
+from .models import Lead, LeadInfos, LeadRecomended
 
 
 @app.route(f'{api}/register_lead', methods=['POST'])
@@ -49,7 +51,6 @@ def register_lead():
 @app.route(f'{api}/get_leads_location/<status>/<location_id>')
 @jwt_required()
 def get_leads_location(status, location_id):
-
     if status == "news":
         change_statistics(location_id)
 
@@ -156,3 +157,58 @@ def crud_lead(pm):
             "comments": iterate_models(get_comments)
         })
 
+
+@app.route(f'{api}/register_lead/recommend', methods=['POST'])
+@jwt_required()
+def register_lead_recommend():
+    refreshdatas()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+
+    user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
+
+    data = request.get_json()
+    name = data.get('name')
+    phone = data.get('phone')
+    location_id = user.location_id
+    subject_id = data.get('subject_id')
+    recommended_by_id = data.get('recommended_by_id')
+
+    if not name or not phone :
+        return jsonify({"success": False, "msg": "Majburiy maydonlar to‘ldirilmagan"}), 400
+
+    exist_user = Lead.query.filter_by(phone=phone, deleted=False).first()
+    if not exist_user:
+        lead_data = {
+            "name": name,
+            "phone": phone,
+            "calendar_day": calendar_day.id,
+            "account_period_id": accounting_period,
+            "location_id": location_id,
+        }
+        exist_user = Lead(**lead_data)
+        exist_user.add()
+
+    if recommended_by_id and int(recommended_by_id) != exist_user.id:
+        existing_recommendation = LeadRecomended.query.filter_by(
+            lead_id=recommended_by_id,
+            recommended_id=exist_user.id
+        ).first()
+        if not existing_recommendation:
+            recommendation = LeadRecomended(
+                lead_id=recommended_by_id,
+                recommended_id=exist_user.id
+            )
+            db.session.add(recommendation)
+            db.session.commit()
+
+    if subject_id:
+        subject = Subjects.query.filter_by(id=subject_id).first()
+        if subject and exist_user not in subject.leads:
+            subject.leads.append(exist_user)
+            db.session.commit()
+
+    return jsonify({
+        "msg": "Yangi lead muvaffaqiyatli ro'yxatdan o'tdi",
+        "success": True
+    })

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import joinedload
-
+from backend.teacher.utils import send_telegram_message
 from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.account.models import StudentPayments, BookPayments
 from backend.group.models import AttendanceHistoryStudent, GroupTest
@@ -49,12 +49,6 @@ def login2():
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
-
-        subject = Subjects.query.filter(Subjects.name == "Smm").first()
-        if not subject:
-            subject = Subjects(name="Smm", ball_number=2)
-            db.session.add(subject)
-            db.session.commit()
         username = get_json_field('username')
         password = get_json_field('password')
         username_sign = Users.query.filter_by(username=username).first()
@@ -401,7 +395,7 @@ def make_attendance_classroom():
         else:
             black_salary.total_salary += salary_per_day
             db.session.commit()
-
+    send_telegram_message(student.id, attendance_add.id, group_id)
     return jsonify({
         "message": f"{student.user.name} {student.user.surname} davomat qilindi",
         "status": "success",

@@ -197,7 +197,11 @@ class AttendanceDays(db.Model):
                 "id": self.student.id,
                 "name": self.student.user.name,
                 "surname": self.student.user.surname
-            }
+            },
+            "activeness": self.activeness,
+            "average_ball": self.average_ball,
+            "homework": self.homework,
+            "dictionary": self.dictionary
         }
 
     def convert_json(self, entire=False):
