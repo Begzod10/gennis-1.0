@@ -21,8 +21,9 @@ def send_telegram_message(student_id, attendance_id, group_id):
     bot_token = os.getenv("TOKEN")
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-    attendance = AttendanceDays.query.get(attendance_id)
-    student = Students.query.get(student_id)
+    attendance = AttendanceDays.query.filter(AttendanceDays.id == attendance_id).first()
+    print("attendance", attendance)
+    student = Students.query.filter(Students.id == student_id).first()
 
     if not attendance or not student:
         return {"error": "Invalid student or attendance"}
@@ -53,12 +54,12 @@ def send_telegram_message(student_id, attendance_id, group_id):
                 f"\n📊 <b>O'rtacha ball:</b> {attendance.average_ball or 0}"
             )
     else:
-        status_text = "⛔ Noma'lum status"
-        scores_text = ""
+        status_text = "✅ Darsda qatnashdi"
+        scores_text = "Baholanmadi"
 
     text = (
         f"<b>{full_name}</b>\n"
-        f"<b>Sana:</b> {attendance.date.strftime('%Y-%m-%d')}\n"
+        f"<b>Sana:</b> {attendance.day.date.strftime('%Y-%m-%d')}\n"
         f"{status_text}"
         f"{scores_text}"
     )
