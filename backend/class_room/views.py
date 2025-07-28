@@ -408,6 +408,253 @@ def make_attendance_classroom():
     })
 
 
+@app.route(f'{api}/make_attendance_classroom_mobile', methods=['POST'])
+def make_attendance_classroom_mobile():
+    """
+    make attendance to students, update students' balance and teacher salary
+    :return:
+    """
+    month = str(datetime.now().month)
+    current_year = datetime.now().year
+    old_year = datetime.now().year - 1
+    data = request.get_json()['data']
+    day = data['day']
+    get_month = data['month']
+    current_day = datetime.now().day
+    if len(month) == 1:
+        month = "0" + str(month)
+
+    group_id = int(data['group_id'])
+    group = Groups.query.filter(Groups.id == group_id).first()
+    teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
+    errors = []
+    students = data['students']
+    for st in students:
+        student = Students.query.filter(Students.user_id == st['id']).first()
+        homework = 0
+        dictionary = 0
+        active = 0
+        if 'homework' in st:
+            homework = st['homework']
+        if 'dictionary' in st:
+            dictionary = st['dictionary']
+        if 'active' in st:
+            active = st['active']
+        type_attendance = st['type']
+
+        if type_attendance == "yes":
+            type_status = True
+        else:
+            type_status = False
+
+        discount = StudentCharity.query.filter(StudentCharity.group_id == group_id,
+                                               StudentCharity.student_id == student.id).first()
+        if get_month == "12" and month == "01":
+            current_year = old_year
+        if not get_month:
+            get_month = month
+
+        date_day = str(current_year) + "-" + str(get_month) + "-" + str(day)
+        date_month = str(current_year) + "-" + str(get_month)
+        date_year = str(current_year)
+        date_day = datetime.strptime(date_day, "%Y-%m-%d")
+        date_month = datetime.strptime(date_month, "%Y-%m")
+        date_year = datetime.strptime(date_year, "%Y")
+        calendar_day = CalendarDay.query.filter(CalendarDay.date == date_day).first()
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
+        calendar_year = CalendarYear.query.filter(CalendarYear.date == date_year).first()
+        if not calendar_year:
+            calendar_year = CalendarYear(date=date_year)
+            db.session.add(calendar_year)
+            db.session.commit()
+        if not calendar_month:
+            calendar_month = CalendarMonth(date=date_month, year_id=calendar_year.id)
+            db.session.add(calendar_month)
+            db.session.commit()
+        if not calendar_day:
+            calendar_day = CalendarDay(date=date_day, month_id=calendar_month.id)
+            db.session.add(calendar_day)
+            db.session.commit()
+        balance_with_discount = 0
+        discount_per_day = 0
+        discount_status = False
+        if discount:
+            balance_with_discount = round(
+                (group.price / group.attendance_days) - (discount.discount / group.attendance_days))
+            discount_per_day = round(discount.discount / group.attendance_days)
+            discount_status = True
+        today = datetime.today()
+        hour = datetime.strftime(today, "%Y/%m/%d/%H/%M")
+        hour2 = datetime.strptime(hour, "%Y/%m/%d/%H/%M")
+        balance_per_day = round(group.price / group.attendance_days)
+        salary_per_day = round(group.teacher_salary / group.attendance_days)
+        ball_time = hour2 + timedelta(minutes=0)
+        Students.query.filter(Students.id == student.id).update({"ball_time": ball_time})
+        subject = Subjects.query.filter(Subjects.id == group.subject_id).first()
+        attendance = Attendance.query.filter(Attendance.student_id == student.id,
+                                             Attendance.calendar_year == calendar_year.id,
+                                             Attendance.location_id == group.location_id,
+                                             Attendance.calendar_month == calendar_month.id,
+                                             Attendance.teacher_id == group.teacher_id,
+                                             Attendance.group_id == group.id, Attendance.subject_id == subject.id,
+                                             Attendance.course_id == group.course_type_id).first()
+
+        if not attendance:
+            attendance = Attendance(student_id=student.id, calendar_year=calendar_year.id,
+                                    location_id=group.location_id,
+                                    calendar_month=calendar_month.id, teacher_id=teacher.id, group_id=group_id,
+                                    course_id=group.course_type_id, subject_id=subject.id)
+            db.session.add(attendance)
+            db.session.commit()
+
+        exist_attendance = db.session.query(AttendanceDays).join(AttendanceDays.attendance).options(
+            contains_eager(AttendanceDays.attendance)).filter(AttendanceDays.student_id == student.id,
+                                                              AttendanceDays.calendar_day == calendar_day.id,
+                                                              AttendanceDays.group_id == group_id,
+                                                              Attendance.calendar_month == calendar_month.id,
+                                                              Attendance.calendar_year == calendar_year.id).first()
+        if exist_attendance:
+            return jsonify(
+                {"errors": [
+                    {
+                        "active": True,
+                        "message": f"{student.user.name} {student.user.surname} bu kunda davomat qilingan",
+                        "status": "danger"
+                    }
+                ]}), 400
+        len_attendance = AttendanceDays.query.filter(AttendanceDays.student_id == student.id,
+                                                     AttendanceDays.group_id == group_id,
+                                                     AttendanceDays.location_id == group.location_id,
+                                                     AttendanceDays.attendance_id == attendance.id,
+                                                     ).count()
+
+        if len_attendance >= group.attendance_days:
+            return jsonify({"errors": [
+                {
+                    "active": True,
+                    "message": f"{student.user.name} {student.user.surname} bu oyda 13 kun dan ko'p davomat qilindi",
+                    "status": "danger"
+                }]
+            }), 400
+        ball = 5
+        if int(day) < int(current_day):
+            late_days = int(current_day) - int(day)
+
+            ball -= late_days
+            if ball < 0:
+                ball = 0
+        group_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
+            Group_Room_Week.id).all()
+        week_names = [time.week.eng_name for time in group_time_table]
+
+        target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
+
+        lesson_plans = LessonPlan.query.filter(
+            LessonPlan.group_id == group.id,
+            LessonPlan.date.in_(target_dates),
+            LessonPlan.main_lesson == None,
+            LessonPlan.homework == None
+        ).all()
+        fine = 0
+        today_lesson_plan = LessonPlan.query.filter(LessonPlan.group_id == group.id,
+                                                    LessonPlan.teacher_id == teacher.id,
+                                                    LessonPlan.date == calendar_day.date,
+                                                    LessonPlan.main_lesson == None, LessonPlan.homework == None,
+                                                    LessonPlan.activities == None, LessonPlan.objective == None,
+                                                    LessonPlan.resources == None, LessonPlan.assessment == None).first()
+        # if today_lesson_plan or ball < 5:
+        #     fine = round(salary_per_day / group.attendance_days)
+        if not type_status:
+            attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student.id,
+                                            calendar_day=calendar_day.id, attendance_id=attendance.id,
+                                            reason="",
+                                            status=0, balance_per_day=balance_per_day,
+                                            balance_with_discount=balance_with_discount,
+                                            salary_per_day=salary_per_day, group_id=group_id,
+                                            location_id=group.location_id,
+                                            discount_per_day=discount_per_day, teacher_ball=ball,
+                                            fine=fine,
+
+                                            discount=discount_status)
+            db.session.add(attendance_add)
+            db.session.commit()
+        elif homework == 0 and dictionary == 0 and active == 0:
+            attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student.id,
+                                            calendar_day=calendar_day.id, attendance_id=attendance.id,
+                                            status=1, balance_per_day=balance_per_day, teacher_ball=ball,
+                                            balance_with_discount=balance_with_discount,
+                                            salary_per_day=salary_per_day, group_id=group_id,
+                                            location_id=group.location_id, discount=discount_status,
+                                            discount_per_day=discount_per_day,
+                                            fine=fine,
+                                            )
+            db.session.add(attendance_add)
+            db.session.commit()
+        else:
+            average_ball = round((homework + dictionary + active) / subject.ball_number)
+            attendance_add = AttendanceDays(student_id=student.id, attendance_id=attendance.id,
+                                            dictionary=dictionary, teacher_ball=ball,
+                                            calendar_day=calendar_day.id,
+                                            status=2, balance_per_day=balance_per_day, homework=homework,
+                                            average_ball=average_ball, activeness=active, group_id=group_id,
+                                            location_id=group.location_id, teacher_id=teacher.id,
+                                            balance_with_discount=balance_with_discount,
+                                            salary_per_day=salary_per_day, discount=discount_status,
+                                            discount_per_day=discount_per_day,
+                                            fine=fine,
+                                            )
+            db.session.add(attendance_add)
+            db.session.commit()
+
+        user = Users.query.filter(Users.id == student.user_id).first()
+        if user.school_user_id:
+            update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
+        attendance_days = AttendanceDays.query.filter(AttendanceDays.attendance_id == attendance.id,
+                                                      AttendanceDays.teacher_ball != None).all()
+        total_ball = 0
+        for attendance_day in attendance_days:
+            total_ball += attendance_day.teacher_ball
+        result = round(total_ball / len(attendance_days))
+        Attendance.query.filter(Attendance.id == attendance.id).update({
+            "ball_percentage": result
+        })
+        db.session.commit()
+        st_functions = Student_Functions(student_id=student.id)
+        st_functions.update_debt()
+        st_functions.update_balance()
+
+        salary_location = salary_debt(student_id=student.id, group_id=group_id, attendance_id=attendance_add.id,
+                                      status_attendance=False, type_attendance="add")
+
+        update_salary(teacher_id=teacher.user_id)
+
+        if student.debtor == 2:
+            black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
+                                                           TeacherBlackSalary.student_id == student.id,
+                                                           TeacherBlackSalary.calendar_month == calendar_month.id,
+                                                           TeacherBlackSalary.calendar_year == calendar_year.id,
+                                                           TeacherBlackSalary.status == False,
+                                                           TeacherBlackSalary.location_id == student.user.location_id,
+                                                           TeacherBlackSalary.salary_id == salary_location.id).first()
+            if not black_salary:
+                black_salary = TeacherBlackSalary(teacher_id=teacher.id, total_salary=salary_per_day,
+                                                  student_id=student.id, salary_id=salary_location.id,
+                                                  calendar_month=calendar_month.id,
+                                                  calendar_year=calendar_year.id,
+                                                  location_id=student.user.location_id
+                                                  )
+                black_salary.add()
+            else:
+                black_salary.total_salary += salary_per_day
+                db.session.commit()
+        send_telegram_message(student.id, attendance_add.id, group_id)
+    return jsonify({
+        "message": "Attendance added successfully",
+        "status": "success",
+        "errors": errors,
+    })
+
+
 @app.route(f'{api}/get_user')
 @jwt_required()
 def get_user():
@@ -661,6 +908,15 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
                 if attendance_day:
                     attendance_info['status'] = "Keldi" if attendance_day.status in [1, 2] else "Kelmadi"
                     attendance_info["average_ball"] = attendance_day.average_ball
+                    if attendance_day.average_ball in [4, 5]:
+                        attendance_info["color"] = "green"
+                    elif attendance_day.average_ball == 3:
+                        attendance_info["color"] = "yellow"
+                    elif attendance_day.average_ball == 2:
+                        attendance_info["color"] = "red"
+                    else:
+                        attendance_info["color"] = "gray"
+
                 else:
                     attendance_info['status'] = "Davomat qilinmagan"
             else:
