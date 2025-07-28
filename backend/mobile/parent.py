@@ -16,9 +16,9 @@ from datetime import timedelta
 from sqlalchemy import extract
 
 
-@app.route(f"{api}/mobile/student_group_list/<username>", methods=['GET'])
-def get_student_group_list(username):
-    user = Users.query.filter_by(username=username).first()
+@app.route(f"{api}/mobile/student_group_list/<int:id>", methods=['GET'])
+def get_student_group_list(id):
+    user = Users.query.filter_by(id=id).first()
     student = Students.query.get(user.student.id)
 
     today_eng_name = datetime.today().strftime('%A')
@@ -53,9 +53,9 @@ def get_student_group_list(username):
     return jsonify({"group_list": group_list})
 
 
-@app.route(f"{api}/mobile/get_student_attendance_days_list/<username>/<group_id>/<year>/<month>", methods=['GET'])
+@app.route(f"{api}/mobile/get_student_attendance_days_list/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
 def get_student_attendance_days_list(username, group_id, year, month):
-    user = Users.query.filter_by(username=username).first()
+    user = Users.query.filter_by(id=id).first()
     student = Students.query.filter_by(user_id=user.id).first()
     today = datetime.today().date()
 
@@ -95,8 +95,8 @@ def get_student_attendance_days_list(username, group_id, year, month):
     return jsonify({"msg": info})
 
 
-@app.route(f"{api}/mobile/get_student_ranking/<username>/<group_id>/<year>/<month>", methods=['GET'])
-def get_student_ranking(username: str, group_id: int, year: int, month: int):
+@app.route(f"{api}/mobile/get_student_ranking/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
+def get_student_ranking(id: int, group_id: int, year: int, month: int):
     calendar_year = db.session.query(CalendarYear).filter(
         db.extract('year', CalendarYear.date) == year
     ).first()
@@ -126,7 +126,7 @@ def get_student_ranking(username: str, group_id: int, year: int, month: int):
     for idx, att in enumerate(attendance_list, start=1):
         student = att.student
         user = student.user
-        is_highlight = (user.username == username)
+        is_highlight = (user.id == id)
         result.append({
             "rank": idx,
             "student_id": student.id,
@@ -180,9 +180,9 @@ def lesson_plan_profile(id):
     }
 
 
-@app.route(f"{api}/mobile/student_profile_edit/<username>", methods=['PUT'])
-def lesson_plan_profile(username):
-    user = Users.query.filter_by(username=username).first()
+@app.route(f"{api}/mobile/student_profile_edit/<int:id>", methods=['PUT'])
+def lesson_plan_profile(id):
+    user = Users.query.filter_by(id=id).first()
 
     if request.method == "PUT":
         data = request.get_json()
