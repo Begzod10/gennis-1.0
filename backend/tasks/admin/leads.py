@@ -32,11 +32,11 @@ async def test_call():
 
 @app.route(f'{api}/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
-async def task_leads(location_id, date):
-    vats = VatsProcess()
+def task_leads(location_id, date):
+    # vats = VatsProcess()
 
     # users_online = await vats.get_online_users()
-    users = await vats.list_all_users()
+    # users = await vats.list_all_users()
     # calls = await vats.get_today_calls()
     # calls = await vats.get_and_log_today_calls_for_user("turon_center")
     # pprint.pprint(users)
