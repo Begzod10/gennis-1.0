@@ -115,3 +115,5 @@ def remove_students_from_parent(id):
 
     db.session.commit()
     return jsonify(parent.convert_json()), 200
+
+
