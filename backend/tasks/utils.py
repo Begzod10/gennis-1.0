@@ -74,7 +74,6 @@ def filter_new_leads(location_id):
         ),
     ).filter(or_(LeadInfos.day <= calendar_day.date, LeadInfos.id == None)).order_by(
         desc(Lead.id)).all()
-    print("leads", len(leads), "completed", len(completed))
     task_statistics.completed_tasks = len(completed)
     task_statistics.in_progress_tasks = len(leads)
     task_statistics.total_tasks = len(leads) + len(completed)

@@ -16,7 +16,7 @@ database_path = 'postgresql://{}:{}@{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST,
 SQLALCHEMY_DATABASE_URI = database_path
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 SQLALCHEMY_ECO = True
-MAX_CONTENT_LENGTH = 16 * 1000 * 1000
+MAX_CONTENT_LENGTH = 26 * 1000 * 1000
 JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 JWT_SECRET_KEY = "gennis_revolution"
 JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)

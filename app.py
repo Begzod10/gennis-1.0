@@ -13,11 +13,15 @@ import hashlib
 import subprocess
 from flask import request, Response
 from backend.parent.views import register_parent_views
+
 from backend.telegram_bot.views import register_telegram_bot_routes
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# from backend.account.urls import register_account_views
+
 
 # from backend.class_room.urls import register_classroom_views
 
@@ -56,7 +60,10 @@ from backend.tasks.admin.views import register_task_rating_views
 
 register_parent_views(api, app)
 register_task_rating_views(api, app)
+
 register_telegram_bot_routes(api, app)
+
+# register_account_views(api, app)
 
 # register_classroom_views(api, app)
 
@@ -68,7 +75,7 @@ from backend.functions.filters import *
 
 # account folder
 from backend.account.payment import *
-from backend.account.account import *
+# from backend.account.account import *
 from backend.account.overhead_capital import *
 from backend.account.salary import *
 from backend.account.test_acc import *

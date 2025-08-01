@@ -147,7 +147,6 @@ def refresh():
     })
 
 
-
 @app.route(f"{api}/logout", methods=["POST"])
 def logout():
     response = jsonify({"msg": "logout successful"})
@@ -166,7 +165,9 @@ def register():
         username = json_request['username']
         username_check = Users.query.filter_by(username=username).filter(
             or_(Users.deleted == False, Users.deleted == None)).first()
-
+        selectedSubjects = json_request['selectedSubjects']
+        if not selectedSubjects:
+            return jsonify({"message": "Please select at least one subject"})
         morning_shift = None
         night_shift = None
         time = json_request['shift']
@@ -1299,5 +1300,3 @@ def extend_att_date(student_id):
         "msg": "Davomat limit kuni belgilandi"
 
     })
-
-
