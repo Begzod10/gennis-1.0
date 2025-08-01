@@ -1,8 +1,11 @@
 from app import jsonify, request, db
+from backend.account.models import StudentPayments
 from backend.parent.models import Parent
 from backend.models.models import Users, Teachers, Roles
 from sqlalchemy import desc
 from flask import Blueprint
+
+from backend.student.models import Students
 
 get_parent_bp = Blueprint('parent_get', __name__)
 
@@ -18,3 +21,31 @@ def parent_list(location_id, deleted):
                                               Users.role_id == role.id).order_by(desc(Parent.id)).all()
     parents_list = [parent.convert_json() for parent in parents]
     return jsonify(parents_list)
+
+
+@get_parent_bp.route('/student_list/<int:id>', methods=['GET'])
+def student_list(id):
+    user = Users.query.get_or_404(id)
+    parent = Parent.query.filter(Parent.user_id == user.id).first()
+
+    existing_student_ids = [s.id for s in parent.student]
+
+    available_students = Students.query.filter(~Students.id.in_(existing_student_ids)).all()
+
+    return jsonify([student.convert_json() for student in available_students]), 200
+
+
+@get_parent_bp.route('/student_payments', methods=['GET'])
+def get_student_payments():
+    id = request.args.get('id', type=int)
+    payment_status = request.args.get('payment', type=lambda v: v.lower() == 'true')
+
+    user = Users.query.filter(Users.id == id).first()
+    student = Students.query.filter(Students.user_id == user.id).first()
+
+    payments = StudentPayments.query.filter_by(
+        student_id=student.id,
+        payment=payment_status
+    ).all()
+
+    return jsonify([p.convert_json() for p in payments]), 200
