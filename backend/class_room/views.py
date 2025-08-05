@@ -584,20 +584,37 @@ def student_attendance_dates_classroom(platform_id):
     })
 
 
-@app.route(f"{api}/get_student_group_list/<int:platform_id>", methods=['GET'])
-def get_student_group_list(platform_id):
+@app.route(f"{api}/get_student_group_list/<int:platform_id>/<int:year>/<int:month>", methods=['GET'])
+def get_student_group_list(platform_id, year, month):
     user = Users.query.filter(Users.id == platform_id).first()
-    student = Students.query.filter(Students.id == user.student.id).first()
 
-    unique_groups = db.session.query(Groups).join(AttendanceHistoryStudent) \
-        .filter(AttendanceHistoryStudent.student_id == student.id) \
-        .distinct().all()
+    student = user.student
+    print(student)
+
+    calendar_year = CalendarYear.query.filter(
+        db.extract('year', CalendarYear.date) == year
+    ).first()
+    print(calendar_year)
+
+    calendar_month = CalendarMonth.query.filter(
+        db.extract('year', CalendarMonth.date) == year,
+        db.extract('month', CalendarMonth.date) == month,
+        CalendarMonth.year_id == calendar_year.id
+    ).first()
+    print(calendar_month)
+
+    group_query = db.session.query(Groups).join(AttendanceHistoryStudent).filter(
+        AttendanceHistoryStudent.student_id == student.id,
+        AttendanceHistoryStudent.calendar_year == calendar_year.id,
+        AttendanceHistoryStudent.calendar_month == calendar_month.id
+    ).distinct().all()
 
     group_list = [{
         "id": group.id,
         "nameGroup": group.name.title(),
         "name": group.subject.name if group.subject else None
-    } for group in unique_groups]
+    } for group in group_query]
+
     return jsonify({
         "group_list": group_list
     })
