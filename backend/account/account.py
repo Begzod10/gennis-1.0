@@ -1066,26 +1066,26 @@ def get_location_money(location_id):
                                                   AccountingInfo.payment_type_id == payment_type.id,
                                                   AccountingInfo.calendar_year == accounting_period.year_id).first()
 
-        if not account_get:
-            add = AccountingInfo(account_period_id=accounting_period.id, all_payments=student_payments,
-                                 location_id=location_id, all_teacher_salaries=teacher_salaries,
-                                 all_dividend=all_dividend,
-                                 payment_type_id=payment_type.id, all_staff_salaries=staff_salaries,
-                                 all_overhead=overhead + branch_payments + center_balance_overhead, all_capital=capital,
-                                 all_charity=student_discounts, current_cash=current_cash,
-                                 calendar_year=accounting_period.year_id)
-            add.add()
-        else:
-            account_get.all_payments = student_payments
-            account_get.all_teacher_salaries = teacher_salaries
-            account_get.all_staff_salaries = staff_salaries
-            account_get.all_overhead = overhead + branch_payments + center_balance_overhead
-            account_get.all_capital = capital
-            account_get.all_charity = student_discounts
-            account_get.current_cash = current_cash
-            account_get.all_dividend = all_dividend
-            accounting_period.all_investment = 0
-            db.session.commit()
+        # if not account_get:
+        #     add = AccountingInfo(account_period_id=accounting_period.id, all_payments=student_payments,
+        #                          location_id=location_id, all_teacher_salaries=teacher_salaries,
+        #                          all_dividend=all_dividend,
+        #                          payment_type_id=payment_type.id, all_staff_salaries=staff_salaries,
+        #                          all_overhead=overhead + branch_payments + center_balance_overhead, all_capital=capital,
+        #                          all_charity=student_discounts, current_cash=current_cash,
+        #                          calendar_year=accounting_period.year_id)
+        #     add.add()
+        # else:
+        #     account_get.all_payments = student_payments
+        #     account_get.all_teacher_salaries = teacher_salaries
+        #     account_get.all_staff_salaries = staff_salaries
+        #     account_get.all_overhead = overhead + branch_payments + center_balance_overhead
+        #     account_get.all_capital = capital
+        #     account_get.all_charity = student_discounts
+        #     account_get.current_cash = current_cash
+        #     account_get.all_dividend = all_dividend
+        #     accounting_period.all_investment = 0
+            # db.session.commit()
 
     return jsonify({
         "data": account_list

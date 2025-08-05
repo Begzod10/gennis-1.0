@@ -245,11 +245,17 @@ def get_comment(user_id, type_comment):
             TaskStudents.student_id == student.id,
             TaskStudents.calendar_day == calendar_day.id,
         ).first()
+        task_students = TaskStudents.query.filter(
+            TaskStudents.task_id == task.id,
+            TaskStudents.student_id == student.id,
+            TaskStudents.calendar_day == calendar_day.id,
+        ).all()
         return jsonify({
             "comments": iterate_models(StudentExcuses.query.filter(StudentExcuses.student_id == student.id).order_by(
                 desc(StudentExcuses.id)).all()),
             "info": Students.query.filter(Students.user_id == user_id).first().convert_json(),
-            "task_student": task_student.convert_json()
+            "task_student": task_student.convert_json(),
+            "task_students": iterate_models(task_students)
         })
     elif type_comment == "newStudents":
         return jsonify({

@@ -722,7 +722,8 @@ def update_user(user_id):
 
 @app.route(f'{api}/subjects_add', methods=['POST'])
 def subjects_add():
-    subjects = request.get_json()['data']
+    subjects = request.get_json()['subjects']
+    print('subjects', subjects)
     for sub in subjects:
         get_subject = Subjects.query.filter(Subjects.classroom_id == sub['id']).first()
         if not get_subject:

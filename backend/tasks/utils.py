@@ -201,86 +201,140 @@ def filter_debts(location_id):
 
 def update_debt_progress(location_id):
     refreshdatas()
-    calendar_year, calendar_month, calendar_day = find_calendar_date()
-    task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
 
-    task_statistics = TasksStatistics.query.filter(TasksStatistics.location_id == location_id,
-                                                   TasksStatistics.calendar_day == calendar_day.id,
-                                                   TasksStatistics.calendar_month == calendar_month.id,
-                                                   TasksStatistics.calendar_year == calendar_year.id,
-                                                   TasksStatistics.task_id == task.id).first()
+    # from sqlalchemy import and_, func
+    #
+    # duplicates = db.session.query(
+    #     TaskStudents.student_id,
+    #     TaskStudents.task_id,
+    #     TaskStudents.tasksstatistics_id,
+    #     TaskStudents.calendar_day
+    # ).group_by(
+    #     TaskStudents.student_id,
+    #     TaskStudents.task_id,
+    #     TaskStudents.tasksstatistics_id,
+    #     TaskStudents.calendar_day
+    # ).having(
+    #     func.count(TaskStudents.id) > 1,
+    #     func.bool_or(TaskStudents.status == True),
+    #     func.bool_or(TaskStudents.status == False)
+    # ).all()
+    #
+    # for student_id, task_id, tasksstatistics_id, calendar_day in duplicates:
+    #     # Find True entry
+    #     true_entry = TaskStudents.query.filter_by(
+    #         student_id=student_id,
+    #         task_id=task_id,
+    #         tasksstatistics_id=tasksstatistics_id,
+    #         calendar_day=calendar_day,
+    #         status=True
+    #     ).first()
+    #
+    #     if true_entry:
+    #         # Delete all False duplicates
+    #         false_entries = TaskStudents.query.filter_by(
+    #             student_id=student_id,
+    #             task_id=task_id,
+    #             tasksstatistics_id=tasksstatistics_id,
+    #             calendar_day=calendar_day,
+    #             status=False
+    #         ).all()
+    #
+    #         for entry in false_entries:
+    #             db.session.delete(entry)
+    #
+    # db.session.commit()
+
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+
+    task = Tasks.query.filter_by(role="admin", name="excuses").first()
+
+    task_statistics = TasksStatistics.query.filter_by(
+        location_id=location_id,
+        calendar_day=calendar_day.id,
+        calendar_month=calendar_month.id,
+        calendar_year=calendar_year.id,
+        task_id=task.id
+    ).first()
+
     if not task_statistics:
-        task_statistics = TasksStatistics(task_id=task.id, calendar_year=calendar_year.id,
-                                          calendar_month=calendar_month.id, calendar_day=calendar_day.id,
-                                          location_id=location_id, in_progress_tasks=0,
-                                          total_tasks=0)
+        task_statistics = TasksStatistics(
+            task_id=task.id,
+            calendar_year=calendar_year.id,
+            calendar_month=calendar_month.id,
+            calendar_day=calendar_day.id,
+            location_id=location_id,
+            in_progress_tasks=0,
+            total_tasks=0
+        )
         db.session.add(task_statistics)
         db.session.commit()
 
-    # task_students = TaskStudents.query.filter(TaskStudents.task_id == task.id,
-    #                                           TaskStudents.tasksstatistics_id == task_statistics.id,
-    #                                           TaskStudents.calendar_day == calendar_day.id,
-    #                                           ).all()
-    # for st in task_students:
-    #     added_excuses = StudentExcuses.query.filter(
-    #         StudentExcuses.added_date == calendar_day.date,
-    #         StudentExcuses.student_id == st.student_id
-    #     ).first()
-    #     if added_excuses:
-    #         db.session.delete(added_excuses)
-    #         db.session.commit()
-    #     db.session.delete(st)
-    #     db.session.commit()
+    in_progress_tasks = TaskStudents.query.filter(
+        TaskStudents.task_id == task.id,
+        TaskStudents.tasksstatistics_id == task_statistics.id,
+        TaskStudents.status.is_(False),
+        TaskStudents.calendar_day == calendar_day.id
+    ).join(TaskStudents.student).filter(
+        Students.debtor != 4,
+        Students.debtor != 0
+    ).distinct(TaskStudents.student_id).all()
 
-    task_student = TaskStudents.query.filter(TaskStudents.task_id == task.id,
-                                             TaskStudents.tasksstatistics_id == task_statistics.id,
-                                             TaskStudents.calendar_day == calendar_day.id,
-                                             ).first()
-    in_progress_tasks = TaskStudents.query.filter(TaskStudents.task_id == task.id,
-                                                  TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                  TaskStudents.status == False,
-                                                  TaskStudents.calendar_day == calendar_day.id).join(
-        TaskStudents.student).filter(Students.debtor != 4, Students.debtor != 0).all()
+    task_student_exists = TaskStudents.query.filter_by(
+        task_id=task.id,
+        tasksstatistics_id=task_statistics.id,
+        calendar_day=calendar_day.id
+    ).first()
 
-    if task_student:
-        students = Students.query.filter(Students.id.in_([st.student_id for st in in_progress_tasks])).join(
-            Students.students_tasks).filter(TaskStudents.status == False).all()
+    if task_student_exists:
+        students = [ts.student for ts in in_progress_tasks]
     else:
-
         students = filter_debts(location_id)
 
-    if not task_student:
+    if not task_student_exists:
         for st in students:
-            exist_task = TaskStudents.query.filter(TaskStudents.task_id == task.id,
-                                                   TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                   TaskStudents.student_id == st.id,
-                                                   TaskStudents.calendar_day == calendar_day.id).first()
-            if not exist_task:
-                add_task_student = TaskStudents(task_id=task.id, tasksstatistics_id=task_statistics.id,
-                                                student_id=st.id, calendar_day=calendar_day.id)
-                add_task_student.add()
+            exists = db.session.query(TaskStudents).filter_by(
+                task_id=task.id,
+                tasksstatistics_id=task_statistics.id,
+                student_id=st.id,
+                calendar_day=calendar_day.id
+            ).first()
 
-    completed_students = (
-        db.session.query(func.count(func.distinct(TaskStudents.student_id)))
-        .filter(
-            TaskStudents.task_id == task.id,
-            TaskStudents.tasksstatistics_id == task_statistics.id,
-            TaskStudents.status == True,
-            TaskStudents.calendar_day == calendar_day.id
-        )
-        .join(TaskStudents.student)
-        .filter(Students.debtor != 4)
-        .scalar()
+            if not exists:
+                new_task_student = TaskStudents(
+                    task_id=task.id,
+                    tasksstatistics_id=task_statistics.id,
+                    status=False,
+                    student_id=st.id,
+                    calendar_day=calendar_day.id
+                )
+                new_task_student.add()
+
+    completed_students_count = db.session.query(
+        func.count(func.distinct(TaskStudents.student_id))
+    ).filter(
+        TaskStudents.task_id == task.id,
+        TaskStudents.tasksstatistics_id == task_statistics.id,
+        TaskStudents.status.is_(True),
+        TaskStudents.calendar_day == calendar_day.id
+    ).join(TaskStudents.student).filter(
+        Students.debtor != 4
+    ).scalar()
+
+    task_statistics.completed_tasks = completed_students_count
+    task_statistics.in_progress_tasks = len(students)
+    task_statistics.total_tasks = (
+            task_statistics.in_progress_tasks + task_statistics.completed_tasks
     )
 
-    task_statistics.completed_tasks = completed_students
-    task_statistics.in_progress_tasks = len(students)
-    task_statistics.total_tasks = task_statistics.in_progress_tasks + task_statistics.completed_tasks
-    if task_statistics.total_tasks != 0:
+    if task_statistics.total_tasks:
         task_statistics.completed_tasks_percentage = round(
-            (task_statistics.completed_tasks / task_statistics.total_tasks) * 100)
+            (task_statistics.completed_tasks / task_statistics.total_tasks) * 100
+        )
+
     db.session.commit()
     update_task_statistics_monthly(task, location_id)
+
     return students, task_statistics
 
 

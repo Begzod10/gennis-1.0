@@ -81,6 +81,11 @@ class TaskStudents(db.Model):
     status = Column(Boolean, default=False)
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
 
+    # __table_args__ = (
+    #     db.UniqueConstraint('task_id', 'student_id', 'tasksstatistics_id', 'calendar_day',
+    #                         name='unique_task_student_per_day'),
+    # )
+
     def add(self):
         db.session.add(self)
         db.session.commit()
