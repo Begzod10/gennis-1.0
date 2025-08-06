@@ -8,9 +8,12 @@ from backend.lead.models import Lead, LeadInfos
 from backend.models.models import db, TasksStatistics, TaskDailyStatistics, Tasks
 from backend.tasks.utils import filter_new_leads, update_all_ratings
 from backend.vats.vats_process import VatsProcess
+from flask import Blueprint
+
+task_leads_bp = Blueprint('task_leads', __name__)
 
 
-@app.route(f"{api}/test-call", methods=["POST"])
+@task_leads_bp.route(f"/test-call", methods=["POST"])
 async def test_call():
     data = request.get_json()
 
@@ -26,7 +29,7 @@ async def test_call():
     return jsonify(result)
 
 
-@app.route(f'{api}/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])
+@task_leads_bp.route(f'/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def task_leads(location_id, date):
     # vats = VatsProcess()
@@ -58,7 +61,7 @@ def task_leads(location_id, date):
          "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None}), 200
 
 
-@app.route(f'{api}/completed_leads/<int:location_id>/<date>', methods=["POST", "GET"])
+@task_leads_bp.route(f'/completed_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def completed_leads(location_id, date):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -90,7 +93,7 @@ def completed_leads(location_id, date):
          "table": table}), 200
 
 
-@app.route(f'{api}/task_leads_update/<int:pk>', methods=["POST", "GET"])
+@task_leads_bp.route(f'/task_leads_update/<int:pk>', methods=["POST", "GET"])
 @jwt_required()
 def task_leads_update(pk):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -127,7 +130,7 @@ def task_leads_update(pk):
         })
 
 
-@app.route(f'{api}/task_leads_delete/<int:pk>', methods=["DELETE"])
+@task_leads_bp.route(f'/task_leads_delete/<int:pk>', methods=["DELETE"])
 @jwt_required()
 def task_leads_delete(pk):
     lead = Lead.query.filter(Lead.id == pk).first()

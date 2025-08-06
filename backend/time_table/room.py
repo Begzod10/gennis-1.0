@@ -5,9 +5,12 @@ from backend.functions.small_info import room_images, checkFile
 from werkzeug.utils import secure_filename
 import os
 from app import app, api, request, jsonify, db
+from flask import Blueprint
+
+room_bp = Blueprint('room', __name__)
 
 
-@app.route(f'{api}/create_room/<int:location_id>', methods=['POST'])
+@room_bp.route(f'/create_room/<int:location_id>', methods=['POST'])
 def create_room(location_id):
     name = request.get_json()['roomName']
     electronic_board = request.get_json()['isDoska']
@@ -26,7 +29,7 @@ def create_room(location_id):
     })
 
 
-@app.route(f'{api}/upload_room_img/<int:room_id>/<type>', methods=['POST'])
+@room_bp.route(f'/upload_room_img/<int:room_id>/<type>', methods=['POST'])
 def upload_room_img(room_id, type):
     images = request.files.getlist('file')
     for img in images:
@@ -54,7 +57,7 @@ def upload_room_img(room_id, type):
         })
 
 
-@app.route(f'{api}/rooms_location/<int:location_id>')
+@room_bp.route(f'/rooms_location/<int:location_id>')
 def rooms_location(location_id):
     rooms = Rooms.query.filter(Rooms.location_id == location_id).order_by(Rooms.id).all()
     room_list = []
@@ -77,7 +80,7 @@ def rooms_location(location_id):
     })
 
 
-@app.route(f'{api}/room_profile/<int:room_id>')
+@room_bp.route(f'/room_profile/<int:room_id>')
 def room_profile(room_id):
     room = Rooms.query.filter(Rooms.id == room_id).first()
     room_image = []
@@ -128,7 +131,7 @@ def room_profile(room_id):
     })
 
 
-@app.route(f'{api}/edit_room/<int:room_id>', methods=['POST'])
+@room_bp.route(f'/edit_room/<int:room_id>', methods=['POST'])
 def edit_room(room_id):
     name = request.get_json()['name']
     electronic_board = request.get_json()['eBoard']
@@ -156,7 +159,7 @@ def edit_room(room_id):
     })
 
 
-@app.route(f'{api}/delete_room_img/<int:img_id>')
+@room_bp.route(f'/delete_room_img/<int:img_id>')
 def delete_room_img(img_id):
     room_img = RoomImages.query.filter(RoomImages.id == img_id).first()
     if room_img.photo_url:
@@ -171,7 +174,7 @@ def delete_room_img(img_id):
     })
 
 
-@app.route(f'{api}/room_time_table/<int:room_id>')
+@room_bp.route(f'/room_time_table/<int:room_id>')
 def room_time_table(room_id):
     room = Rooms.query.filter(Rooms.id == room_id).first()
     update_week(room.location_id)

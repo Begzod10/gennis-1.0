@@ -3,9 +3,12 @@ from backend.models.models import Week, Group_Room_Week, Rooms, Groups
 from backend.functions.utils import update_week, api
 
 from flask_jwt_extended import jwt_required
+from flask import Blueprint
+
+time_table = Blueprint('time_table', __name__)
 
 
-@app.route(f'{api}/view_table2/<int:location_id>/<day>', methods=['GET'])
+@time_table.route(f'/view_table2/<int:location_id>/<day>', methods=['GET'])
 @jwt_required()
 def view_table(location_id, day):
     update_week(location_id)

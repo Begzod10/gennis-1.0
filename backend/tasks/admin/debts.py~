@@ -53,8 +53,8 @@ def student_debts_progress(location_id, date):
     })
 
 
-@task_debts.route(f'/student_debts_completed/<int:location_id>', defaults={"date": None})
-@task_debts.route(f'/student_debts_completed/<int:location_id>/<date>')
+@task_debts.route(f'{api}/student_debts_completed/<int:location_id>', defaults={"date": None})
+@task_debts.route(f'{api}/student_debts_completed/<int:location_id>/<date>')
 @jwt_required()
 def student_debts_completed(location_id, date):
     date = datetime.datetime.strptime(date, "%Y-%m-%d")
