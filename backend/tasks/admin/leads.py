@@ -1,17 +1,13 @@
-import pprint
 from datetime import datetime
 
 from flask_jwt_extended import jwt_required
 
 from app import app, jsonify, request
 from backend.functions.utils import api, find_calendar_date, get_json_field, iterate_models
-
 from backend.lead.models import Lead, LeadInfos
-
+from backend.models.models import db, TasksStatistics, TaskDailyStatistics, Tasks
 from backend.tasks.utils import filter_new_leads, update_all_ratings
-from backend.models.models import db, CalendarDay, TasksStatistics, TaskDailyStatistics, Tasks
-import asyncio
-from backend.vats.vats_process import VatsProcess, wait_until_call_finished
+from backend.vats.vats_process import VatsProcess
 
 
 @app.route(f"{api}/test-call", methods=["POST"])
@@ -139,5 +135,10 @@ def task_leads_delete(pk):
     db.session.commit()
     leads, task_statistics, _ = filter_new_leads(lead.location_id)
     daily_statistics = update_all_ratings(lead.location_id)
-    return jsonify({"leads": leads, "task_statistics": task_statistics.convert_json(),
-                    "task_daily_statistics": daily_statistics.convert_json()}), 200
+
+    return jsonify({
+        "leads": [lead.convert_json() for lead in leads],
+        "task_statistics": task_statistics.convert_json(),
+        "task_daily_statistics": daily_statistics.convert_json(),
+        "msg": "O'quvchi o'chirildi", "success": True,
+    }), 200

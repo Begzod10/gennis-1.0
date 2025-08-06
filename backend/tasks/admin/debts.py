@@ -1,14 +1,13 @@
 import datetime
 
-from app import app, db, jsonify, request, desc
-from backend.models.models import Users, Students, or_, DeletedStudents, CalendarDay, CalendarMonth, CalendarYear, \
-    TaskStudents, TasksStatistics, StudentExcuses, Tasks, TaskDailyStatistics, BlackStudents, BlackStudentsStatistics, \
-    StudentCallingInfo, LeadInfos, Lead
-from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
-from sqlalchemy import asc
 import pytz
-from backend.tasks.utils import update_debt_progress, update_all_ratings, black_students_count
 from flask_jwt_extended import jwt_required, get_jwt_identity
+
+from app import app, db, jsonify, request, desc
+from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
+from backend.models.models import Users, Students, CalendarDay, TaskStudents, TasksStatistics, StudentExcuses, Tasks, \
+    TaskDailyStatistics, BlackStudents, StudentCallingInfo, LeadInfos, Lead
+from backend.tasks.utils import update_debt_progress, update_all_ratings, black_students_count
 
 
 @app.route(f'{api}/student_debts_progress/<int:location_id>/', defaults={"date": None})
@@ -265,9 +264,19 @@ def get_comment(user_id, type_comment):
             "info": Students.query.filter(Students.user_id == user_id).first().convert_json()
         })
     else:
+        from backend.lead.models import LeadRecomended
+
+        lead_ids = db.session.query(LeadRecomended.recommended_id).join(Lead, LeadRecomended.lead_id == Lead.id).filter(
+            LeadRecomended.lead_id == user_id,
+            Lead.deleted == False
+        ).all()
+        lead_ids = [l[0] for l in lead_ids]
+        leads = Lead.query.filter(Lead.id.in_(lead_ids), Lead.deleted == False).all()
 
         return jsonify({
             "comments": iterate_models(
                 LeadInfos.query.filter(LeadInfos.lead_id == user_id).order_by(desc(LeadInfos.id)).all()),
-            "info": Lead.query.filter(Lead.id == user_id).first().convert_json()
+            "info": Lead.query.filter(Lead.id == user_id).first().convert_json(),
+            "invitations": [lead.convert_json() for lead in leads]
+
         })

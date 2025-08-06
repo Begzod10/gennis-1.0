@@ -1,6 +1,7 @@
 # from backend.functions.utils import find_calendar_date
-from backend.models.models import Column, Integer, db, String, ForeignKey, Boolean, desc, DateTime, relationship
 from datetime import datetime
+
+from backend.models.models import Column, Integer, db, String, ForeignKey, Boolean, desc, DateTime, relationship
 
 
 class LeadInfos(db.Model):
@@ -35,6 +36,16 @@ class Lead(db.Model):
     comment = Column(String)
     location_id = Column(Integer, ForeignKey('locations.id'))
     infos = relationship("LeadInfos", backref="lead", order_by=desc(LeadInfos.id))
+    recommended_by = relationship(
+        "LeadRecomended",
+        foreign_keys="[LeadRecomended.recommended_id]",
+        backref="recommended_lead"
+    )
+    recommendations = relationship(
+        "LeadRecomended",
+        foreign_keys="[LeadRecomended.lead_id]",
+        backref="recommender_lead"
+    )
 
     def convert_json(self, entire=False):
 
@@ -76,6 +87,13 @@ class Lead(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+
+class LeadRecomended(db.Model):
+    __tablename__ = "lead_recommended"
+    id = Column(Integer, primary_key=True)
+    lead_id = Column(Integer, ForeignKey('lead.id'))
+    recommended_id = Column(Integer, ForeignKey('lead.id'))
 
 
 db.Table('lead_subject',

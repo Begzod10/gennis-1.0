@@ -9,7 +9,7 @@ DEBUG = True
 
 DB_USER = os.getenv('FLASK_DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
-DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5432')
+DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5433')
 # DB_HOST = os.getenv('DB_HOST', '192.168.68.103:5432')~~
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
 database_path = 'postgresql://{}:{}@{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_NAME)
