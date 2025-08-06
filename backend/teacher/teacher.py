@@ -1,31 +1,26 @@
-import json
-
-import os
-from app import app, api, request, db, jsonify, contains_eager, classroom_server, or_, migrate
-
-import pprint
-
-from app import app, api, request, db, jsonify, contains_eager, classroom_server, or_
-
-from backend.functions.filters import old_current_dates
-import requests
-from backend.functions.debt_salary_update import salary_debt
-from flask_jwt_extended import jwt_required
-from backend.student.class_model import Student_Functions
-from backend.group.class_model import Group_Functions
 from datetime import datetime
-from .utils import get_students_info, prepare_scores
+
+from flask import Blueprint
+from flask import request, jsonify
+from flask_jwt_extended import jwt_required
+
+from app import db, contains_eager
+from backend.functions.debt_salary_update import salary_debt
+from backend.functions.filters import old_current_dates
+from backend.functions.functions import get_dates_for_weekdays
 from backend.functions.utils import find_calendar_date, update_salary, iterate_models, get_json_field, \
     update_school_salary
-from backend.models.models import Users, Attendance, Students, AttendanceDays, Teachers, Groups, Locations, Subjects, \
-    StudentCharity, Roles, TeacherBlackSalary, GroupReason, TeacherObservationDay, DeletedStudents, \
-    TeacherGroupStatistics, Group_Room_Week, LessonPlan
-from backend.school.models import SchoolUser, SchoolUserSalary, SchoolUserSalaryDay, SchoolUserSalaryAttendance
-from datetime import timedelta
-from backend.models.models import CalendarDay, CalendarMonth, CalendarYear
-from sqlalchemy import func
-from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
+from backend.group.class_model import Group_Functions
+from backend.models.models import Attendance, Students, AttendanceDays, Groups, Locations, Subjects, \
+    StudentCharity, TeacherBlackSalary, GroupReason, TeacherObservationDay, TeacherGroupStatistics, \
+    Group_Room_Week, LessonPlan
+from backend.models.models import CalendarMonth, CalendarYear
+from backend.models.models import Teachers, Users, Roles
+from backend.student.class_model import Student_Functions
 from backend.teacher.utils import send_telegram_message
+from .utils import get_students_info, prepare_scores
+
+teachers_bp = Blueprint('teachers', __name__)
 
 
 def analyze(attendances, teacher, type_rating=None):
@@ -57,7 +52,7 @@ def analyze(attendances, teacher, type_rating=None):
     return teacher_list
 
 
-@app.route(f'{api}/statistics_dates', methods=['POST', 'GET'])
+@teachers_bp.route(f'/statistics_dates', methods=['POST', 'GET'])
 @jwt_required()
 def statistics_dates():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -81,7 +76,7 @@ def statistics_dates():
         })
 
 
-@app.route(f'{api}/teacher_statistics/<location_id>', methods=['POST'])
+@teachers_bp.route(f'/teacher_statistics/<location_id>', methods=['POST'])
 @jwt_required()
 def teacher_statistics(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -233,7 +228,7 @@ def teacher_statistics(location_id):
         })
 
 
-@app.route(f'{api}/teacher_statistics_deleted_students/<location_id>', methods=['POST'])
+@teachers_bp.route(f'/teacher_statistics_deleted_students/<location_id>', methods=['POST'])
 @jwt_required()
 def teacher_statistics_deleted_students(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -285,7 +280,7 @@ def teacher_statistics_deleted_students(location_id):
     })
 
 
-@app.route(f'{api}/attendance/<int:group_id>', methods=['GET'])
+@teachers_bp.route(f'/attendance/<int:group_id>', methods=['GET'])
 @jwt_required()
 def attendance(group_id):
     # Assuming this is a necessary function call
@@ -309,7 +304,7 @@ def attendance(group_id):
     })
 
 
-@app.route(f'{api}/make_attendance', methods=['POST'])
+@teachers_bp.route(f'/make_attendance', methods=['POST'])
 @jwt_required()
 def make_attendance():
     data = request.get_json()
@@ -499,7 +494,7 @@ def make_attendance():
     return jsonify({"msg": "Davomat qo'shildi", "success": True, "student_id": student['id'], "requestType": "success"})
 
 
-@app.route(f'{api}/attendance_delete/<int:attendance_id>/<int:student_id>/<int:group_id>/<int:main_attendance>')
+@teachers_bp.route(f'/attendance_delete/<int:attendance_id>/<int:student_id>/<int:group_id>/<int:main_attendance>')
 @jwt_required()
 def attendance_delete(attendance_id, student_id, group_id, main_attendance):
     student = Students.query.filter(Students.user_id == student_id).first()
@@ -536,12 +531,23 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
     })
 
 
-@app.route(f"{api}/get_teachers", methods=["GET"])
+@teachers_bp.route(f"/get_teachers", methods=["GET"])
 @jwt_required()
 def get_teachers():
-    list_teachers = []
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
-    teachers = Teachers.query.order_by('id').all()
+
+    teachers_query = Teachers.query.order_by(Teachers.id)
+    total = teachers_query.count()
+
+    if limit:
+        teachers_query = teachers_query.offset(offset).limit(limit)
+    else:
+        teachers_query = teachers_query.offset(offset)
+
+    teachers = teachers_query.all()
 
     list_teachers = [
         {
@@ -557,25 +563,49 @@ def get_teachers():
         } for teach in teachers
     ]
     return jsonify({
-        "teachers": list_teachers
+        "teachers": list_teachers,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f"{api}/get_teachers_location/<int:location_id>", methods=["GET"])
+@teachers_bp.route(f"/get_teachers_location/<int:location_id>", methods=["GET"])
 # @jwt_required()
 def get_teachers_location(location_id):
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
-    teachers = Teachers.query.join(Users).filter(Users.location_id == location_id, Teachers.deleted == None).order_by(
-        Users.location_id).all()
+
+    teachers_init = Teachers.query.join(Users).filter(
+        Users.location_id == location_id,
+        Teachers.deleted == None
+    ).order_by(Users.location_id).all()
     location = Locations.query.filter(Locations.id == location_id).first()
-    for teach in teachers:
+    for teach in teachers_init:
         if location not in teach.locations:
             teach.locations.append(location)
             db.session.commit()
-    teachers = Teachers.query.join(Teachers.locations).filter(Locations.id == location_id,
-                                                              Teachers.deleted == None).order_by(
-        Teachers.id).all()
+
+    teachers_query = Teachers.query.join(Teachers.locations).filter(
+        Locations.id == location_id,
+        Teachers.deleted == None
+    ).order_by(Teachers.id)
+
+    total = teachers_query.count()
+
+    if limit:
+        teachers_query = teachers_query.offset(offset).limit(limit)
+    else:
+        teachers_query = teachers_query.offset(offset)
+
+    teachers = teachers_query.all()
+
     for teach in teachers:
         status = False
         del_group = 0
@@ -594,7 +624,6 @@ def get_teachers_location(location_id):
             "language": teach.user.language.name,
             "age": teach.user.age,
             "role": role,
-            # "phone": teach.user.phone[0].phone,
             "reg_date": teach.user.day.date.strftime("%Y-%m-%d"),
             "status": status,
             "photo_profile": teach.user.photo_profile,
@@ -603,11 +632,17 @@ def get_teachers_location(location_id):
         list_teachers.append(info)
 
     return jsonify({
-        "teachers": list_teachers
+        "teachers": list_teachers,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f'{api}/add_teacher_to_branch/<int:user_id>/<int:location_id>')
+@teachers_bp.route(f'/add_teacher_to_branch/<int:user_id>/<int:location_id>')
 @jwt_required()
 def add_teacher_to_branch(user_id, location_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
@@ -629,19 +664,29 @@ def add_teacher_to_branch(user_id, location_id):
     return jsonify(msg_info)
 
 
-@app.route(f"{api}/get_deletedTeachers_location/<int:location_id>", methods=["GET"])
+@teachers_bp.route(f"/get_deletedTeachers_location/<int:location_id>", methods=["GET"])
 @jwt_required()
 def get_deletedTeachers_location(location_id):
-    # Fetch the role information for "teacher" just once, as it's the same for all entries.
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
     teacher_role = Roles.query.filter_by(type_role="teacher").first().role
 
-    # Query to fetch deleted teachers at the given location, including necessary joins for user and language details.
-    teachers = Teachers.query.join(Users).filter(
+    # Asosiy query
+    teachers_query = Teachers.query.join(Users).filter(
         Users.location_id == location_id,
         Teachers.deleted != None
-    ).all()
+    )
 
-    # Build the list of teachers with their details, including subjects.
+    total = teachers_query.count()
+
+    if limit:
+        teachers_query = teachers_query.offset(offset).limit(limit)
+    else:
+        teachers_query = teachers_query.offset(offset)
+
+    teachers = teachers_query.all()
+
     list_teachers = [{
         "id": teacher.user.id,
         "name": teacher.user.name.title(),
@@ -650,12 +695,20 @@ def get_deletedTeachers_location(location_id):
         "language": teacher.user.language.name,
         "age": teacher.user.age,
         "role": teacher_role,
-        "phone": teacher.user.phone[0].phone,  # Assumes at least one phone number is present
+        "phone": teacher.user.phone[0].phone if teacher.user.phone else None,
         "reg_date": teacher.user.day.date.strftime("%Y-%m-%d"),
         "subjects": [subject.name for subject in teacher.subject]
     } for teacher in teachers]
 
-    return jsonify({"teachers": list_teachers})
+    return jsonify({
+        "teachers": list_teachers,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
+    })
 
 
 class Test(db.Model):
@@ -667,13 +720,13 @@ class Test(db.Model):
         return '<User %r>' % self.username
 
 
-@app.route('/test_model', methods=["GET", "POST"])
+@teachers_bp.route('/test_model', methods=["GET", "POST"])
 # @jwt_required()
 def test_model():
     return jsonify({"teachers": "True"})
 
 
-@app.route(f'{api}/get_teacher_balance/<user_id>', methods=["GET", "POST"])
+@teachers_bp.route(f'/get_teacher_balance/<user_id>', methods=["GET", "POST"])
 def get_teacher_balance(user_id):
     user = Users.query.filter(Users.id == user_id).first()
     return jsonify({"balance": user.balance})

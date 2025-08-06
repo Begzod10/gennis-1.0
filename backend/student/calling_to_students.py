@@ -1,25 +1,22 @@
-import pprint
-
-from app import app, request, jsonify, db, extract
-from backend.models.models import Students, StudentCallingInfo, Users, StudentExcuses
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.functions.utils import api, find_calendar_date
-from backend.student.functions import get_student_info, get_completed_student_info, change_statistics
-
-from backend.models.models import Locations
-
-from backend.lead.functions import get_lead_tasks, get_completed_lead_tasks
-
-from backend.tasks.models.models import Tasks, TasksStatistics, TaskDailyStatistics, TaskStudents
-from backend.models.models import CalendarDay, Lead, DeletedStudents, desc, contains_eager, Teachers
 from datetime import datetime
+
+from flask import Blueprint
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import asc
-from sqlalchemy.orm import aliased
-from sqlalchemy import func, case, and_, or_
-import time
+from sqlalchemy import or_
+
+from app import request, jsonify, db
+from backend.functions.utils import find_calendar_date
+from backend.lead.functions import get_lead_tasks, get_completed_lead_tasks
+from backend.models.models import CalendarDay, Lead, desc, Teachers
+from backend.models.models import Students, StudentCallingInfo, Users, StudentExcuses
+from backend.student.functions import get_student_info, get_completed_student_info, change_statistics
+from backend.tasks.models.models import Tasks, TasksStatistics, TaskDailyStatistics, TaskStudents
+
+calling_to_students_bp = Blueprint('calling_to_students', __name__)
 
 
-@app.route(f'{api}/new_students_calling/<int:location_id>', methods=["POST", "GET"])
+@calling_to_students_bp.route(f'/new_students_calling/<int:location_id>', methods=["POST", "GET"])
 @jwt_required()
 def new_students_calling(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -232,7 +229,7 @@ def new_students_calling(location_id):
         # return jsonify({'v  ': "Komment belgilandi", "student": {'id': student.id}})
 
 
-@app.route(f'{api}/search_student_in_task/<int:location_id>', methods=["POST"])
+@calling_to_students_bp.route(f'/search_student_in_task/<int:location_id>', methods=["POST"])
 @jwt_required()
 def search_student_in_task(location_id):
     data = request.get_json()
@@ -354,8 +351,8 @@ def search_student_in_task(location_id):
     })
 
 
-@app.route(f'{api}/student_in_debts/', defaults={"location_id": None}, methods=["POST", "GET"])
-@app.route(f'{api}/student_in_debts/<int:location_id>', methods=["POST", "GET"])
+@calling_to_students_bp.route(f'/student_in_debts/', defaults={"location_id": None}, methods=["POST", "GET"])
+@calling_to_students_bp.route(f'/student_in_debts/<int:location_id>', methods=["POST", "GET"])
 @jwt_required()
 def student_in_debts(location_id):
     today = datetime.today()
@@ -479,8 +476,8 @@ def student_in_debts(location_id):
             })
 
 
-@app.route(f'{api}/get_completed_tasks/', defaults={"location_id": None}, methods=["GET"])
-@app.route(f'{api}/get_completed_tasks/<int:location_id>', methods=["GET"])
+@calling_to_students_bp.route(f'/get_completed_tasks/', defaults={"location_id": None}, methods=["GET"])
+@calling_to_students_bp.route(f'/get_completed_tasks/<int:location_id>', methods=["GET"])
 @jwt_required()
 def get_completed_tasks(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -544,8 +541,8 @@ def get_completed_tasks(location_id):
     return jsonify({'completed_tasks': completed_tasks})
 
 
-@app.route(f'{api}/daily_statistics', defaults={"location_id": None}, methods=["POST", "GET"])
-@app.route(f'{api}/daily_statistics/<int:location_id>', methods=["POST", "GET"])
+@calling_to_students_bp.route(f'/daily_statistics', defaults={"location_id": None}, methods=["POST", "GET"])
+@calling_to_students_bp.route(f'/daily_statistics/<int:location_id>', methods=["POST", "GET"])
 @jwt_required()
 def daily_statistics(location_id):
     date = request.get_json()

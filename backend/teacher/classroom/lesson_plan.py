@@ -1,15 +1,18 @@
-from app import app, request, jsonify, db
-from backend.models.models import LessonPlan, LessonPlanStudents, extract
-from backend.functions.utils import find_calendar_date
-from backend.functions.utils import api, get_json_field, iterate_models
-from flask_jwt_extended import jwt_required
 from datetime import datetime
-from pprint import pprint
-from backend.functions.filters import old_current_dates, update_lesson_plan
+
+from flask import Blueprint
+
+from app import jsonify, db
+from backend.functions.filters import update_lesson_plan
+from backend.functions.utils import find_calendar_date
+from backend.functions.utils import get_json_field
+from backend.models.models import LessonPlan, LessonPlanStudents, extract
+
+lesson_plan_bp = Blueprint('lesson_plan', __name__)
 
 
-@app.route(f'{api}/lesson_plan_list_classroom/<int:group_id>', defaults={"date": None})
-@app.route(f'{api}/lesson_plan_list_classroom/<int:group_id>/<date>')
+@lesson_plan_bp.route(f'/lesson_plan_list_classroom/<int:group_id>', defaults={"date": None})
+@lesson_plan_bp.route(f'/lesson_plan_list_classroom/<int:group_id>/<date>')
 def lesson_plan_list_classroom(group_id, date):
     days_list = []
     month_list = []
@@ -47,7 +50,7 @@ def lesson_plan_list_classroom(group_id, date):
     })
 
 
-@app.route(f'{api}/get_lesson_plan_classroom/<group_id>', methods=['POST'])
+@lesson_plan_bp.route(f'/get_lesson_plan_classroom/<group_id>', methods=['POST'])
 def get_lesson_plan_classroom(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     day = get_json_field('day')
@@ -69,7 +72,7 @@ def get_lesson_plan_classroom(group_id):
     })
 
 
-@app.route(f'{api}/change_lesson_plan_classroom/<int:plan_id>', methods=['POST'])
+@lesson_plan_bp.route(f'/change_lesson_plan_classroom/<int:plan_id>', methods=['POST'])
 def change_lesson_plan_classroom(plan_id):
     lesson_plan_get = LessonPlan.query.filter(LessonPlan.id == plan_id).first()
 

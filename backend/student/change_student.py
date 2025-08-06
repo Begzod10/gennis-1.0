@@ -1,14 +1,19 @@
-from app import app, api, request, db, get_jwt_identity, jwt_required, jsonify, generate_password_hash, classroom_server
 import os
-from backend.models.models import Users, PhoneList, Students, Teachers, Roles, StudentExcuses, Subjects
-from backend.functions.small_info import checkFile, user_photo_folder
-from backend.functions.utils import find_calendar_date, send_user_info
-from werkzeug.utils import secure_filename
 from datetime import datetime
-import requests
+
+from flask import Blueprint
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash
+
+from app import app, request, db, jsonify
+from backend.functions.small_info import checkFile, user_photo_folder
+from backend.functions.utils import find_calendar_date
+from backend.models.models import Users, PhoneList, Students, Teachers, Roles, StudentExcuses, Subjects
+from flask_jwt_extended import jwt_required, get_jwt_identity
+change_student_bp = Blueprint('change_students', __name__)
 
 
-@app.route(f"{api}/update_photo_profile/<int:user_id>", methods=["POST"])
+@change_student_bp.route(f"/update_photo_profile/<int:user_id>", methods=["POST"])
 @jwt_required()
 def update_photo_profile(user_id):
     photo = request.files['file']
@@ -41,7 +46,7 @@ def update_photo_profile(user_id):
     })
 
 
-@app.route(f'{api}/change_student_info/<int:user_id>', methods=['POST'])
+@change_student_bp.route(f'/change_student_info/<int:user_id>', methods=['POST'])
 @jwt_required()
 def change_student_info(user_id):
     identity = get_jwt_identity()
@@ -108,7 +113,6 @@ def change_student_info(user_id):
                         "table_color": json['color']
                     })
                     db.session.commit()
-
 
                 # send_user_info(user)
                 return jsonify({
@@ -249,7 +253,7 @@ def change_student_info(user_id):
             })
 
 
-@app.route(f'{api}/debt_reason/<int:user_id>', methods=['POST'])
+@change_student_bp.route(f'/debt_reason/<int:user_id>', methods=['POST'])
 @jwt_required()
 def debt_reason(user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()

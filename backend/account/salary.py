@@ -1,16 +1,22 @@
 import datetime
 
-from app import app, db, jsonify, contains_eager, request, desc, or_
+from flask_jwt_extended import jwt_required
+
+from app import app, desc
+from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import api, find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
-from backend.models.models import Teachers, TeacherSalary, StaffSalary, Staff, PaymentTypes, DeletedStaffSalaries, \
-    UserBooks, StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
-    Users, CalendarYear, Locations, TeacherBlackSalary, CalendarDay, Students
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import iterate_models
-from pprint import pprint
+from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, \
+    UserBooks, StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
+    CalendarYear, Locations, TeacherBlackSalary
 
+from flask import request, jsonify
+from sqlalchemy.orm import contains_eager
+from sqlalchemy import or_
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from backend.models.models import Staff, Users
+from app import db
 
 @app.route(f'{api}/salary_info/<user_id>')
 @jwt_required()
@@ -837,26 +843,43 @@ def set_salary(user_id):
     })
 
 
+
+
 @app.route(f'{api}/employees/<int:location_id>', defaults={"status": None})
 @app.route(f'{api}/employees/<int:location_id>/<status>')
 @jwt_required()
 def employees(location_id, status):
     """
-
     :param location_id: Location table primary key
     :return: Staff data
     """
+
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
     user_id = get_jwt_identity()
     staff_salary_update()
     user = Users.query.filter(Users.user_id == user_id).first()
+
     if not status:
-        staffs = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
-            Users.location_id == location_id).filter(or_(Staff.deleted == False, Staff.deleted == None)).order_by(
-            Users.id).all()
+        staffs_query = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
+            Users.location_id == location_id
+        ).filter(or_(Staff.deleted == False, Staff.deleted == None)).order_by(Users.id)
     else:
-        staffs = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
-            Users.location_id == location_id, Staff.deleted == True).order_by(
-            Users.id).all()
+        staffs_query = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
+            Users.location_id == location_id,
+            Staff.deleted == True
+        ).order_by(Users.id)
+
+    total = staffs_query.count()
+
+    if limit:
+        staffs_query = staffs_query.offset(offset).limit(limit)
+    else:
+        staffs_query = staffs_query.offset(offset)
+
+    staffs = staffs_query.all()
+
     list_staff = [{
         "id": staff.user.id,
         "name": staff.user.name.title(),
@@ -871,7 +894,13 @@ def employees(location_id, status):
     } for staff in staffs]
 
     return jsonify({
-        "data": list_staff
+        "data": list_staff,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 

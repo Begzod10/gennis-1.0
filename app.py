@@ -57,12 +57,13 @@ school_server = os.getenv("SCHOOL_SERVER_URL")
 
 api = 'api/'
 from backend.tasks.admin.views import register_task_rating_views
-
+from backend.student.views import register_student_views
+from backend.teacher.views import register_teacher_views
 register_parent_views(api, app)
 register_task_rating_views(api, app)
-
+register_student_views(api, app)
 register_telegram_bot_routes(api, app)
-
+register_teacher_views(api, app)
 # register_account_views(api, app)
 
 # register_classroom_views(api, app)
@@ -90,14 +91,9 @@ from backend.QR_code.qr_code import *
 # routes
 from backend.routes.views import *
 
-# student
-from backend.student.views import *
-
 # programmers
 from backend.for_programmers.for_programmers import *
 
-# teacher
-from backend.teacher.views import *
 
 # group
 from backend.group.create_group import *
