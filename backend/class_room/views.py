@@ -276,14 +276,14 @@ def make_attendance_classroom():
                                                  AttendanceDays.attendance_id == attendance.id,
                                                  ).count()
 
-    if len_attendance >= group.attendance_days:
-        return jsonify({"errors": [
-            {
-                "active": True,
-                "message": f"{student.user.name} {student.user.surname} bu oyda 13 kun dan ko'p davomat qilindi",
-                "status": "danger"
-            }]
-        }), 400
+    # if len_attendance >= group.attendance_days:
+    #     return jsonify({"errors": [
+    #         {
+    #             "active": True,
+    #             "message": f"{student.user.name} {student.user.surname} bu oyda 13 kun dan ko'p davomat qilindi",
+    #             "status": "danger"
+    #         }]
+    #     }), 400
     ball = 5
     if int(day) < int(current_day):
         late_days = int(current_day) - int(day)
@@ -310,8 +310,8 @@ def make_attendance_classroom():
                                                 LessonPlan.main_lesson == None, LessonPlan.homework == None,
                                                 LessonPlan.activities == None, LessonPlan.objective == None,
                                                 LessonPlan.resources == None, LessonPlan.assessment == None).first()
-    # if today_lesson_plan or ball < 5:
-    #     fine = round(salary_per_day / group.attendance_days)
+    if today_lesson_plan or ball < 5:
+        fine = round(salary_per_day / group.attendance_days)
     if not type_status:
         attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student.id,
                                         calendar_day=calendar_day.id, attendance_id=attendance.id,
@@ -844,15 +844,97 @@ def student_attendance_dates_classroom(platform_id):
     })
 
 
-@app.route(f"{api}/get_student_group_list/<platform_id>", methods=['GET'])
+@app.route(f"{api}/get_student_group_list/<int:platform_id>", methods=['GET'])
 def get_student_group_list(platform_id):
     user = Users.query.filter(Users.id == platform_id).first()
     student = Students.query.filter(Students.id == user.student.id).first()
-    group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "name": gr.subject.name} for gr in
-                  student.group]
+
+    unique_groups = db.session.query(Groups).join(AttendanceHistoryStudent) \
+        .filter(AttendanceHistoryStudent.student_id == student.id) \
+        .distinct().all()
+
+    group_list = [{
+        "id": group.id,
+        "nameGroup": group.name.title(),
+        "name": group.subject.name if group.subject else None
+    } for group in unique_groups]
     return jsonify({
         "group_list": group_list
     })
+
+
+# @app.route(f'{api}/get_student_attendance_days_list/<username>/',
+#            defaults={"group_id": None, "year": None, "month": None})
+# @app.route(f"{api}/get_student_attendance_days_list/<username>/<group_id>/<year>/<month>", methods=['GET'])
+# def get_student_attendance_days_list(username, group_id, year, month):
+#     user = Users.query.filter_by(username=username).first()
+#     student = Students.query.filter_by(user_id=user.id).first()
+#     uzbek_weekdays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+#     today = datetime.today().date()
+#     week_result = []
+#
+#     if year and month:
+#         calendar_days = CalendarDay.query.filter(
+#             db.extract('year', CalendarDay.date) == int(year),
+#             db.extract('month', CalendarDay.date) == int(month)
+#         ).order_by(CalendarDay.date).all()
+#     else:
+#         start_of_week = today - timedelta(days=today.weekday())
+#         calendar_days = []
+#         for i in range(7):
+#             current_date = start_of_week + timedelta(days=i)
+#             day = CalendarDay.query.filter(db.func.date(CalendarDay.date) == current_date).first()
+#             calendar_days.append(day if day else CalendarDay(date=current_date))
+#
+#     groups = [Groups.query.get(int(group_id))] if group_id and group_id != "None" else student.group
+#
+#     for day in calendar_days:
+#         if not day: continue
+#
+#         weekday_index = day.date.weekday()
+#         info = {
+#             "date": day.date.strftime("%d"),
+#             "weekday": uzbek_weekdays[weekday_index],
+#             "attendances": [],
+#             "is_today": day.date == today
+#         }
+#
+#         for gr in groups:
+#             timetable = gr.time_table[0] if gr.time_table else None
+#             attendance_info = {
+#                 "group": gr.subject.name,
+#                 "time": f"{timetable.start_time.strftime('%H:%M')} / {timetable.end_time.strftime('%H:%M')}" if timetable else "Noma'lum",
+#                 "day_status": bool(day.id),
+#                 "status": ""
+#             }
+#
+#             if day.id:
+#                 attendance_day = AttendanceDays.query.filter_by(
+#                     student_id=student.id,
+#                     calendar_day=day.id,
+#                     group_id=gr.id
+#                 ).first()
+#                 if attendance_day:
+#                     attendance_info['status'] = "Keldi" if attendance_day.status in [1, 2] else "Kelmadi"
+#                     attendance_info["average_ball"] = attendance_day.average_ball
+#                     if attendance_day.average_ball in [4, 5]:
+#                         attendance_info["color"] = "green"
+#                     elif attendance_day.average_ball == 3:
+#                         attendance_info["color"] = "yellow"
+#                     elif attendance_day.average_ball == 2:
+#                         attendance_info["color"] = "red"
+#                     else:
+#                         attendance_info["color"] = "gray"
+#
+#                 else:
+#                     attendance_info['status'] = "Davomat qilinmagan"
+#             else:
+#                 attendance_info['status'] = "Kun mavjud emas"
+#
+#             info['attendances'].append(attendance_info)
+#         week_result.append(info)
+#
+#     return jsonify({"msg": week_result})
 
 
 @app.route(f'{api}/get_student_attendance_days_list/<platform_id>/',
@@ -893,12 +975,6 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
 
         for gr in groups:
             timetable = gr.time_table[0] if gr.time_table else None
-            attendance_info = {
-                "group": gr.subject.name,
-                "time": f"{timetable.start_time.strftime('%H:%M')} / {timetable.end_time.strftime('%H:%M')}" if timetable else "Noma'lum",
-                "day_status": bool(day.id),
-                "status": ""
-            }
 
             if day.id:
                 attendance_day = AttendanceDays.query.filter_by(
@@ -907,6 +983,14 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
                     group_id=gr.id
                 ).first()
                 if attendance_day:
+
+                    attendance_info = {
+                        "group": gr.subject.name,
+                        "time": f"{timetable.start_time.strftime('%H:%M')} / {timetable.end_time.strftime('%H:%M')}" if timetable else "Noma'lum",
+                        "day_status": bool(day.id),
+                        "status": ""
+                    }
+
                     attendance_info['status'] = "Keldi" if attendance_day.status in [1, 2] else "Kelmadi"
                     attendance_info["average_ball"] = attendance_day.average_ball
                     if attendance_day.average_ball in [4, 5]:
@@ -918,13 +1002,9 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
                     else:
                         attendance_info["color"] = "gray"
 
-                else:
-                    attendance_info['status'] = "Davomat qilinmagan"
-            else:
-                attendance_info['status'] = "Kun mavjud emas"
-
-            info['attendances'].append(attendance_info)
-        week_result.append(info)
+                    info['attendances'].append(attendance_info)
+        if info["attendances"]:
+            week_result.append(info)
 
     return jsonify({"msg": week_result})
 

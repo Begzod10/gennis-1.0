@@ -75,7 +75,7 @@ from backend.functions.filters import *
 
 # account folder
 from backend.account.payment import *
-from backend.account.account import *
+# from backend.account.account import *
 from backend.account.overhead_capital import *
 from backend.account.salary import *
 from backend.account.test_acc import *
