@@ -148,6 +148,7 @@ def get_payment(user_id):
     if request.method == "POST":
         status = get_json_field('type')
         type_payment = get_json_field('typePayment')
+        print(type_payment)
         payment_sum = int(get_json_field('payment'))
         current_year = datetime.now().year
         old_year = datetime.now().year - 1

@@ -766,9 +766,9 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
     return jsonify({"msg": week_result})
 
 
-@app.route(f"{api}/student_payments_list/<username>")
-def student_payments_list(username):
-    user = Users.query.filter(Users.username == username).first()
+@app.route(f"{api}/student_payments_list/<platform_id>")
+def student_payments_list(platform_id):
+    user = Users.query.filter(Users.id == platform_id).first()
     student = Students.query.filter(Students.user_id == user.id).first()
     attendance_histories = AttendanceHistoryStudent.query.filter(
         AttendanceHistoryStudent.student_id == student.id).order_by(AttendanceHistoryStudent.id).all()
