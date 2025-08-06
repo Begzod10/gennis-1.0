@@ -1,14 +1,19 @@
+import datetime
+
+from flask import Blueprint
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
-from app import app, db
-from backend.models.models import AccountPayable, CalendarDay, CalendarMonth, CalendarYear, Account, \
+
+from app import db
+from backend.functions.utils import find_calendar_date, iterate_models
+from backend.models.models import AccountPayable, CalendarMonth, CalendarYear, Account, \
     AccountPayableHistory, or_
-from backend.functions.utils import api, find_calendar_date, iterate_models
-import datetime
 from .utils import update_account, calculate_history
 
+account_payable = Blueprint('account_payable', __name__)
 
-@app.route(f'{api}/get_accounts', methods=['GET'])
+
+@account_payable.route(f'/get_accounts', methods=['GET'])
 @jwt_required()
 def get_accounts():
     accounts_payable = Account.query.filter(Account.type_account == "payable", Account.deleted == False).order_by(
@@ -20,7 +25,7 @@ def get_accounts():
                     "accounts_receivable": iterate_models(accounts_receivable)}), 201
 
 
-@app.route(f'{api}/create_account', methods=['POST', 'GET'])
+@account_payable.route(f'/create_account', methods=['POST', 'GET'])
 @jwt_required()
 def create_account():
     data = request.get_json()
@@ -30,7 +35,7 @@ def create_account():
     return jsonify({"account": account.convert_json()}), 200
 
 
-@app.route(f'{api}/delete_account/<int:id>/', methods=['DELETE'])
+@account_payable.route(f'/delete_account/<int:id>/', methods=['DELETE'])
 @jwt_required()
 def delete_account(id):
     account = Account.query.filter(Account.id == id).first()
@@ -42,7 +47,7 @@ def delete_account(id):
         return jsonify({'message': 'Account has payable or receivable'}), 200
 
 
-@app.route(f'{api}/account_profile/<int:id>/<deleted>/', methods=['GET'])
+@account_payable.route(f'/account_profile/<int:id>/<deleted>/', methods=['GET'])
 @jwt_required()
 def account_profile(id, deleted):
     account = Account.query.filter(Account.id == id).first()
@@ -73,14 +78,14 @@ def account_profile(id, deleted):
     return jsonify({"data": data}), 201
 
 
-@app.route(f'{api}/account_datas/<int:account_id>')
+@account_payable.route(f'/account_datas/<int:account_id>')
 @jwt_required()
 def account_datas(account_id):
     account = Account.query.filter(Account.id == account_id).first()
     return jsonify({"account": account.convert_json()}), 201
 
 
-@app.route(f'{api}/crud_account/<int:id>/', methods=['POST'])
+@account_payable.route(f'/crud_account/<int:id>/', methods=['POST'])
 @jwt_required()
 def crud_account(id):
     data = request.get_json()
@@ -90,7 +95,7 @@ def crud_account(id):
     return jsonify({'account': account.convert_json()}), 201
 
 
-@app.route(f'{api}/payable_datas/<int:id>/', methods=['GET'])
+@account_payable.route(f'/payable_datas/<int:id>/', methods=['GET'])
 @jwt_required()
 def payable_datas(id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -106,7 +111,7 @@ def payable_datas(id):
     })
 
 
-@app.route(f'{api}/add_account_payable', methods=['POST'])
+@account_payable.route(f'/add_account_payable', methods=['POST'])
 @jwt_required()
 def add_account_payable():
     data = request.get_json()
@@ -142,14 +147,14 @@ def add_account_payable():
     return jsonify({'data': new_account_payable.convert_json()}), 201
 
 
-@app.route(f'{api}/get_payable_histories/<int:id>/', methods=['GET'])
+@account_payable.route(f'/get_payable_histories/<int:id>/', methods=['GET'])
 @jwt_required()
 def get_payable_histories(id):
     histories = AccountPayableHistory.query.filter(AccountPayableHistory.account_payable_id == id).all()
     return jsonify({"histories": iterate_models(histories)})
 
 
-@app.route(f'{api}/create_payable_history', methods=['POST'])
+@account_payable.route(f'/create_payable_history', methods=['POST'])
 @jwt_required()
 def create_payable_history():
     data = request.get_json()
@@ -174,7 +179,7 @@ def create_payable_history():
     return jsonify({"data": history.convert_json()})
 
 
-@app.route(f'{api}/crud_history/<int:history_id>/', methods=['POST'])
+@account_payable.route(f'/crud_history/<int:history_id>/', methods=['POST'])
 @jwt_required()
 def crud_history(history_id):
     data = request.get_json()
@@ -185,7 +190,7 @@ def crud_history(history_id):
     return jsonify({"history": history.convert_json()})
 
 
-@app.route(f'{api}/delete_history/<int:history_id>/', methods=['DELETE'])
+@account_payable.route(f'/delete_history/<int:history_id>/', methods=['DELETE'])
 @jwt_required()
 def delete_history(history_id):
     history = AccountPayableHistory.query.filter(AccountPayableHistory.id == history_id).first()
@@ -197,7 +202,7 @@ def delete_history(history_id):
     return jsonify({'message': 'History deleted successfully'}), 201
 
 
-@app.route(f'{api}/get_account_payable/<deleted>/<archive>/', methods=['GET'])
+@account_payable.route(f'/get_account_payable/<deleted>/<archive>/', methods=['GET'])
 @jwt_required()
 def get_account_payable(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -216,7 +221,7 @@ def get_account_payable(deleted, archive):
     return jsonify({'account_payables': dividend_list}), 201
 
 
-@app.route(f'{api}/crud_account_payable/<int:pk>/', methods=['POST'])
+@account_payable.route(f'/crud_account_payable/<int:pk>/', methods=['POST'])
 @jwt_required()
 def crud_account_payable(pk):
     data = request.get_json()
@@ -229,7 +234,7 @@ def crud_account_payable(pk):
         {"payment_type": account_payable.convert_json()}), 201
 
 
-@app.route(f'{api}/delete_account_payable/<int:pk>/', methods=['DELETE'])
+@account_payable.route(f'/delete_account_payable/<int:pk>/', methods=['DELETE'])
 @jwt_required()
 def delete_account_payable(pk):
     data = request.get_json()

@@ -1,13 +1,12 @@
-from app import app, db, jsonify, request
-from backend.models.models import Users, Students, or_, BlackStudentsStatistics, BlackStudents, CalendarDay, \
-    CalendarMonth, CalendarYear, \
-    StudentExcuses, TaskStudents, TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo, Lead, LeadInfos, \
-    AccountPayableHistory, TaskRatingsMonthly, TaskRatings
 from sqlalchemy import asc, desc
-from backend.functions.utils import find_calendar_date, refreshdatas
-
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import func, and_, or_
+
+from app import db
+from backend.functions.utils import find_calendar_date, refreshdatas
+from backend.models.models import Users, Students, BlackStudentsStatistics, BlackStudents, StudentExcuses, TaskStudents, \
+    TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo, Lead, LeadInfos, \
+    TaskRatingsMonthly, TaskRatings
 
 
 def black_students_count(calendar_month, calendar_year, location_id):

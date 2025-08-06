@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import asc
 from sqlalchemy import or_
 
-from app import request, jsonify, db
+from app import db
 from backend.functions.utils import find_calendar_date
 from backend.lead.functions import get_lead_tasks, get_completed_lead_tasks
 from backend.models.models import CalendarDay, Lead, desc, Teachers

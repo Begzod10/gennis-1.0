@@ -1,9 +1,9 @@
 from datetime import datetime
 
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from app import app, request, jsonify
-from backend.functions.utils import api, find_calendar_date, get_json_field, desc, CalendarMonth, AccountingPeriod, \
+from backend.functions.utils import find_calendar_date, get_json_field, desc, CalendarMonth, AccountingPeriod, \
     refreshdatas, iterate_models
 from backend.lead.functions import update_posted_tasks, get_lead_tasks, \
     get_completed_lead_tasks
@@ -14,8 +14,10 @@ from backend.student.calling_to_students import change_statistics
 from backend.tasks.models.models import Tasks, TasksStatistics
 from .models import Lead, LeadInfos, LeadRecomended
 
+lead_bp = Blueprint('lead', __name__)
 
-@app.route(f'{api}/register_lead', methods=['POST'])
+
+@lead_bp.route(f'/register_lead', methods=['POST'])
 def register_lead():
     refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -48,7 +50,7 @@ def register_lead():
     })
 
 
-@app.route(f'{api}/get_leads_location/<status>/<location_id>')
+@lead_bp.route(f'/get_leads_location/<status>/<location_id>')
 @jwt_required()
 def get_leads_location(status, location_id):
     if status == "news":
@@ -73,7 +75,7 @@ def get_leads_location(status, location_id):
         })
 
 
-@app.route(f'{api}/lead_crud/<int:pm>', methods=['POST', "GET", "DELETE", "PUT"])
+@lead_bp.route(f'/lead_crud/<int:pm>', methods=['POST', "GET", "DELETE", "PUT"])
 @jwt_required()
 def crud_lead(pm):
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
@@ -158,7 +160,7 @@ def crud_lead(pm):
         })
 
 
-@app.route(f'{api}/register_lead/recommend', methods=['POST'])
+@lead_bp.route(f'/register_lead/recommend', methods=['POST'])
 @jwt_required()
 def register_lead_recommend():
     refreshdatas()
@@ -174,7 +176,7 @@ def register_lead_recommend():
     subject_id = data.get('subject_id')
     recommended_by_id = data.get('recommended_by_id')
 
-    if not name or not phone :
+    if not name or not phone:
         return jsonify({"success": False, "msg": "Majburiy maydonlar to‘ldirilmagan"}), 400
 
     exist_user = Lead.query.filter_by(phone=phone, deleted=False).first()

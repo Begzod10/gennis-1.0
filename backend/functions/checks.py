@@ -1,9 +1,10 @@
-from app import app, request, jsonify, school_server
-from backend.models.models import *
-from backend.functions.utils import api
+from flask import request, jsonify
 from flask_jwt_extended import *
-from werkzeug.security import generate_password_hash, check_password_hash
-import requests
+from werkzeug.security import check_password_hash
+
+from app import app
+from backend.functions.utils import api
+from backend.models.models import *
 
 
 @app.route(f'{api}/check_username', methods=['POST'])

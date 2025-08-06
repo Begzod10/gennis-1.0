@@ -1,19 +1,23 @@
-from app import app, db, desc, request, contains_eager, and_, jsonify, func
+from datetime import datetime
+
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
+
+from app import db, desc, contains_eager, and_, func
+from backend.functions.filters import old_current_dates, iterate_models
+from backend.functions.utils import get_json_field, find_calendar_date
 from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes, StudentPayments, Students, CalendarDay, \
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, \
     AccountingInfo, DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, \
-    DeletedStaffSalaries, Users, Teachers, CenterBalance, BookPayments, Capital, Dividend, CapitalExpenditure, \
+    DeletedStaffSalaries, Users, Teachers, Dividend, CapitalExpenditure, \
     Investment
 from backend.models.settings import sum_money
-from pprint import pprint
-from backend.functions.utils import get_json_field, api, find_calendar_date
-from backend.functions.filters import old_current_dates, iterate_models
-from datetime import datetime
+
+account_bp = Blueprint('account_bp', __name__)
 
 
-@app.route(f'{api}/account_info/', defaults={"type_filter": None}, methods=["POST"])
-@app.route(f'{api}/account_info/<type_filter>', methods=["POST"])
+@account_bp.route(f'/account_info/', defaults={"type_filter": None}, methods=["POST"])
+@account_bp.route(f'/account_info/<type_filter>', methods=["POST"])
 @jwt_required()
 def account_info(type_filter):
     """
@@ -333,8 +337,8 @@ def account_info(type_filter):
     })
 
 
-@app.route(f'{api}/account_info_deleted/', defaults={"type_filter": None}, methods=["POST"])
-@app.route(f'{api}/account_info_deleted/<type_filter>', methods=["POST"])
+@account_bp.route(f'/account_info_deleted/', defaults={"type_filter": None}, methods=["POST"])
+@account_bp.route(f'/account_info_deleted/<type_filter>', methods=["POST"])
 @jwt_required()
 def account_info_deleted(type_filter):
     """
@@ -652,7 +656,7 @@ def account_info_deleted(type_filter):
     })
 
 
-@app.route(f'{api}/account_details/<int:location_id>', methods=["POST", "GET"])
+@account_bp.route(f'/account_details/<int:location_id>', methods=["POST", "GET"])
 @jwt_required()
 def account_details(location_id):
     """
@@ -687,7 +691,6 @@ def account_details(location_id):
                  Investment.payment_type_id == payment_type.id, Investment.deleted_status == False,
                  )).order_by(
             desc(Investment.id)).all()
-
 
         teacher_salaries = db.session.query(TeacherSalaries).join(TeacherSalaries.day).options(
             contains_eager(TeacherSalaries.day)).filter(
@@ -920,7 +923,7 @@ def account_details(location_id):
         })
 
 
-@app.route(f'{api}/get_location_money/<int:location_id>')
+@account_bp.route(f'/get_location_money/<int:location_id>')
 @jwt_required()
 def get_location_money(location_id):
     """
@@ -1092,7 +1095,7 @@ def get_location_money(location_id):
     })
 
 
-@app.route(f'{api}/account_history/<int:location_id>', methods=['POST'])
+@account_bp.route(f'/account_history/<int:location_id>', methods=['POST'])
 def account_history(location_id):
     """
     function to get account data year and payment type
@@ -1133,7 +1136,7 @@ def account_history(location_id):
         })
 
 
-@app.route(f'{api}/account_years/<int:location_id>')
+@account_bp.route(f'/account_years/<int:location_id>')
 def account_years(location_id):
     """
 

@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# from backend.account.urls import register_account_views
 
 
 # from backend.class_room.urls import register_classroom_views
@@ -59,27 +58,33 @@ api = 'api/'
 from backend.tasks.admin.views import register_task_rating_views
 from backend.student.views import register_student_views
 from backend.teacher.views import register_teacher_views
+from backend.lead.views import register_lead_views
+from backend.home_page.views import register_home_views
+from backend.account.views import register_account_views
+from backend.book.views import register_book_views
+from backend.student.register_for_tes.views import register_for_tes_views
+from backend.school.views import register_school_views
+from backend.functions.views import register_filters_views
+
 register_parent_views(api, app)
 register_task_rating_views(api, app)
 register_student_views(api, app)
 register_telegram_bot_routes(api, app)
 register_teacher_views(api, app)
-# register_account_views(api, app)
-
+register_lead_views(api, app)
+register_home_views(api, app)
+register_account_views(api, app)
+register_book_views(api, app)
+register_for_tes_views(api, app)
+register_school_views(api, app)
+register_filters_views(api, app)
 # register_classroom_views(api, app)
 
-# test block
-from backend.student.register_for_tes.resources import *
+
 
 # filters
-from backend.functions.filters import *
 
-# account folder
-from backend.account.payment import *
-# from backend.account.account import *
-from backend.account.overhead_capital import *
-from backend.account.salary import *
-from backend.account.test_acc import *
+
 
 # functions folder
 from backend.functions.checks import *
@@ -105,8 +110,7 @@ from backend.group.test import *
 from backend.time_table.view import *
 from backend.time_table.room import *
 
-# home
-from backend.home_page.route import *
+
 # certificate
 from backend.certificate.views import *
 # get api
@@ -118,11 +122,9 @@ from backend.class_room.views import *
 # bot
 from backend.telegram_bot.views import *
 
-# book
-from backend.book.main import *
 
-# lead
-from backend.lead.views import *
+
+
 
 # mobile
 from backend.mobile.views import *
@@ -130,17 +132,9 @@ from backend.mobile.views import *
 # tasks
 from backend.tasks.admin.views import *
 
-# investment
-from backend.account.profile.investment import *
 
-# buxgalter
-from backend.account.profile.views import *
 
-# from backend.account.debit_credit.views import *
 
-from backend.account.debit_credit.views import *
-
-from backend.school.views import *
 
 from backend.models.views import *
 

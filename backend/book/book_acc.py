@@ -1,14 +1,17 @@
-from app import app, jsonify, db, desc, contains_eager, CenterOrders, CalendarMonth, BookOrder, request
-from backend.models.models import Users, CenterBalance, CenterBalanceOverhead, PaymentTypes, AccountingPeriod, \
-    BranchPayment, CollectedBookPayments, CalendarYear
-
-from .class_model import check_editor_balance, OrderFunctions, update_balance_editor
-from backend.functions.utils import get_json_field, api, iterate_models, find_calendar_date
+from flask import Blueprint, jsonify,request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from app import db, desc, contains_eager, CenterOrders, CalendarMonth, BookOrder
+from backend.functions.utils import get_json_field, iterate_models, find_calendar_date
+from backend.models.models import Users, CenterBalance, CenterBalanceOverhead, PaymentTypes, AccountingPeriod, \
+    BranchPayment, CollectedBookPayments, CalendarYear
+from .class_model import check_editor_balance, OrderFunctions, update_balance_editor
 
-@app.route(f'{api}/campus_account/<type_balance>/', defaults={"location_id": None})
-@app.route(f'{api}/campus_account/<type_balance>/<int:location_id>')
+book_acc_bp = Blueprint('book_acc_bp', __name__)
+
+
+@book_acc_bp.route(f'/campus_account/<type_balance>/', defaults={"location_id": None})
+@book_acc_bp.route(f'/campus_account/<type_balance>/<int:location_id>')
 @jwt_required()
 def campus_account(type_balance, location_id):
     identity = get_jwt_identity()
@@ -30,7 +33,7 @@ def campus_account(type_balance, location_id):
         })
 
 
-@app.route(f'{api}/campus_account_inside/<int:balance_id>')
+@book_acc_bp.route(f'/campus_account_inside/<int:balance_id>')
 @jwt_required()
 def campus_account_inside(balance_id):
     balance = CenterBalance.query.filter(CenterBalance.id == balance_id).first()
@@ -49,7 +52,7 @@ def campus_account_inside(balance_id):
     })
 
 
-@app.route(f'{api}/campus_money/<int:balance_id>', methods=['POST'])
+@book_acc_bp.route(f'/campus_money/<int:balance_id>', methods=['POST'])
 @jwt_required()
 def campus_money(balance_id):
     money = int(get_json_field('payment'))
@@ -73,7 +76,7 @@ def campus_money(balance_id):
     })
 
 
-@app.route(f'{api}/delete_campus_money/<int:overhead_id>', methods=['POST'])
+@book_acc_bp.route(f'/delete_campus_money/<int:overhead_id>', methods=['POST'])
 @jwt_required()
 def delete_campus_money(overhead_id):
     reason = get_json_field('otherReason')
@@ -89,7 +92,7 @@ def delete_campus_money(overhead_id):
     })
 
 
-@app.route(f'{api}/change_campus_money2/<overhead_id>/<payment_type_id>')
+@book_acc_bp.route(f'/change_campus_money2/<overhead_id>/<payment_type_id>')
 @jwt_required()
 def change_campus_money(overhead_id, payment_type_id):
     over = CenterBalanceOverhead.query.filter(CenterBalanceOverhead.id == overhead_id).first()
@@ -101,7 +104,7 @@ def change_campus_money(overhead_id, payment_type_id):
     })
 
 
-@app.route(f'{api}/send_campus_money', methods=['POST'])
+@book_acc_bp.route(f'/send_campus_money', methods=['POST'])
 @jwt_required()
 def send_campus_money():
     identity = get_jwt_identity()
@@ -145,7 +148,7 @@ def send_campus_money():
     })
 
 
-@app.route(f'{api}/delete_branch_payment2/<int:payment_id>')
+@book_acc_bp.route(f'/delete_branch_payment2/<int:payment_id>')
 @jwt_required()
 def delete_branch_payment(payment_id):
     identity = get_jwt_identity()
@@ -175,7 +178,7 @@ def delete_branch_payment(payment_id):
     })
 
 
-@app.route(f'{api}/change_branch_money/<payment_id>/<payment_type_id>')
+@book_acc_bp.route(f'/change_branch_money/<payment_id>/<payment_type_id>')
 @jwt_required()
 def change_branch_money(payment_id, payment_type_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -197,7 +200,7 @@ def change_branch_money(payment_id, payment_type_id):
     })
 
 
-@app.route(f'{api}/collected_book_payments/<location_id>')
+@book_acc_bp.route(f'/collected_book_payments/<location_id>')
 @jwt_required()
 def collected_book_payments(location_id):
     book_debts = CollectedBookPayments.query.filter(CollectedBookPayments.location_id == location_id).order_by(
@@ -229,7 +232,7 @@ def collected_book_payments(location_id):
     })
 
 
-@app.route(f'{api}/collected_by_month/<int:month_id>')
+@book_acc_bp.route(f'/collected_by_month/<int:month_id>')
 @jwt_required()
 def collected_by_month(month_id):
     book_debts = CollectedBookPayments.query.filter(CollectedBookPayments.calendar_month == month_id).order_by(
@@ -242,7 +245,7 @@ def collected_by_month(month_id):
     })
 
 
-@app.route(f'{api}/get_center_money/<primary_key>', methods=['POST'])
+@book_acc_bp.route(f'/get_center_money/<primary_key>', methods=['POST'])
 @jwt_required()
 def get_center_money(primary_key):
     identity = get_jwt_identity()
@@ -306,7 +309,7 @@ def get_center_money(primary_key):
     })
 
 
-@app.route(f'{api}/change_collected_money2/<int:primary_key>/<int:payment_type_id>')
+@book_acc_bp.route(f'/change_collected_money2/<int:primary_key>/<int:payment_type_id>')
 @jwt_required()
 def change_collected_money(primary_key, payment_type_id):
     accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(

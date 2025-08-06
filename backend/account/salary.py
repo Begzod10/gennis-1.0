@@ -1,24 +1,26 @@
 import datetime
 
-from flask_jwt_extended import jwt_required
+from flask import Blueprint
+from flask import request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import or_
+from sqlalchemy.orm import contains_eager
 
-from app import app, desc
+from app import db
+from app import desc
 from backend.functions.debt_salary_update import staff_salary_update
-from backend.functions.utils import api, find_calendar_date, get_json_field, update_staff_salary_id, \
+from backend.functions.utils import find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
 from backend.functions.utils import iterate_models
+from backend.models.models import Staff, Users
 from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, \
     UserBooks, StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary
 
-from flask import request, jsonify
-from sqlalchemy.orm import contains_eager
-from sqlalchemy import or_
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.models.models import Staff, Users
-from app import db
+account_salary_bp = Blueprint('account_salary_bp', __name__)
 
-@app.route(f'{api}/salary_info/<user_id>')
+
+@account_salary_bp.route(f'/salary_info/<user_id>')
 @jwt_required()
 def salary_info(user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -55,7 +57,7 @@ def salary_info(user_id):
     })
 
 
-@app.route(f'{api}/teacher_locations_classroom/<user_id>')
+@account_salary_bp.route(f'/teacher_locations_classroom/<user_id>')
 def teacher_locations_classroom(user_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     locations_list = [location.convert_json() for location in teacher.locations]
@@ -64,7 +66,7 @@ def teacher_locations_classroom(user_id):
     })
 
 
-@app.route(f'{api}/salary_info_classroom/<user_id>')
+@account_salary_bp.route(f'/salary_info_classroom/<user_id>')
 def salary_info_classroom(user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     user = Users.query.filter(Users.id == user_id).first()
@@ -82,7 +84,7 @@ def salary_info_classroom(user_id):
     })
 
 
-@app.route(f'{api}/block_salary/<int:user_id>/<int:location_id>/<year_id>')
+@account_salary_bp.route(f'/block_salary/<int:user_id>/<int:location_id>/<year_id>')
 @jwt_required()
 def block_salary(user_id, location_id, year_id):
     staff_salary_update()
@@ -161,7 +163,7 @@ def block_salary(user_id, location_id, year_id):
     })
 
 
-@app.route(f'{api}/block_salary_classroom/<int:user_id>/<int:location_id>/<year_id>')
+@account_salary_bp.route(f'/block_salary_classroom/<int:user_id>/<int:location_id>/<year_id>')
 def block_salary_classroom(user_id, location_id, year_id):
     staff_salary_update()
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
@@ -238,7 +240,7 @@ def block_salary_classroom(user_id, location_id, year_id):
     })
 
 
-@app.route(f'{api}/teacher_salary/<int:user_id>/<int:location_id>')
+@account_salary_bp.route(f'/teacher_salary/<int:user_id>/<int:location_id>')
 @jwt_required()
 def teacher_salary(user_id, location_id):
     """
@@ -325,7 +327,7 @@ def teacher_salary(user_id, location_id):
     })
 
 
-@app.route(f'{api}/teacher_salary_inside/<int:salary_id>/<int:user_id>')
+@account_salary_bp.route(f'/teacher_salary_inside/<int:salary_id>/<int:user_id>')
 @jwt_required()
 def teacher_salary_inside(salary_id, user_id):
     """
@@ -436,7 +438,7 @@ def teacher_salary_inside(salary_id, user_id):
     })
 
 
-@app.route(f'{api}/teacher_salary_inside_classroom/<user_id>/<salary_id>')
+@account_salary_bp.route(f'/teacher_salary_inside_classroom/<user_id>/<salary_id>')
 def teacher_salary_inside_classroom(user_id, salary_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     black_salary = 0
@@ -529,7 +531,7 @@ def teacher_salary_inside_classroom(user_id, salary_id):
     })
 
 
-@app.route(f'{api}/black_salary/<teacher_id>')
+@account_salary_bp.route(f'/black_salary/<teacher_id>')
 @jwt_required()
 def black_salary(teacher_id):
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
@@ -547,7 +549,7 @@ def black_salary(teacher_id):
     })
 
 
-@app.route(f'{api}/black_salary_classroom/<user_id>')
+@account_salary_bp.route(f'/black_salary_classroom/<user_id>')
 def black_salary_classroom(user_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
@@ -564,7 +566,7 @@ def black_salary_classroom(user_id):
     })
 
 
-@app.route(f'{api}/teacher_salary_deleted_inside/<int:salary_id>/<int:user_id>')
+@account_salary_bp.route(f'/teacher_salary_deleted_inside/<int:salary_id>/<int:user_id>')
 @jwt_required()
 def teacher_salary_deleted_inside(salary_id, user_id):
     """
@@ -606,7 +608,7 @@ def teacher_salary_deleted_inside(salary_id, user_id):
     })
 
 
-@app.route(f'{api}/salary_give_teacher/<int:salary_id>/<int:user_id>', methods=['POST'])
+@account_salary_bp.route(f'/salary_give_teacher/<int:salary_id>/<int:user_id>', methods=['POST'])
 @jwt_required()
 def salary_give_teacher(salary_id, user_id):
     """
@@ -697,7 +699,7 @@ def salary_give_teacher(salary_id, user_id):
     })
 
 
-@app.route(f'{api}/delete_salary_teacher/<int:salary_id>/<int:user_id>', methods=['POST'])
+@account_salary_bp.route(f'/delete_salary_teacher/<int:salary_id>/<int:user_id>', methods=['POST'])
 @jwt_required()
 def delete_salary_teacher(salary_id, user_id):
     """
@@ -785,7 +787,7 @@ def delete_salary_teacher(salary_id, user_id):
     })
 
 
-@app.route(f'{api}/change_teacher_salary/<int:salary_id>/<type_id>/<int:user_id>')
+@account_salary_bp.route(f'/change_teacher_salary/<int:salary_id>/<type_id>/<int:user_id>')
 @jwt_required()
 def change_teacher_salary(salary_id, type_id, user_id):
     """
@@ -824,7 +826,7 @@ def change_teacher_salary(salary_id, type_id, user_id):
     })
 
 
-@app.route(f'{api}/set_salary/<int:user_id>', methods=['POST'])
+@account_salary_bp.route(f'/set_salary/<int:user_id>', methods=['POST'])
 @jwt_required()
 def set_salary(user_id):
     """
@@ -843,10 +845,8 @@ def set_salary(user_id):
     })
 
 
-
-
-@app.route(f'{api}/employees/<int:location_id>', defaults={"status": None})
-@app.route(f'{api}/employees/<int:location_id>/<status>')
+@account_salary_bp.route(f'/employees/<int:location_id>', defaults={"status": None})
+@account_salary_bp.route(f'/employees/<int:location_id>/<status>')
 @jwt_required()
 def employees(location_id, status):
     """
@@ -904,7 +904,7 @@ def employees(location_id, status):
     })
 
 
-@app.route(f'{api}/delete_staff/<user_id>', methods=['DELETE'])
+@account_salary_bp.route(f'/delete_staff/<user_id>', methods=['DELETE'])
 @jwt_required()
 def delete_staff(user_id):
     Staff.query.filter(Staff.user_id == user_id).update({

@@ -3,7 +3,8 @@ import datetime
 import pytz
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from app import app, db, jsonify, request, desc
+from app import app, db,  desc
+from flask import jsonify,request
 from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
 from backend.models.models import Users, Students, CalendarDay, TaskStudents, TasksStatistics, StudentExcuses, Tasks, \
     TaskDailyStatistics, BlackStudents, StudentCallingInfo, LeadInfos, Lead

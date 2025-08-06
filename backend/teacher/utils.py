@@ -1,11 +1,7 @@
-from app import db, jsonify, contains_eager, or_
-from .models import TeacherObservation
-from backend.models.models import CalendarYear, CalendarMonth, Students, Groups, AttendanceDays, Users, Parent, Subjects
-from datetime import datetime
-from backend.functions.utils import get_json_field
-import requests
-import os
 from dotenv import load_dotenv
+
+from app import db, contains_eager, or_
+from backend.models.models import Students, Groups, AttendanceDays, Users, Subjects
 
 load_dotenv()
 
@@ -15,7 +11,6 @@ load_dotenv()
 def send_telegram_message(student_id, attendance_id, group_id):
     import os
     import requests
-    from flask import current_app
     get_group = Groups.query.get(group_id)
     get_subject = Subjects.query.get(get_group.subject_id)
     bot_token = os.getenv("TOKEN")

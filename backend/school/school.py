@@ -1,14 +1,19 @@
-from app import app, db, jsonify, request, jwt_required, or_
-from backend.functions.utils import api, iterate_models, check_exist_id
-from backend.school.models import SchoolInfo, Region, District, SchoolUser
-from backend.models.models import Users, Roles
-from backend.student.register_for_tes.models import School
-from flask_jwt_extended import get_jwt_identity
+from flask import Blueprint
+from flask import jsonify, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from werkzeug.security import generate_password_hash
 
+from app import db, or_
+from backend.functions.utils import iterate_models, check_exist_id
+from backend.models.models import Users, Roles
+from backend.school.models import SchoolInfo, Region, District, SchoolUser
+from backend.student.register_for_tes.models import School
 
-@app.route(f'{api}/school_details', defaults={'region_id': None})
-@app.route(f'{api}/school_details/<region_id>')
+school_bp = Blueprint('school_bp', __name__)
+
+
+@school_bp.route(f'/school_details', defaults={'region_id': None})
+@school_bp.route(f'/school_details/<region_id>')
 def school_details(region_id):
     school_numbers = School.query.order_by(School.number).all()
     regions = Region.query.order_by(Region.id).all()
@@ -19,8 +24,8 @@ def school_details(region_id):
                     "districts": iterate_models(districts)})
 
 
-@app.route(f'{api}/crud_school', defaults={'pk': None}, methods=['POST', "PUT", 'GET', "DELETE"])
-@app.route(f'{api}/crud_school/<pk>', methods=['POST', "PUT", 'GET', "DELETE"])
+@school_bp.route(f'/crud_school', defaults={'pk': None}, methods=['POST', "PUT", 'GET', "DELETE"])
+@school_bp.route(f'/crud_school/<pk>', methods=['POST', "PUT", 'GET', "DELETE"])
 @jwt_required()
 def crud_school(pk):
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
@@ -75,8 +80,8 @@ def crud_school(pk):
         return {"message": "School deleted"}, 200
 
 
-@app.route(f'{api}/crud_school_user/', defaults={'pk': None}, methods=['POST', "PUT", 'GET', "DELETE"])
-@app.route(f'{api}/crud_school_user/<pk>', methods=['POST', "PUT", 'GET', "DELETE"])
+@school_bp.route(f'/crud_school_user/', defaults={'pk': None}, methods=['POST', "PUT", 'GET', "DELETE"])
+@school_bp.route(f'/crud_school_user/<pk>', methods=['POST', "PUT", 'GET', "DELETE"])
 @jwt_required()
 def crud_school_user(pk):
     user = Users.query.filter(Users.user_id == get_jwt_identity()).first()
@@ -155,8 +160,8 @@ def crud_school_user(pk):
         return {"message": "User deleted"}, 200
 
 
-@app.route(f'{api}/crud_student_school/', defaults={'pk': None}, methods=['POST', "PUT", 'GET', "DELETE"])
-@app.route(f'{api}/crud_student_school/<pk>', methods=['POST', "PUT", 'GET', "DELETE"])
+@school_bp.route(f'/crud_student_school/', defaults={'pk': None}, methods=['POST', "PUT", 'GET', "DELETE"])
+@school_bp.route(f'/crud_student_school/<pk>', methods=['POST', "PUT", 'GET', "DELETE"])
 def crud_student_school(pk):
     if request.method == "POST" or request.method == "PUT":
         name = request.get_json()['name']
@@ -198,16 +203,15 @@ def crud_student_school(pk):
     pass
 
 
-@app.route(f'{api}/get_district_region/<region_id>')
+@school_bp.route(f'/get_district_region/<region_id>')
 def get_district_region(region_id):
     districts = District.query.filter(District.province_id == region_id).order_by(District.id).all()
     return jsonify({"districts": iterate_models(districts)})
 
 
-@app.route(f'{api}/school_students/<location_id>')
+@school_bp.route(f'/school_students/<location_id>')
 @jwt_required()
 def school_students(location_id):
     school_users = SchoolUser.query.filter(SchoolUser.location_id == location_id).filter(
         SchoolUser.type_user == "student").order_by(SchoolUser.id).all()
     return jsonify({"school_users": iterate_models(school_users)})
-

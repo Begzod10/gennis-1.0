@@ -1,6 +1,5 @@
-from flask import Blueprint
+from flask import Blueprint, jsonify
 
-from app import jsonify
 from backend.models.models import Students, StudentPayments, BookPayments, AttendanceHistoryStudent
 
 student_bp = Blueprint('student_bp', __name__)

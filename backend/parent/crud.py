@@ -1,4 +1,5 @@
-from app import db, jsonify, request
+from app import db
+from flask import jsonify, request
 from backend.student.models import Students
 from backend.parent.models import Parent
 from backend.models.models import Users, Roles, PhoneList

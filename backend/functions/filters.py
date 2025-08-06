@@ -1,19 +1,21 @@
 import calendar
-import pprint
-from datetime import datetime, date
+from datetime import date
+from datetime import datetime, timedelta
 
-from flask_jwt_extended import jwt_required
+from flask import Blueprint
+from flask import jsonify
 
-from app import app, contains_eager, db, desc
-from flask import request, jsonify
-from backend.functions.utils import find_calendar_date, number_of_days_in_month, api, iterate_models
+from app import contains_eager, db, desc
+from backend.functions.utils import find_calendar_date, number_of_days_in_month, iterate_models
 from backend.models.models import Locations, AccountingPeriod, Teachers, CalendarMonth, EducationLanguage, CalendarDay, \
     CalendarYear, PaymentTypes, CourseTypes, Subjects, Students, LessonPlan, Users, Week, DeletedStudents, Professions, \
     Group_Room_Week, RegisterDeletedStudents, Groups, Rooms, GroupReason
 
+student_functions_bp = Blueprint('student_functions_bp', __name__)
 
-@app.route(f'{api}/block_information2', defaults={"location_id": None})
-@app.route(f'{api}/block_information2/<int:location_id>')
+
+@student_functions_bp.route(f'/block_information2', defaults={"location_id": None})
+@student_functions_bp.route(f'/block_information2/<int:location_id>')
 # @jwt_required()
 def block_information2(location_id):
     """
@@ -676,9 +678,6 @@ def old_current_dates(group_id=0, observation=False):
         ]
 
     return data
-
-
-from datetime import datetime, timedelta
 
 
 def update_lesson_plan(group_id):

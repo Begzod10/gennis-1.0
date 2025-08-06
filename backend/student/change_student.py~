@@ -1,16 +1,15 @@
 import os
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from werkzeug.security import generate_password_hash
+from flask import Blueprint
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash
 
-from app import app, db
+from app import app, request, db, jsonify
 from backend.functions.small_info import checkFile, user_photo_folder
 from backend.functions.utils import find_calendar_date
 from backend.models.models import Users, PhoneList, Students, Teachers, Roles, StudentExcuses, Subjects
-
+from flask_jwt_extended import jwt_required, get_jwt_identity
 change_student_bp = Blueprint('change_students', __name__)
 
 

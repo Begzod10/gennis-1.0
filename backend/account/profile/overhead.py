@@ -1,14 +1,18 @@
-from app import app, db
+import datetime
+
+from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
-import datetime
-from backend.functions.utils import api, find_calendar_date, iterate_models
-from backend.models.models import Overhead, CalendarDay, CalendarMonth, CalendarYear, MainOverhead, PaymentTypes
 
+from app import db
+from backend.functions.utils import find_calendar_date, iterate_models
+from backend.models.models import MainOverhead, PaymentTypes
 from .utils import update_account
 
+account_overhead_bp = Blueprint('account_overhead_bp', __name__)
 
-@app.route(f'{api}/account/overhead', methods=['POST'])
+
+@account_overhead_bp.route(f'/account/overhead', methods=['POST'])
 @jwt_required()
 def account_overhead():
     data = request.get_json()
@@ -43,7 +47,7 @@ def account_overhead():
     }), 200
 
 
-@app.route(f'{api}/get_account_overhead/<deleted>/<archive>/', methods=['GET'])
+@account_overhead_bp.route(f'/get_account_overhead/<deleted>/<archive>/', methods=['GET'])
 @jwt_required()
 def get_account_overhead(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -59,7 +63,7 @@ def get_account_overhead(deleted, archive):
     return jsonify({'overheads': overhead_list}), 201
 
 
-@app.route(f'{api}/delete_account_overhead/<int:overhead_id>', methods=['DELETE'])
+@account_overhead_bp.route(f'/delete_account_overhead/<int:overhead_id>', methods=['DELETE'])
 @jwt_required()
 def delete_account_overhead(overhead_id):
     overhead = MainOverhead.query.filter(MainOverhead.id == overhead_id).first()
@@ -73,7 +77,7 @@ def delete_account_overhead(overhead_id):
     })
 
 
-@app.route(f'{api}/change_account_overhead/<int:overhead>/<type_id>', methods=['POST'])
+@account_overhead_bp.route(f'/change_account_overhead/<int:overhead>/<type_id>', methods=['POST'])
 @jwt_required()
 def change_account_overhead(overhead, type_id):
     payment_type = PaymentTypes.query.filter(PaymentTypes.id == type_id).first()

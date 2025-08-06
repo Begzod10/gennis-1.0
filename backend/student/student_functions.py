@@ -4,11 +4,11 @@ from datetime import datetime
 
 # import pandas as pd
 import docx
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 
-from app import app, request, jsonify, db, contains_eager, desc
+from app import app, db, contains_eager, desc
 from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \

@@ -1,7 +1,7 @@
 from flask import Blueprint
+from flask import jsonify, request
 from sqlalchemy import desc
 
-from app import jsonify, request
 from backend.account.models import StudentPayments
 from backend.models.models import Users, Roles
 from backend.parent.models import Parent
