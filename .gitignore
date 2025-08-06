@@ -3,5 +3,6 @@ migrations
 frontend
 __pycache__/
 *.py[codz]
+.py~
 */__pycache__/
 .idea
