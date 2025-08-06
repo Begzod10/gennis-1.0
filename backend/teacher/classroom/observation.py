@@ -1,18 +1,19 @@
-from app import app, get_jwt_identity, jsonify, jwt_required, db, request, classroom_server
-
 from datetime import datetime
 
-from backend.functions.utils import find_calendar_date, iterate_models, get_json_field, api, filter_month_day
+from flask import Blueprint
+
+from app import jsonify, db, request
+from backend.functions.filters import old_current_dates
+from backend.functions.utils import find_calendar_date, iterate_models, get_json_field, filter_month_day
 from backend.models.models import Users, Week, Groups, Group_Room_Week, \
-    CalendarMonth, CalendarYear, LessonPlan, LessonPlanStudents, or_, CalendarDay
+    CalendarMonth, or_, CalendarDay
 from backend.teacher.models import TeacherObservation, ObservationOptions, ObservationInfo, \
     TeacherObservationDay, Teachers
-from pprint import pprint
-from backend.functions.filters import old_current_dates
-import requests
+
+observetion_bp = Blueprint('observation', __name__)
 
 
-@app.route(f'{api}/observe_info_classroom')
+@observetion_bp.route(f'/observe_info_classroom')
 def observe_info_classroom():
     info = [
         {
@@ -78,8 +79,9 @@ def observe_info_classroom():
     })
 
 
-@app.route(f'{api}/groups_to_observe_classroom/<int:user_id>/', defaults={"location_id": None}, methods=['POST', 'GET'])
-@app.route(f'{api}/groups_to_observe_classroom/<int:user_id>/<location_id>', methods=['POST', 'GET'])
+@observetion_bp.route(f'/groups_to_observe_classroom/<int:user_id>/', defaults={"location_id": None},
+                      methods=['POST', 'GET'])
+@observetion_bp.route(f'/groups_to_observe_classroom/<int:user_id>/<location_id>', methods=['POST', 'GET'])
 def groups_to_observe_classroom(user_id, location_id):
     print(True)
     identity = user_id
@@ -127,7 +129,7 @@ def groups_to_observe_classroom(user_id, location_id):
         })
 
 
-@app.route(f'{api}/teacher_observe_classroom/<int:user_id>/<int:group_id>', methods=['POST', 'GET'])
+@observetion_bp.route(f'/teacher_observe_classroom/<int:user_id>/<int:group_id>', methods=['POST', 'GET'])
 def teacher_observe_classroom(user_id, group_id):
     identity = user_id
     user = Users.query.filter_by(id=identity).first()
@@ -185,8 +187,8 @@ def teacher_observe_classroom(user_id, group_id):
         })
 
 
-@app.route(f'{api}/observed_group_classroom/<int:group_id>/', defaults={"date": None})
-@app.route(f'{api}/observed_group_classroom/<int:group_id>/<date>')
+@observetion_bp.route(f'/observed_group_classroom/<int:group_id>/', defaults={"date": None})
+@observetion_bp.route(f'/observed_group_classroom/<int:group_id>/<date>')
 def observed_group_classroom(group_id, date):
     group = Groups.query.filter(Groups.id == group_id).first()
 
@@ -235,7 +237,7 @@ def observed_group_classroom(group_id, date):
     })
 
 
-@app.route(f'{api}/observed_group_info_classroom/<int:group_id>', methods=["POST"])
+@observetion_bp.route(f'/observed_group_info_classroom/<int:group_id>', methods=["POST"])
 def observed_group_info_classroom(group_id):
     day = get_json_field('day')
     month = get_json_field('month')

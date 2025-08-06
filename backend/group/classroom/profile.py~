@@ -10,11 +10,9 @@ from datetime import datetime
 from backend.functions.filters import update_lesson_plan, old_current_dates
 from backend.group.class_model import Group_Functions
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
-from flask import Blueprint
 
-group_classroom_profile_bp = Blueprint('group_classroom_profile', __name__)
 
-@group_classroom_profile_bp.route(f'/group_profile_classroom/<group_id>')
+@app.route(f'{api}/group_profile_classroom/<group_id>')
 def group_profile_classroom(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
     students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(

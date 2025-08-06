@@ -14,9 +14,11 @@ from backend.models.models import Groups, SubjectLevels
 from backend.student.models import StudentTest, Students
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
+from flask import Blueprint
 
+group_test_bp = Blueprint('group_test', __name__)
 
-@app.route(f'{api}/create_test/<int:group_id>', methods=["POST", "GET", "PUT", "DELETE"])
+@group_test_bp.route(f'/create_test/<int:group_id>', methods=["POST", "GET", "PUT", "DELETE"])
 @jwt_required()
 def create_test(group_id):
     url = ""
@@ -78,7 +80,7 @@ def create_test(group_id):
         })
 
 
-@app.route(f'{api}/filter_datas_in_group/<int:group_id>', methods=["POST", "GET"])
+@group_test_bp.route(f'/filter_datas_in_group/<int:group_id>', methods=["POST", "GET"])
 @jwt_required()
 def filter_datas_in_group(group_id):
     month_list = []
@@ -118,7 +120,7 @@ def filter_datas_in_group(group_id):
         })
 
 
-@app.route(f'{api}/filter_test_group/<int:group_id>', methods=['POST'])
+@group_test_bp.route(f'/filter_test_group/<int:group_id>', methods=['POST'])
 @jwt_required()
 def filter_test_group(group_id):
     year = get_json_field('year')
@@ -133,7 +135,7 @@ def filter_test_group(group_id):
     return jsonify({"tests": iterate_models(tests)})
 
 
-@app.route(f'{api}/submit_test_group/<int:group_id>', methods=["POST"])
+@group_test_bp.route(f'/submit_test_group/<int:group_id>', methods=["POST"])
 @jwt_required()
 def submit_test_group(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -181,7 +183,7 @@ def submit_test_group(group_id):
         })
 
 
-@app.route(f'{api}/groups_by_test/<location_id>', methods=['POST'])
+@group_test_bp.route(f'/groups_by_test/<location_id>', methods=['POST'])
 @jwt_required()
 def groups_by_test(location_id):
     year = get_json_field('year')

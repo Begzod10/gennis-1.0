@@ -57,13 +57,19 @@ school_server = os.getenv("SCHOOL_SERVER_URL")
 
 api = 'api/'
 from backend.tasks.admin.views import register_task_rating_views
-from backend.time_table.views import register_time_table_views
 
+from backend.time_table.views import register_time_table_views
+from backend.student.views import register_student_views
+from backend.teacher.views import register_teacher_views
+from backend.group.views import register_group_views
+
+register_time_table_views(api, app)
 register_parent_views(api, app)
 register_task_rating_views(api, app)
-register_time_table_views(api, app)
+register_student_views(api, app)
 register_telegram_bot_routes(api, app)
-
+register_teacher_views(api, app)
+register_group_views(api, app)
 # register_account_views(api, app)
 
 # register_classroom_views(api, app)
@@ -91,24 +97,12 @@ from backend.QR_code.qr_code import *
 # routes
 from backend.routes.views import *
 
-# student
-from backend.student.views import *
-
 # programmers
 from backend.for_programmers.for_programmers import *
 
-# teacher
-from backend.teacher.views import *
 
-# group
-from backend.group.create_group import *
-from backend.group.view import *
-from backend.group.change import *
-from backend.group.test import *
 
-# time_table
-from backend.time_table.views import *
-from backend.time_table.room import *
+
 
 # home
 # from backend.home_page.route import *
@@ -120,16 +114,13 @@ from backend.routes.get_api import *
 # classroom
 from backend.class_room.views import *
 
-# bot
-from backend.telegram_bot.views import *
+
 
 # book
 from backend.book.main import *
 
 # lead
 from backend.lead.views import *
-
-
 
 # investment
 from backend.account.profile.investment import *

@@ -6,11 +6,13 @@ from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, 
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import get_json_field, find_calendar_date
 from datetime import datetime
-
+from flask import Blueprint
 from pprint import pprint
 
+group_create_bp = Blueprint('group_create_bp', __name__)
 
-@app.route(f'{api}/create_group_tools')
+
+@group_create_bp.route(f'/create_group_tools')
 # @jwt_required()
 def create_group_tools():
     course_types = CourseTypes.query.order_by('id').all()
@@ -39,7 +41,7 @@ def create_group_tools():
     })
 
 
-@app.route(f'/{api}/get_students/<int:location_id>', methods=['POST'])
+@group_create_bp.route(f'/get_students/<int:location_id>', methods=['POST'])
 def get_students(location_id):
     gr_errors = []
     student_errors = []
@@ -300,7 +302,7 @@ def get_students(location_id):
     })
 
 
-@app.route(f'{api}/create_group_time/<int:location_id>', methods=['POST'])
+@group_create_bp.route(f'/create_group_time/<int:location_id>', methods=['POST'])
 def create_group_time(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     group_name = request.get_json()['groupInfo']['groupName']
@@ -363,7 +365,7 @@ def create_group_time(location_id):
     })
 
 
-@app.route(f'{api}/create_group', methods=['POST'])
+@group_create_bp.route(f'/create_group', methods=['POST'])
 @jwt_required()
 def create_group():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -413,7 +415,7 @@ def create_group():
     })
 
 
-@app.route(f'{api}/add_group_students2/<int:group_id>', methods=['POST', 'GET'])
+@group_create_bp.route(f'/add_group_students2/<int:group_id>', methods=['POST', 'GET'])
 def add_group_students2(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
@@ -626,7 +628,7 @@ def add_group_students2(group_id):
     })
 
 
-@app.route(f'{api}/move_group/<int:new_group_id>/<int:old_group_id>', methods=['POST'])
+@group_create_bp.route(f'/move_group/<int:new_group_id>/<int:old_group_id>', methods=['POST'])
 @jwt_required()
 def move_group(new_group_id, old_group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -669,7 +671,7 @@ def move_group(new_group_id, old_group_id):
         })
 
 
-@app.route(f'{api}/filtered_groups/<int:group_id>')
+@group_create_bp.route(f'/filtered_groups/<int:group_id>')
 @jwt_required()
 def filtered_groups(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -703,7 +705,7 @@ def filtered_groups(group_id):
     })
 
 
-@app.route(f'{api}/filtered_groups2/<int:location_id>')
+@group_create_bp.route(f'/filtered_groups2/<int:location_id>')
 # @jwt_required()
 def filtered_groups2(location_id):
     groups = Groups.query.filter(Groups.location_id == location_id,
@@ -736,7 +738,7 @@ def filtered_groups2(location_id):
     })
 
 
-@app.route(f'{api}/moving_students/<int:old_id>/<int:new_id>')
+@group_create_bp.route(f'/moving_students/<int:old_id>/<int:new_id>')
 def moving_students(old_id, new_id):
     old_group = Groups.query.filter(Groups.id == old_id).first()
     new_group = Groups.query.filter(Groups.id == new_id).first()
@@ -812,7 +814,7 @@ def moving_students(old_id, new_id):
     })
 
 
-@app.route(f'{api}/move_group_time/<int:old_group_id>/<int:new_group_id>', methods=['POST'])
+@group_create_bp.route(f'/move_group_time/<int:old_group_id>/<int:new_group_id>', methods=['POST'])
 @jwt_required()
 def move_group_time(old_group_id, new_group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -867,7 +869,7 @@ def move_group_time(old_group_id, new_group_id):
         })
 
 
-@app.route(f'{api}/delete_student', methods=['POST'])
+@group_create_bp.route(f'/delete_student', methods=['POST'])
 @jwt_required()
 def delete_student():
     calendar_year, calendar_month, calendar_day = find_calendar_date()

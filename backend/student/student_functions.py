@@ -1,20 +1,24 @@
 import os
 import uuid
 from datetime import datetime
+
 # import pandas as pd
 import docx
+from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 
-from app import app, api, request, jsonify, db, contains_eager, desc
+from app import app, request, jsonify, db, contains_eager, desc
 from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
-    Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentExcuses, StudentHistoryGroups, \
-    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, Subjects
+    Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentHistoryGroups, \
+    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay
+
+student_functions = Blueprint('student_functions', __name__)
 
 
-@app.route(f'{api}/student_history2/<int:user_id>')
+@student_functions.route(f'/student_history2/<int:user_id>')
 @jwt_required()
 def student_history(user_id):
     years = []
@@ -64,7 +68,7 @@ def student_history(user_id):
     })
 
 
-@app.route(f'{api}/delete_newStudent/<int:user_id>', methods=["GET", "POST"])
+@student_functions.route(f'/delete_newStudent/<int:user_id>', methods=["GET", "POST"])
 @jwt_required()
 def delete_newStudent(user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -79,7 +83,7 @@ def delete_newStudent(user_id):
     })
 
 
-@app.route(f'{api}/get_back_student/<int:user_id>')
+@student_functions.route(f'/get_back_student/<int:user_id>')
 @jwt_required()
 def get_back_student(user_id):
     student = Students.query.filter(Students.user_id == user_id).first()
@@ -103,18 +107,33 @@ def get_back_student(user_id):
     })
 
 
-@app.route(f'{api}/studyingStudents/<int:id>', methods=['POST', 'GET'])
+@student_functions.route(f'/studyingStudents/<int:id>', methods=['POST', 'GET'])
 @jwt_required()
 def studyingStudents(id):
-    user_list = Users.query.join(Students).filter(Students.group != None, Users.location_id == id).order_by(
-        Users.id).all()
-    user_id = []
-    for user in user_list:
-        user_id.append(user.id)
-    user_id = list(dict.fromkeys(user_id))
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
 
-    students_list = Students.query.filter(Students.user_id.in_([user_id for user_id in user_id])).join(
-        Students.group).filter(Groups.status == True).order_by(Students.user_id).all()
+    user_list = Users.query.join(Students).filter(
+        Students.group != None,
+        Users.location_id == id
+    ).order_by(Users.id).all()
+    user_id = list(dict.fromkeys([user.id for user in user_list]))
+
+    students_query = Students.query.filter(
+        Students.user_id.in_(user_id)
+    ).join(Students.group).filter(
+        Groups.status == True
+    ).order_by(Students.user_id)
+
+    total = students_query.count()
+
+    if limit:
+        students_query = students_query.offset(offset).limit(limit)
+    else:
+        students_query = students_query.offset(offset)
+
+    students_list = students_query.all()
+
     role = Roles.query.filter(Roles.type_role == "student").first()
 
     list_students = [
@@ -128,47 +147,71 @@ def studyingStudents(id):
             "age": st.user.age,
             "reg_date": st.user.day.date.strftime("%Y-%m-%d"),
             "comment": st.user.comment,
-            'money': st.user.balance,
+            "money": st.user.balance,
             "role": role.role,
-            "phone": st.user.phone[0].phone if st.user.phone[0].phone != 0 else 0,
+            "phone": st.user.phone[0].phone if st.user.phone and st.user.phone[0].phone != 0 else 0,
             "subjects": [sub.name for sub in st.subject],
             "photo_profile": st.user.photo_profile,
             "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0
-        } for st in students_list
+        }
+        for st in students_list
     ]
+
     return jsonify({
-        "studyingStudents": list_students
+        "studyingStudents": list_students,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f'{api}/deletedStudents/<int:id>', methods=['POST'])
+@student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
 @jwt_required()
 def deletedStudents(id):
-    reason = request.get_json()['type']
+    data = request.get_json()
+    reason = data.get('type')
+
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
     user_list = db.session.query(Students).join(Students.user).options(contains_eager(Students.user)).filter(
-        Students.deleted_from_group != None, Students.group == None, Users.location_id == id).join(
-        Students.deleted_from_group).join(
-        DeletedStudents.day) \
-        .order_by(desc(CalendarDay.date)).all()
-    user_id = []
-    for user in user_list:
-        user_id.append(user.id)
-    user_id = list(dict.fromkeys(user_id))
+        Students.deleted_from_group != None,
+        Students.group == None,
+        Users.location_id == id
+    ).join(Students.deleted_from_group).join(DeletedStudents.day).order_by(desc(CalendarDay.date)).all()
+
+    user_id = list(dict.fromkeys([user.id for user in user_list]))
 
     if reason == "Hammasi":
-        students_list = (
+        students_query = (
             DeletedStudents.query
-            .join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)  # Ensure correct join condition
-            .filter(DeletedStudents.student_id.in_(user_id))  # No need for list comprehension
+            .join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)
+            .filter(DeletedStudents.student_id.in_(user_id))
             .order_by(desc(CalendarDay.date))
-            .all()
         )
     else:
         group_reason = GroupReason.query.filter(GroupReason.id == reason).first()
-        students_list = DeletedStudents.query.filter(DeletedStudents.student_id.in_([user_id for user_id in user_id]),
-                                                     DeletedStudents.reason_id == group_reason.id).join(
-            DeletedStudents.day).order_by(
-            desc(CalendarDay.date)).all()
+        students_query = (
+            DeletedStudents.query
+            .filter(
+                DeletedStudents.student_id.in_(user_id),
+                DeletedStudents.reason_id == group_reason.id
+            )
+            .join(DeletedStudents.day)
+            .order_by(desc(CalendarDay.date))
+        )
+
+    total = students_query.count()
+
+    if limit:
+        students_query = students_query.offset(offset).limit(limit)
+    else:
+        students_query = students_query.offset(offset)
+
+    students_list = students_query.all()
 
     role = Roles.query.filter(Roles.type_role == "student").first()
 
@@ -195,32 +238,55 @@ def deletedStudents(id):
         }
         for st in students_list
     ]
+
     day_dict = {gr['id']: gr for gr in list_students}
     day_list = list(day_dict.values())
 
     return jsonify({
-        "data": day_list
+        "data": day_list,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f"{api}/newStudents/<int:location_id>", methods=["GET"])
+@student_functions.route(f"/newStudents/<int:location_id>", methods=["GET"])
 @jwt_required()
 def newStudents(location_id):
     update_week(location_id)
 
-    students = Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
-        Students.user).filter(Users.location_id == int(location_id)).order_by(desc(Students.id)).all()
-    # subjects = Subjects.query.filter(Subjects.student == None).order_by(Subjects.id).all()
-    # for sub in subjects:
-    #     sub.disabled = True
-    #     db.session.commit()
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
+    base_query = Students.query.filter(
+        Students.subject != None,
+        Students.deleted_from_register == None
+    ).join(Students.user).filter(Users.location_id == int(location_id)).order_by(desc(Students.id))
+
+    total = base_query.count()
+
+    if limit:
+        base_query = base_query.offset(offset).limit(limit)
+    else:
+        base_query = base_query.offset(offset)
+
+    students = base_query.all()
+
     return jsonify({
         "newStudents": iterate_models(students),
-        # "emptySubjects": iterate_models(subjects)
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f'{api}/get_filtered_students_list/<int:location_id>', methods=["GET"])
+@student_functions.route(f'/get_filtered_students_list/<int:location_id>', methods=["GET"])
 @jwt_required()
 def get_filtered_students_list(location_id):
     students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
@@ -241,23 +307,43 @@ def get_filtered_students_list(location_id):
     return jsonify(list(subjects_with_students.values()))
 
 
-@app.route(f"{api}/newStudentsDeleted/<int:location_id>", methods=["GET"])
+@student_functions.route(f"/newStudentsDeleted/<int:location_id>", methods=["GET"])
 @jwt_required()
 def newStudentsDeleted(location_id):
     update_week(location_id)
-    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
-                                                 Students.subject != None,
-                                                 Students.deleted_from_register != None).order_by(
-        desc(Students.id)).all()
-    list_students = [
-        st.convert_json() for st in students
-    ]
+
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
+    base_query = Students.query.join(Users).filter(
+        Users.location_id == location_id,
+        Users.student != None,
+        Students.subject != None,
+        Students.deleted_from_register != None
+    ).order_by(desc(Students.id))
+
+    total = base_query.count()
+
+    if limit:
+        base_query = base_query.offset(offset).limit(limit)
+    else:
+        base_query = base_query.offset(offset)
+
+    students = base_query.all()
+    list_students = [st.convert_json() for st in students]
+
     return jsonify({
-        "newStudents": list_students
+        "newStudents": list_students,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f'{api}/new_del_students/<location_id>')
+@student_functions.route(f'/new_del_students/<location_id>')
 @jwt_required()
 def newStudents_deleted(location_id):
     role = Roles.query.filter(Roles.type_role == "student").first()
@@ -282,7 +368,7 @@ def newStudents_deleted(location_id):
     return jsonify(list(subjects_with_students.values()))
 
 
-@app.route(f'{api}/create_contract/<int:user_id>', methods=["POST"])
+@student_functions.route(f'/create_contract/<int:user_id>', methods=["POST"])
 @jwt_required()
 def create_contract(user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -461,7 +547,7 @@ def create_contract(user_id):
     })
 
 
-@app.route(f'{api}/upload_pdf_contract/<int:user_id>', methods=["POST"])
+@student_functions.route(f'/upload_pdf_contract/<int:user_id>', methods=["POST"])
 @jwt_required()
 def upload_pdf_contract(user_id):
     student = Students.query.filter(Students.user_id == user_id).first()
@@ -485,7 +571,7 @@ def upload_pdf_contract(user_id):
     })
 
 
-@app.route(f'{api}/change_location/<int:user_id>/<int:location_id>')
+@student_functions.route(f'/change_location/<int:user_id>/<int:location_id>')
 @jwt_required()
 def change_location(user_id, location_id):
     location = Locations.query.filter(Locations.id == location_id).first()
@@ -506,7 +592,7 @@ def change_location(user_id, location_id):
         })
 
 
-@app.route(f"{api}/student_attendance_info/<user_id>")
+@student_functions.route(f"/student_attendance_info/<user_id>")
 @jwt_required()
 def student_attendance_info(user_id):
     student = Students.query.filter(Students.user_id == user_id).first()
@@ -572,7 +658,7 @@ def student_attendance_info(user_id):
     })
 
 
-@app.route(f'{api}/get_student_balance/<user_id>')
+@student_functions.route(f'/get_student_balance/<user_id>')
 def get_student_balance(user_id):
     user = Users.query.filter(Users.id == user_id).first()
     return jsonify(

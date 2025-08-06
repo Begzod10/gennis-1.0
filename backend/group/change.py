@@ -5,12 +5,15 @@ from flask_jwt_extended import jwt_required
 from datetime import datetime
 from pprint import pprint
 from backend.functions.utils import get_json_field, remove_items_create_group, api
+from flask import Blueprint
+
+group_change_bp = Blueprint('group_change', __name__)
 
 
 # from datetime import datetime
 
 
-@app.route(f'{api}/change_group_info/<int:group_id>', methods=['POST'])
+@group_change_bp.route(f'/change_group_info/<int:group_id>', methods=['POST'])
 @jwt_required()
 def change_group_info(group_id):
     name = get_json_field('name')
@@ -56,7 +59,7 @@ def change_group_info(group_id):
     })
 
 
-@app.route(f'{api}/add_teacher_group/<int:teacher_id>/<int:group_id>')
+@group_change_bp.route(f'/add_teacher_group/<int:teacher_id>/<int:group_id>')
 @jwt_required()
 def add_teacher_group(teacher_id, group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -87,7 +90,7 @@ def add_teacher_group(teacher_id, group_id):
     })
 
 
-@app.route(f'{api}/delete_group/<int:group_id>')
+@group_change_bp.route(f'/delete_group/<int:group_id>')
 @jwt_required()
 def delete_group(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -123,7 +126,7 @@ def delete_group(group_id):
     })
 
 
-@app.route(f'{api}/check_time_group/<int:group_id>', methods=['POST'])
+@group_change_bp.route(f'/check_time_group/<int:group_id>', methods=['POST'])
 @jwt_required()
 def check_time_group(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -255,7 +258,7 @@ def check_time_group(group_id):
     })
 
 
-@app.route(f'{api}/change_time_group/<int:group_id>', methods=["POST"])
+@group_change_bp.route(f'/change_time_group/<int:group_id>', methods=["POST"])
 @jwt_required()
 def change_time_group(group_id):
     lessons = get_json_field('lessons')
@@ -300,7 +303,7 @@ def change_time_group(group_id):
     })
 
 
-@app.route(f'{api}/check_teacher_time/<int:group_id>', methods=['GET'])
+@group_change_bp.route(f'/check_teacher_time/<int:group_id>', methods=['GET'])
 @jwt_required()
 def check_teacher_time(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -373,7 +376,7 @@ def check_teacher_time(group_id):
     })
 
 
-@app.route(f'{api}/delete_time_table/<int:time_id>')
+@group_change_bp.route(f'/delete_time_table/<int:time_id>')
 @jwt_required()
 def delete_time_table(time_id):
     time_table = Group_Room_Week.query.filter(Group_Room_Week.id == time_id).first()

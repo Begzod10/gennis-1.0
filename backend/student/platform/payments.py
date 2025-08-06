@@ -1,8 +1,12 @@
-from app import app, api, db, request, jwt_required, jsonify
+from flask import Blueprint
+
+from app import jsonify
 from backend.models.models import Students, StudentPayments, BookPayments, AttendanceHistoryStudent
 
+student_bp = Blueprint('student_bp', __name__)
 
-@app.route(f"{api}/student_attendance_info_classroom/<user_id>")
+
+@student_bp.route("/student_attendance_info_classroom/<user_id>", methods=["GET"])
 def student_attendance_info_classroom(user_id):
     student = Students.query.filter(Students.user_id == user_id).first()
     attendance_histories = AttendanceHistoryStudent.query.filter(
