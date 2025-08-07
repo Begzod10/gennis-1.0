@@ -68,6 +68,7 @@ from backend.student.register_for_tes.views import register_for_tes_views
 from backend.school.views import register_school_views
 from backend.routes.views import register_router_views
 from backend.mobile.views import register_parent_mobile_views
+from backend.for_programmers.views import register_programmers_views
 
 register_time_table_views(api, app)
 register_router_views(api, app)
@@ -84,6 +85,7 @@ register_book_views(api, app)
 register_for_tes_views(api, app)
 register_school_views(api, app)
 register_parent_mobile_views(api, app)
+register_programmers_views(api, app)
 
 
 # register_classroom_views(api, app)

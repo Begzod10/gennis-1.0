@@ -1,6 +1,5 @@
 import pprint
 
-
 from flask import jsonify
 from flask_jwt_extended import jwt_required
 from backend.functions.utils import find_calendar_date, get_json_field
@@ -14,6 +13,7 @@ from backend.functions.functions import update_user_time_table, get_dates_for_we
 from flask import Blueprint
 
 group_classroom_profile_bp = Blueprint('group_classroom_profile', __name__)
+
 
 @group_classroom_profile_bp.route(f'/group_profile_classroom/<group_id>')
 def group_profile_classroom(group_id):

@@ -1,13 +1,16 @@
 import pprint
 
-from app import app, db, request, jsonify
 from backend.models.models import Subjects, PaymentTypes, Professions, Locations, AccountingPeriod, EducationLanguage, \
-    CourseTypes
+    CourseTypes, db
+
 from backend.functions.utils import api, find_calendar_date, get_json_field
 from flask_jwt_extended import jwt_required
+from flask import Blueprint, request, jsonify
+
+for_programmers = Blueprint('for_programmers', __name__)
 
 
-@app.route(f'{api}/change_location_info/<int:location_id>', methods=['POST', "GET"])
+@for_programmers.route(f'/change_location_info/<int:location_id>', methods=['POST', "GET"])
 @jwt_required()
 def change_location_info(location_id):
     location = Locations.query.filter(Locations.id == location_id).first()
@@ -36,7 +39,7 @@ def change_location_info(location_id):
         })
 
 
-@app.route(f'{api}/list_tools_info', methods=["GET"])
+@for_programmers.route(f'/list_tools_info', methods=["GET"])
 @jwt_required()
 def list_tools():
     """
@@ -118,7 +121,7 @@ def list_tools():
     })
 
 
-@app.route(f'{api}/create_constants', methods=["POST"])
+@for_programmers.route(f'/create_constants', methods=["POST"])
 @jwt_required()
 def create_constants():
     """

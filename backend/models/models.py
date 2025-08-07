@@ -243,6 +243,7 @@ class CalendarDay(db.Model):
     capital_data = relationship('CapitalExpenditure', backref="day", order_by="CapitalExpenditure.id")
     deleted_capital_data = relationship("DeletedCapitalExpenditure", backref="day",
                                         order_by="DeletedCapitalExpenditure.id")
+    deleted_overhead_data = relationship("DeletedOverhead", backref="day", order_by="DeletedOverhead.id")
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     deleted_payments = relationship("DeletedStudentPayments", backref="day", order_by="DeletedStudentPayments.id")
     deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="day",

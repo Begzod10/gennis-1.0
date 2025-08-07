@@ -9,7 +9,7 @@ from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes,
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, \
     AccountingInfo, DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, \
     DeletedStaffSalaries, Users, Teachers, Dividend, CapitalExpenditure, \
-    Investment, db
+    Investment, db, DeletedCapitalExpenditure
 from sqlalchemy import desc, and_, func
 from sqlalchemy.orm import contains_eager
 from backend.models.settings import sum_money
@@ -100,7 +100,7 @@ def account_info(type_filter):
                                                                          CenterBalanceOverhead.deleted == False).order_by(
                 CenterBalanceOverhead.id).all()
         else:
-            branch_payments = BranchPayment.query.filter(BranchPayment.location_id == location.BranchPayment).order_by(
+            branch_payments = BranchPayment.query.filter(BranchPayment.location_id == location).order_by(
                 BranchPayment.id).all()
             center_balance_overhead = CenterBalanceOverhead.query.filter(CenterBalanceOverhead.location_id == location,
                                                                          CenterBalanceOverhead.deleted == False,
@@ -422,7 +422,7 @@ def account_info_deleted(type_filter):
 
         else:
 
-            branch_payments = BranchPayment.query.filter(BranchPayment.location_id == location.BranchPayment).order_by(
+            branch_payments = BranchPayment.query.filter(BranchPayment.location_id == location).order_by(
                 BranchPayment.id).all()
             center_balance_overhead = CenterBalanceOverhead.query.filter(CenterBalanceOverhead.location_id == location,
                                                                          CenterBalanceOverhead.deleted == True,
@@ -605,18 +605,30 @@ def account_info_deleted(type_filter):
         #                                    ).order_by(
         #         Capital.id).all()
 
-        if not type_filter:
-            capital = CapitalExpenditure.query.filter(CapitalExpenditure.location_id == location,
-                                                      CapitalExpenditure.account_period_id == accounting_period,
-                                                      CapitalExpenditure.deleted == True
-                                                      ).order_by(
-                CapitalExpenditure.id).all()
-        else:
-            capital = CapitalExpenditure.query.filter(CapitalExpenditure.location_id == location,
-                                                      CapitalExpenditure.deleted == True
-                                                      ).order_by(
-                CapitalExpenditure.id).all()
-
+        # if not type_filter:
+        #     capital = DeletedCapitalExpenditure.query.filter(DeletedCapitalExpenditure.location_id == location,
+        #                                               DeletedCapitalExpenditure.account_period_id == accounting_period,
+        #                                               ).order_by(
+        #         CapitalExpenditure.id).all()
+        # else:
+        #     capital = DeletedCapitalExpenditure.query.filter(DeletedCapitalExpenditure.location_id == location,
+        #                                               ).order_by(
+        #         CapitalExpenditure.id).all()
+        #
+        # # payments_list = [
+        # #     {
+        # #         "id": over.id,
+        # #         "name": over.item_name,
+        # #         "price": over.item_sum,
+        # #         "typePayment": over.payment_type.name,
+        # #         "date": over.day.date.strftime("%Y-%m-%d"),
+        # #         "day": str(over.calendar_day),
+        # #         "month": str(over.calendar_month),
+        # #         "year": str(over.calendar_year),
+        # #         "reason": over.reason
+        # #     }
+        # #     for over in capital
+        # # ]
         # payments_list = [
         #     {
         #         "id": over.id,
@@ -631,20 +643,6 @@ def account_info_deleted(type_filter):
         #     }
         #     for over in capital
         # ]
-        payments_list = [
-            {
-                "id": over.id,
-                "name": over.item_name,
-                "price": over.item_sum,
-                "typePayment": over.payment_type.name,
-                "date": over.day.date.strftime("%Y-%m-%d"),
-                "day": str(over.calendar_day),
-                "month": str(over.calendar_month),
-                "year": str(over.calendar_year),
-                "reason": over.reason
-            }
-            for over in capital
-        ]
 
     return jsonify({
         "data": {

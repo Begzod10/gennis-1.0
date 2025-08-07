@@ -18,7 +18,7 @@ from backend.models.models import Overhead, AccountingPeriod, PaymentTypes, Dele
     DeletedCapitalExpenditure, db
 from backend.models.models import func
 from .utils import update_capital
-
+from pprint import pprint
 account_capital_bp = Blueprint('account_capital_bp', __name__)
 
 
@@ -413,6 +413,7 @@ def add_capital(location_id):
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
+        pprint(request.json)
         account_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
             contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
         current_year = datetime.now().year

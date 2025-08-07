@@ -1,10 +1,10 @@
-from backend.models.models import Rooms, Week, Group_Room_Week, RoomImages, Subjects, Groups
+from backend.models.models import Rooms, Week, Group_Room_Week, RoomImages, Subjects, Groups, db
 from backend.functions.utils import update_week
 from backend.functions.small_info import room_images, checkFile
 
 from werkzeug.utils import secure_filename
 import os
-from app import db
+from app import app
 from flask import Blueprint, request, jsonify
 
 room_bp = Blueprint('room', __name__)
