@@ -3,12 +3,12 @@ from datetime import timedelta
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
-
-from app import db, desc, contains_eager, or_
+from sqlalchemy import and_, or_, desc
+from sqlalchemy.orm import contains_eager
 from backend.functions.utils import get_json_field, find_calendar_date, update_salary
 from backend.models.models import AccountingPeriod, StudentPayments, Students, AttendanceHistoryStudent, PaymentTypes, \
     CalendarMonth, Groups, DeletedBookPayments, StudentCharity, DeletedStudentPayments, BookPayments, \
-    TeacherBlackSalary, Teachers, TaskStudents, TasksStatistics, Tasks
+    TeacherBlackSalary, Teachers, TaskStudents, TasksStatistics, Tasks, db
 from backend.student.class_model import Student_Functions
 
 account_payment_bp = Blueprint('account_payment_bp', __name__)

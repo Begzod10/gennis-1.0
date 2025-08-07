@@ -1,26 +1,23 @@
-from flask import Flask, jsonify, request, render_template, session, json, send_file, send_from_directory
-from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileRequired
-from backend.school.models import custom_migrate, register_commands
+from flask import Flask, send_from_directory, jsonify, request
+from backend.school.models import register_commands
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from backend.models.models import *
+from backend.models.models import db_setup
+from flask_migrate import Migrate
 from flask_restful import Api
 from flask_admin import Admin
 import logging
 import hmac
 import hashlib
 import subprocess
-from flask import request, Response
+from flask import Response
 from backend.parent.views import register_parent_views
-
+from backend.functions.utils import refreshdatas
 from backend.telegram_bot.views import register_telegram_bot_routes
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-
 
 # from backend.class_room.urls import register_classroom_views
 
@@ -60,111 +57,41 @@ from backend.tasks.admin.views import register_task_rating_views
 from backend.time_table.views import register_time_table_views
 from backend.student.views import register_student_views
 from backend.teacher.views import register_teacher_views
-<<<<<<< HEAD
+
 from backend.group.views import register_group_views
 
-register_time_table_views(api, app)
-=======
 from backend.lead.views import register_lead_views
 from backend.home_page.views import register_home_views
 from backend.account.views import register_account_views
 from backend.book.views import register_book_views
 from backend.student.register_for_tes.views import register_for_tes_views
 from backend.school.views import register_school_views
-from backend.functions.views import register_filters_views
+from backend.routes.views import register_router_views
+from backend.mobile.views import register_parent_mobile_views
 
->>>>>>> 4c24428f12e90613dc74339b058577cb84c9d68f
+register_time_table_views(api, app)
+register_router_views(api, app)
 register_parent_views(api, app)
 register_task_rating_views(api, app)
 register_student_views(api, app)
 register_telegram_bot_routes(api, app)
 register_teacher_views(api, app)
-<<<<<<< HEAD
 register_group_views(api, app)
-# register_account_views(api, app)
-
-=======
 register_lead_views(api, app)
 register_home_views(api, app)
 register_account_views(api, app)
 register_book_views(api, app)
 register_for_tes_views(api, app)
 register_school_views(api, app)
-register_filters_views(api, app)
->>>>>>> 4c24428f12e90613dc74339b058577cb84c9d68f
+register_parent_mobile_views(api, app)
+
+
 # register_classroom_views(api, app)
 
 
-
-# filters
-
-<<<<<<< HEAD
-# account folder
-from backend.account.payment import *
-from backend.account.account import *
-from backend.account.overhead_capital import *
-from backend.account.salary import *
-from backend.account.test_acc import *
-=======
-
->>>>>>> 4c24428f12e90613dc74339b058577cb84c9d68f
-
 # functions folder
-from backend.functions.checks import *
-from backend.functions.small_info import *
-
-# QR code
-from backend.QR_code.qr_code import *
-
-# routes
-from backend.routes.views import *
-
-# programmers
-from backend.for_programmers.for_programmers import *
-
-
-
-
-
-<<<<<<< HEAD
-# home
-# from backend.home_page.route import *
-=======
-
->>>>>>> 4c24428f12e90613dc74339b058577cb84c9d68f
-# certificate
-# from backend.certificate.views import *
-# get api
-from backend.routes.get_api import *
 
 # classroom
-from backend.class_room.views import *
-
-
-
-
-
-
-
-<<<<<<< HEAD
-# investment
-from backend.account.profile.investment import *
-=======
-# mobile
-from backend.mobile.views import *
-
-# tasks
-from backend.tasks.admin.views import *
-
->>>>>>> 4c24428f12e90613dc74339b058577cb84c9d68f
-
-
-
-
-from backend.models.views import *
-
-
-# teacher observation, attendance, teacher_group_statistics
 
 
 def check_auth(username, password):
@@ -175,6 +102,25 @@ def authenticate():
     return Response(
         'Unauthorized access.', 401,
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
+@app.errorhandler(404)
+def not_found(e):
+    return app.send_static_file('index.html')
+
+
+@app.errorhandler(413)
+def img_larger(e):
+    return jsonify({
+        "success": False,
+        "msg": "rasm hajmi kotta"
+    })
+
+
+@app.route('/', methods=['POST', 'GET'])
+def index():
+    refreshdatas()
+    return app.send_static_file("index.html")
 
 
 @app.before_request

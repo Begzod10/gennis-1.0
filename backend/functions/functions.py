@@ -40,40 +40,6 @@ def new_month():
     return new_month
 
 
-def refreshdatas(location_id=0):
-    """
-    update datas by current day , month and year
-    :param location_id:
-    :return:
-    """
-    calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-    if not calendar_year:
-        calendar_year = CalendarYear(date=new_year())
-        db.session.add(calendar_year)
-        db.session.commit()
-
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month(),
-                                                CalendarMonth.year_id == calendar_year.id).first()
-
-    if not calendar_month:
-        calendar_month = CalendarMonth(date=new_month(), year_id=calendar_year.id)
-        db.session.add(calendar_month)
-        db.session.commit()
-
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
-                                            CalendarDay.month_id == calendar_month.id).first()
-
-    if not calendar_day:
-        calendar_day = CalendarDay(date=new_today(), month_id=calendar_month.id)
-        db.session.add(calendar_day)
-        db.session.commit()
-    update_all_datas()
-    update_period(location_id)
-    account_period = AccountingPeriod.query.order_by(desc(AccountingPeriod.id)).first()
-    CalendarDay.query.filter(CalendarDay.id == calendar_day.id).update({'account_period_id': account_period.id})
-    db.session.commit()
-
-
 def update_period(location_id):
     """
     update datas in AccountingPeriod by datetime

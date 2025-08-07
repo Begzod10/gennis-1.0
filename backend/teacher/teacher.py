@@ -3,8 +3,8 @@ from datetime import datetime
 from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
-
-from app import db, contains_eager
+from sqlalchemy import desc
+from sqlalchemy.orm import contains_eager
 from backend.functions.debt_salary_update import salary_debt
 from backend.functions.filters import old_current_dates
 from backend.functions.functions import get_dates_for_weekdays
@@ -14,7 +14,7 @@ from backend.group.class_model import Group_Functions
 from backend.models.models import Attendance, Students, AttendanceDays, Groups, Locations, Subjects, \
     StudentCharity, TeacherBlackSalary, GroupReason, TeacherObservationDay, TeacherGroupStatistics, \
     Group_Room_Week, LessonPlan
-from backend.models.models import CalendarMonth, CalendarYear
+from backend.models.models import CalendarMonth, CalendarYear, db
 from backend.models.models import Teachers, Users, Roles
 from backend.student.class_model import Student_Functions
 from backend.teacher.utils import send_telegram_message

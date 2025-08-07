@@ -3,9 +3,9 @@ from flask import jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from werkzeug.security import generate_password_hash
 
-from app import db, or_
 from backend.functions.utils import iterate_models, check_exist_id
-from backend.models.models import Users, Roles
+from backend.models.models import Users, Roles, db
+from sqlalchemy import desc, or_
 from backend.school.models import SchoolInfo, Region, District, SchoolUser
 from backend.student.register_for_tes.models import School
 

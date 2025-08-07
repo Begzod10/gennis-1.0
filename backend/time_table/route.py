@@ -1,9 +1,9 @@
-from app import app, jsonify
+from app import app
 from backend.models.models import Week, Group_Room_Week, Rooms, Groups
 from backend.functions.utils import update_week, api
 
 from flask_jwt_extended import jwt_required
-from flask import Blueprint
+from flask import Blueprint, jsonify
 
 time_table = Blueprint('time_table', __name__)
 

@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 
-from app import db, contains_eager, or_
-from backend.models.models import Students, Groups, AttendanceDays, Users, Subjects
+from backend.models.models import Students, Groups, AttendanceDays, Users, Subjects, db
+from sqlalchemy import desc, or_
+from sqlalchemy.orm import contains_eager
 
 load_dotenv()
 

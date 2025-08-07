@@ -7,13 +7,14 @@ import docx
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
-
-from app import app, db, contains_eager, desc
+from app import app
 from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
     Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentHistoryGroups, \
-    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay
+    Groups, Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db
+from sqlalchemy import desc
+from sqlalchemy.orm import contains_eager
 
 student_functions = Blueprint('student_functions', __name__)
 

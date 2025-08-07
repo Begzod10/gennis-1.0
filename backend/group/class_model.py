@@ -1,9 +1,9 @@
-from app import db, contains_eager, desc, extract
-
 from backend.models.models import CalendarDay, Attendance, AttendanceDays, CalendarMonth, CalendarYear, StudentExcuses, \
-    Students, StudentPayments, BookPayments, Users, AttendanceHistoryStudent, LessonPlan, Groups
+    Students, StudentPayments, BookPayments, Users, AttendanceHistoryStudent, LessonPlan, Groups, db
 from datetime import datetime
-
+from sqlalchemy import desc
+from sqlalchemy.orm import contains_eager
+from sqlalchemy import extract
 from backend.functions.utils import find_calendar_date, refreshdatas
 
 

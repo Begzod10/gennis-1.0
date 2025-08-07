@@ -1,6 +1,8 @@
-from app import db, desc, contains_eager
+from sqlalchemy import and_, or_, extract, desc
+from sqlalchemy.orm import contains_eager
+
 from backend.functions.utils import find_calendar_date
-from backend.models.models import Capital, CapitalTerm, AccountingPeriod, CalendarMonth
+from backend.models.models import Capital, CapitalTerm, AccountingPeriod, CalendarMonth, db
 from backend.models.models import func
 from backend.student.models import Students
 from backend.teacher.models import Teachers

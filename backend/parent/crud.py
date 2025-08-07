@@ -1,8 +1,7 @@
-from app import db
 from flask import jsonify, request
 from backend.student.models import Students
 from backend.parent.models import Parent
-from backend.models.models import Users, Roles, PhoneList
+from backend.models.models import Users, Roles, PhoneList, db
 from werkzeug.security import generate_password_hash
 from backend.functions.utils import check_exist_id
 from flask import Blueprint
@@ -116,5 +115,3 @@ def remove_students_from_parent(id):
 
     db.session.commit()
     return jsonify(parent.convert_json()), 200
-
-

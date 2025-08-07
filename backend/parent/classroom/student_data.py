@@ -1,105 +1,27 @@
 from sqlalchemy.orm import joinedload
 from backend.teacher.utils import send_telegram_message
-from app import app, db, request, jsonify, or_, contains_eager, classroom_server
+
 from backend.account.models import StudentPayments, BookPayments
 from backend.group.models import AttendanceHistoryStudent, GroupTest
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
-    DeletedTeachers, Locations, LessonPlan, Group_Room_Week, Parent
+    DeletedTeachers, Locations, LessonPlan, Group_Room_Week, Parent, db
 from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id, \
     find_calendar_date, update_school_salary
 from datetime import datetime
 from backend.functions.debt_salary_update import salary_debt
 from flask_jwt_extended import jwt_required, create_refresh_token, create_access_token, get_jwt_identity
-from backend.functions.filters import old_current_dates
-from backend.group.class_model import Group_Functions
-from backend.student.class_model import Student_Functions
+
 from backend.student.models import StudentTest
 from datetime import timedelta
-from pprint import pprint
-import requests
-from werkzeug.security import generate_password_hash
-from flask import Blueprint
-from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
-from backend.models.models import Week
+
+from flask import Blueprint, jsonify, request
 
 classroom_bp = Blueprint('classroom', __name__)
 
 
-@app.route(f'{api}/login2', methods=['POST', 'GET'])
-def login2():
-    """
-    login function
-    create token
-    :return: logged User datas
-    """
-    calendar_year, calendar_month, calendar_day = find_calendar_date()
-    if request.method == "POST":
-        username = get_json_field('username')
-        password = get_json_field('password')
-        username_sign = Users.query.filter_by(username=username).first()
-
-        if username_sign and check_password_hash(username_sign.password, password):
-            role = Roles.query.filter(Roles.id == username_sign.role_id).first()
-            access_token = create_access_token(identity=username_sign.user_id)
-            refresh_age(username_sign.id)
-            class_status = False
-            # if role.type_role == "student" or role.type_role == "teacher" or role.type_role == "methodist":
-            #     return jsonify({
-            #         "success": False,
-            #         "msg": "Username yoki parol noturg'i"
-            #     })
-            location = Locations.query.filter(Locations.id == username_sign.location_id).first()
-            parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
-            return jsonify({
-                'class': class_status,
-                "type_platform": "gennis",
-                "access_token": access_token,
-                "user": username_sign.convert_json(),
-                "refresh_token": create_refresh_token(identity=username_sign.user_id),
-                "data": {
-                    "username": username_sign.username,
-                    "surname": username_sign.surname.title(),
-                    "name": username_sign.name.title(),
-                    "id": username_sign.id,
-                    "role": role.role,
-                    "location_id": username_sign.location_id,
-                    "access_token": access_token,
-                    "refresh_token": create_refresh_token(identity=username_sign.user_id),
-                },
-                "success": True,
-                "type_user": role.type_role,
-                "parent": parent.convert_json() if parent else {},
-                "location": location.convert_json()
-
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "msg": "Username yoki parol noturg'i"
-            })
-
-
-@app.route(f'{api}/get_user')
-@jwt_required()
-def get_user():
-    identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity)
-
-    user = Users.query.filter_by(user_id=identity).first()
-    subjects = Subjects.query.order_by(Subjects.id).all()
-
-    return jsonify({
-        "data": user.convert_json(),
-        "access_token": access_token,
-        "refresh_token": create_refresh_token(identity=user.user_id),
-        "subject_list": iterate_models(subjects),
-        # "users": iterate_models(users, entire=True)
-    })
-
-
-@app.route(f'{api}/get_group_datas/<int:group_id>')
+@classroom_bp.route(f'/get_group_datas/<int:group_id>')
 @jwt_required()
 def get_group_datas(group_id):
     identity = get_jwt_identity()
@@ -107,10 +29,6 @@ def get_group_datas(group_id):
     students = Students.query.join(Students.group).filter(Groups.id == group_id).all()
     group = Groups.query.filter(Groups.id == group_id).first()
     users = Users.query.filter(Users.id.in_([user.user.id for user in students])).all()
-    # for user in users:
-    #     user_id = check_exist_id(user.user_id)
-    #     user.user_id = user_id
-    #     db.session.commit()
     return jsonify({
         "users": iterate_models(users),
         "access_token": access_token,
@@ -118,7 +36,7 @@ def get_group_datas(group_id):
     })
 
 
-@app.route(f'{api}/update_group_datas', methods=['POST'])
+@classroom_bp.route(f'/update_group_datas', methods=['POST'])
 @jwt_required()
 def update_group_datas():
     group = Groups.query.filter(Groups.id == request.get_json()['group']['platform_id']).first()
@@ -134,7 +52,7 @@ def update_group_datas():
     })
 
 
-@app.route(f'{api}/update_user/<user_id>', methods=['POST'])
+@classroom_bp.route(f'/update_user/<user_id>', methods=['POST'])
 @jwt_required()
 def update_user(user_id):
     Users.query.filter(Users.id == user_id).update({
@@ -146,90 +64,7 @@ def update_user(user_id):
     })
 
 
-@app.route(f'{api}/subjects_add', methods=['POST'])
-def subjects_add():
-    subjects = request.get_json()['subjects']
-    print('subjects', subjects)
-    for sub in subjects:
-        get_subject = Subjects.query.filter(Subjects.classroom_id == sub['id']).first()
-        if not get_subject:
-            get_subject = Subjects.query.filter(Subjects.name == sub['name']).first()
-        if not get_subject:
-            get_subject = Subjects(name=sub['name'], ball_number=2, classroom_id=sub['id'])
-            get_subject.add()
-        else:
-            get_subject.disabled = sub['disabled']
-            get_subject.classroom_id = sub['id']
-            get_subject.name = sub['name']
-            db.session.commit()
-    return jsonify({"msg": "Fanlar o'zgartirildi"})
-
-
-@app.route(f'/api/get_datas', methods=['POST'])
-def get_datas():
-    type_info = request.get_json()['type']
-    if type_info == "subject":
-        response = request.get_json()['subject']
-        for res in response:
-            get_subject = Subjects.query.filter(Subjects.classroom_id == res['id']).first()
-            if not get_subject:
-                get_subject = Subjects.query.filter(Subjects.name == res['name']).first()
-            if not get_subject:
-                get_subject = Subjects(name=res['name'], ball_number=2, classroom_id=res['id'])
-                get_subject.add()
-            else:
-
-                get_subject.disabled = res['disabled']
-                get_subject.classroom_id = res['id']
-                get_subject.name = res['name']
-                db.session.commit()
-        # disabled_subjects = Subjects.query.filter(Subjects.disabled == True).all()
-        # for level in disabled_subjects:
-        #     for gr in level.groups:
-        #         gr.subject_id = None
-        #         db.session.commit()
-    else:
-        response = request.get_json()['levels']
-        for level in response:
-            get_subject = Subjects.query.filter(Subjects.classroom_id == level['subject']['id']).first()
-            if not get_subject:
-
-                get_subject = Subjects.query.filter(Subjects.name == level['subject']['name']).first()
-
-            elif not get_subject:
-                get_subject = Subjects(name=level['subject']['name'], ball_number=2,
-                                       classroom_id=level['subject']['id'])
-                get_subject.add()
-            else:
-                get_subject.disabled = level['subject']['disabled']
-                get_subject.classroom_id = level['subject']['id']
-                get_subject.name = level['subject']['name']
-                db.session.commit()
-            get_level = SubjectLevels.query.filter(SubjectLevels.classroom_id == level['id'],
-                                                   SubjectLevels.subject_id == get_subject.id).first()
-            if not get_level:
-                get_level = SubjectLevels.query.filter(SubjectLevels.name == level['name'],
-                                                       SubjectLevels.subject_id == get_subject.id).first()
-
-            if not get_level:
-                get_level = SubjectLevels(name=level['name'], subject_id=get_subject.id, classroom_id=level['id'])
-                get_level.add()
-            else:
-                get_level.disabled = level['disabled']
-                get_level.classroom_id = level['id']
-                get_level.name = level['name']
-                db.session.commit()
-        # disabled_levels = SubjectLevels.query.filter(SubjectLevels.disabled == True).all()
-        # for level in disabled_levels:
-        #     for gr in level.groups:
-        #         gr.level_id = None
-        #         db.session.commit()
-    return jsonify({
-        "msg": "Zo'r"
-    })
-
-
-@app.route(f'{api}/student_attendance_dates_classroom/<platform_id>')
+@classroom_bp.route(f'/student_attendance_dates_classroom/<platform_id>')
 def student_attendance_dates_classroom(platform_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     year_list = []
@@ -270,24 +105,21 @@ def student_attendance_dates_classroom(platform_id):
     })
 
 
-@app.route(f"{api}/get_student_group_list/<int:platform_id>/<int:year>/<int:month>", methods=['GET'])
+@classroom_bp.route(f"/get_student_group_list/<int:platform_id>/<int:year>/<int:month>", methods=['GET'])
 def get_student_group_list(platform_id, year, month):
     user = Users.query.filter(Users.id == platform_id).first()
 
     student = user.student
-    print(student)
 
     calendar_year = CalendarYear.query.filter(
         db.extract('year', CalendarYear.date) == year
     ).first()
-    print(calendar_year)
 
     calendar_month = CalendarMonth.query.filter(
         db.extract('year', CalendarMonth.date) == year,
         db.extract('month', CalendarMonth.date) == month,
         CalendarMonth.year_id == calendar_year.id
     ).first()
-    print(calendar_month)
 
     group_query = db.session.query(Groups).join(AttendanceHistoryStudent).filter(
         AttendanceHistoryStudent.student_id == student.id,
@@ -306,9 +138,9 @@ def get_student_group_list(platform_id, year, month):
     })
 
 
-@app.route(f'{api}/get_student_attendance_days_list/<platform_id>/',
-           defaults={"group_id": None, "year": None, "month": None})
-@app.route(f"{api}/get_student_attendance_days_list/<platform_id>/<group_id>/<year>/<month>", methods=['GET'])
+@classroom_bp.route(f'/get_student_attendance_days_list/<platform_id>/',
+                    defaults={"group_id": None, "year": None, "month": None})
+@classroom_bp.route(f"/get_student_attendance_days_list/<platform_id>/<group_id>/<year>/<month>", methods=['GET'])
 def get_student_attendance_days_list(platform_id, group_id, year, month):
     user = Users.query.filter_by(id=platform_id).first()
     student = Students.query.filter_by(user_id=user.id).first()
@@ -378,7 +210,7 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
     return jsonify({"msg": week_result})
 
 
-@app.route(f"{api}/student_payments_list/<platform_id>")
+@classroom_bp.route(f"/student_payments_list/<platform_id>")
 def student_payments_list(platform_id):
     user = Users.query.filter(Users.id == platform_id).first()
     student = Students.query.filter(Students.user_id == user.id).first()
@@ -444,7 +276,7 @@ def student_payments_list(platform_id):
     })
 
 
-@app.route(f'{api}/filter_test_classroom/<int:group_id>/<month>/<year>', methods=['GET'])
+@classroom_bp.route(f'/filter_test_classroom/<int:group_id>/<month>/<year>', methods=['GET'])
 def filter_test_classroom(group_id, month, year):
     month = f"{year}-{month}"
     calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()

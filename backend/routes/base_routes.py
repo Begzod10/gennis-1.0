@@ -7,7 +7,6 @@ from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identi
     unset_jwt_cookies
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import app, api, db, jsonify, contains_eager, request, or_, desc
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
     deleted_students_filter, debt_students, deleted_reg_students_filter
@@ -17,48 +16,19 @@ from backend.models.models import CourseTypes, Students, Users, Staff, \
     PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, AccountingInfo, Groups, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
     CalendarYear, TeacherData, StudentTest, GroupTest, AttendanceDays, CalendarDay, CalendarMonth, \
-    CertificateLinks
+    CertificateLinks, GroupReason, Rooms, Parent, db
 from backend.student.class_model import Student_Functions
 from backend.functions.functions import update_user_time_table
 from backend.student.register_for_tes.populate import create_school
+from backend.functions.filters import old_current_dates
+from flask import Blueprint, jsonify, request
+from sqlalchemy import desc, or_
+from sqlalchemy.orm import contains_eager
+
+base_bp = Blueprint('base', __name__)
 
 
-@app.errorhandler(404)
-def not_found(e):
-    return app.send_static_file('index.html')
-
-
-@app.errorhandler(413)
-def img_larger(e):
-    return jsonify({
-        "success": False,
-        "msg": "rasm hajmi kotta"
-    })
-
-
-@app.route('/', methods=['POST', 'GET'])
-def index():
-    refreshdatas()
-
-    # list = ['Co-working zone', 'Friendly atmosphere', 'Football games in 3 branches', 'Different interesting events',
-    #         'Cybersport']
-    # for name in list:
-    #     advantage = Advantages.query.filter(Advantages.name == name).first()
-    #     if not advantage:
-    #         add = Advantages(name=name)
-    #         db.session.add(add)
-    #         db.session.commit()
-    # link_names = ['Youtube', 'Telegram', 'Instagram', 'Facebook']
-    # for link_name in link_names:
-    #     link = Link.query.filter(Link.name == link_name).first()
-    #     if not link:
-    #         new = Link(name=link_name)
-    #         db.session.add(new)
-    #         db.session.commit()
-    return app.send_static_file("index.html")
-
-
-@app.route(f'{api}/check_user_id/<user_id>/<username>')
+@base_bp.route(f'/check_user_id/<user_id>/<username>')
 def calendar(user_id, username):
     user_id = check_exist_id(user_id)
     Users.query.filter(Users.username == username).update({'user_id': user_id})
@@ -69,7 +39,7 @@ def calendar(user_id, username):
     })
 
 
-@app.route(f'{api}/locations')
+@base_bp.route(f'/locations')
 def locations():
     locations_list = Locations.query.order_by(Locations.id).all()
     years = CalendarYear.query.order_by(CalendarYear.id).all()
@@ -79,8 +49,8 @@ def locations():
     })
 
 
-@app.route(f"{api}/filters/<name>/<int:location_id>/", defaults={"type_filter": None}, methods=["GET"])
-@app.route(f"{api}/filters/<name>/<int:location_id>/<type_filter>", methods=["GET"])
+@base_bp.route(f"/filters/<name>/<int:location_id>/", defaults={"type_filter": None}, methods=["GET"])
+@base_bp.route(f"/filters/<name>/<int:location_id>/<type_filter>", methods=["GET"])
 @jwt_required()
 def filters(name, location_id, type_filter):
     """
@@ -115,7 +85,78 @@ def filters(name, location_id, type_filter):
     })
 
 
-@app.route(f"{api}/refresh", methods=["POST"])
+@base_bp.route(f'/block_information2', defaults={"location_id": None})
+@base_bp.route(f'/block_information2/<int:location_id>')
+# @jwt_required()
+def block_information2(location_id):
+    """
+
+    :param location_id: Locations primary key
+    :return: data list by location id
+    """
+
+    locations = Locations.query.order_by(Locations.id).all()
+    locations_list = [{'id': location.id, "name": location.name} for location in locations]
+
+    # subject
+    subjects = Subjects.query.order_by(Subjects.id).all()
+    subject_list = [{'id': sub.id, "name": sub.name} for sub in subjects]
+
+    # course types
+    course_types = CourseTypes.query.order_by(CourseTypes.id).all()
+    course_types_list = [{'id': sub.id, "name": sub.name} for sub in course_types]
+
+    # education language
+    education_languages = EducationLanguage.query.all()
+    education_languages_list = [{
+        'id': sub.id,
+        "name": sub.name
+    } for sub in education_languages]
+
+    #   payment types
+    payment_types = PaymentTypes.query.all()
+    payment_types_list = [{
+        'id': sub.id,
+        "name": sub.name
+    } for sub in payment_types]
+    rooms = Rooms.query.filter(Rooms.location_id == location_id).order_by(Rooms.id).all()
+    room_list = [{
+        "id": room.id,
+        "name": room.name,
+        "seats": room.seats_number,
+        "electronic": room.electronic_board
+    } for room in rooms]
+
+    days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
+    day_list = [{
+        "id": day.id,
+        "name": day.name
+    } for day in days]
+    calendar_years = CalendarYear.query.filter(
+        CalendarYear.date >= datetime.strptime("2021-01-01", "%Y-%m-%d")).order_by(
+        CalendarYear.id).all()
+    calendar_months = CalendarMonth.query.distinct(CalendarMonth.date).order_by(desc(CalendarMonth.date)).all()
+    group_reasons = GroupReason.query.order_by(GroupReason.id).all()
+
+    data = {
+        "locations": locations_list,
+        "subjects": subject_list,
+        "course_types": course_types_list,
+        "langs": education_languages_list,
+        "payment_types": payment_types_list,
+        "rooms": room_list,
+        "days": day_list,
+        "years": iterate_models(calendar_years),
+        "months": iterate_models(calendar_months),
+        "group_reasons": iterate_models(group_reasons),
+        "data_days": old_current_dates(observation=True)
+    }
+    return jsonify({
+        "data": data
+    })
+
+
+@base_bp.route(f"/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
     """
@@ -147,14 +188,81 @@ def refresh():
     })
 
 
-@app.route(f"{api}/logout", methods=["POST"])
+@base_bp.route(f'/login', methods=['POST', 'GET'])
+def login():
+    """
+    login function
+    create token
+    :return: logged User datas
+    """
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    if request.method == "POST":
+        username = get_json_field('username')
+        password = get_json_field('password')
+        username_sign = Users.query.filter_by(username=username).first()
+
+        if username_sign and check_password_hash(username_sign.password, password):
+            role = Roles.query.filter(Roles.id == username_sign.role_id).first()
+            access_token = create_access_token(identity=username_sign.user_id)
+            refresh_age(username_sign.id)
+            class_status = False
+            location = Locations.query.filter(Locations.id == username_sign.location_id).first()
+            parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
+            return jsonify({
+                'class': class_status,
+                "type_platform": "gennis",
+                "access_token": access_token,
+                "user": username_sign.convert_json(),
+                "refresh_token": create_refresh_token(identity=username_sign.user_id),
+                "data": {
+                    "username": username_sign.username,
+                    "surname": username_sign.surname.title(),
+                    "name": username_sign.name.title(),
+                    "id": username_sign.id,
+                    "role": role.role,
+                    "location_id": username_sign.location_id,
+                    "access_token": access_token,
+                    "refresh_token": create_refresh_token(identity=username_sign.user_id),
+                },
+                "success": True,
+                "type_user": role.type_role,
+                "parent": parent.convert_json() if parent else {},
+                "location": location.convert_json()
+
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "msg": "Username yoki parol noturg'i"
+            })
+
+
+@base_bp.route(f'/get_user')
+@jwt_required()
+def get_user():
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity)
+
+    user = Users.query.filter_by(user_id=identity).first()
+    subjects = Subjects.query.order_by(Subjects.id).all()
+
+    return jsonify({
+        "data": user.convert_json(),
+        "access_token": access_token,
+        "refresh_token": create_refresh_token(identity=user.user_id),
+        "subject_list": iterate_models(subjects),
+        # "users": iterate_models(users, entire=True)
+    })
+
+
+@base_bp.route(f"/logout", methods=["POST"])
 def logout():
     response = jsonify({"msg": "logout successful"})
     unset_jwt_cookies(response)
     return response
 
 
-@app.route(f'{api}/register', methods=['POST', 'GET'])
+@base_bp.route(f'/register', methods=['POST', 'GET'])
 def register():
     refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -282,7 +390,7 @@ def register():
         })
 
 
-@app.route(f'{api}/register_teacher', methods=['POST', 'GET'])
+@base_bp.route(f'/register_teacher', methods=['POST', 'GET'])
 def register_teacher():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
@@ -349,7 +457,7 @@ def register_teacher():
         })
 
 
-@app.route(f'{api}/register_staff', methods=['POST'])
+@base_bp.route(f'/register_staff', methods=['POST'])
 def register_staff():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     get_json = request.get_json()
@@ -417,7 +525,7 @@ def register_staff():
     })
 
 
-@app.route(f'{api}/my_profile/<int:user_id>')
+@base_bp.route(f'/my_profile/<int:user_id>')
 @jwt_required()
 def my_profile(user_id):
     links = []
@@ -614,7 +722,7 @@ def my_profile(user_id):
     })
 
 
-@app.route(f'{api}/get_price_course/', methods=['POST'])
+@base_bp.route(f'/get_price_course/', methods=['POST'])
 @jwt_required()
 def get_price_course():
     body = {}
@@ -624,7 +732,7 @@ def get_price_course():
     return jsonify(body)
 
 
-@app.route(f'{api}/profile/<int:user_id>')
+@base_bp.route(f'/profile/<int:user_id>')
 @jwt_required()
 def profile(user_id):
     refreshdatas()
@@ -1110,7 +1218,7 @@ def profile(user_id):
     })
 
 
-@app.route(f'{api}/user_time_table/<int:user_id>/<int:location_id>')
+@base_bp.route(f'/user_time_table/<int:user_id>/<int:location_id>')
 @jwt_required()
 def user_time_table(user_id, location_id):
     student = Students.query.filter(Students.user_id == user_id).first()
@@ -1195,7 +1303,7 @@ def user_time_table(user_id, location_id):
     })
 
 
-@app.route(f'{api}/user_time_table_classroom/<int:user_id>/<location_id>')
+@base_bp.route(f'/user_time_table_classroom/<int:user_id>/<location_id>')
 def user_time_table_classroom(user_id, location_id):
     student = Students.query.filter(Students.user_id == user_id).first()
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
@@ -1279,7 +1387,7 @@ def user_time_table_classroom(user_id, location_id):
     })
 
 
-@app.route(f'{api}/extend_att_date/<int:student_id>', methods=['POST'])
+@base_bp.route(f'/extend_att_date/<int:student_id>', methods=['POST'])
 @jwt_required()
 def extend_att_date(student_id):
     student = Students.query.filter(Students.user_id == student_id).first()

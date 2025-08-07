@@ -2,14 +2,13 @@ import datetime
 
 import pytz
 from flask_jwt_extended import jwt_required, get_jwt_identity
-<<<<<<< HEAD
-from flask import Blueprint
-from app import app, db, jsonify, request, desc
-=======
 
-from app import app, db,  desc
-from flask import jsonify,request
->>>>>>> 4c24428f12e90613dc74339b058577cb84c9d68f
+from flask import Blueprint
+
+from app import db
+from sqlalchemy import desc
+from flask import jsonify, request
+
 from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
 from backend.models.models import Users, Students, CalendarDay, TaskStudents, TasksStatistics, StudentExcuses, Tasks, \
     TaskDailyStatistics, BlackStudents, StudentCallingInfo, LeadInfos, Lead

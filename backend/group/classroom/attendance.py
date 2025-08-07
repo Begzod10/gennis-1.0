@@ -1,15 +1,22 @@
-from app import app, api, contains_eager, db, request
 from flask import jsonify
 from flask_jwt_extended import jwt_required
 from backend.functions.utils import find_calendar_date, get_json_field, update_salary
 from backend.models.models import AttendanceHistoryStudent, Students, Groups, Roles, Week, Group_Room_Week, Rooms, \
-    Users, Attendance, AttendanceDays, Teachers, TeacherBlackSalary
+    Users, Attendance, AttendanceDays, Teachers, TeacherBlackSalary, db, LessonPlan, CalendarMonth, Subjects, \
+    CalendarDay, StudentCharity, CalendarYear
+from backend.functions.utils import update_school_salary
+from backend.functions.utils import iterate_models
+from datetime import timedelta
+from backend.teacher.utils import send_telegram_message
+from sqlalchemy import desc, or_
+from backend.functions.functions import get_dates_for_weekdays
+from sqlalchemy.orm import contains_eager
 from datetime import datetime
 from backend.functions.filters import update_lesson_plan, old_current_dates
 from backend.group.class_model import Group_Functions
 from backend.student.class_model import Student_Functions
 from backend.functions.debt_salary_update import salary_debt
-from flask import Blueprint
+from flask import Blueprint, request
 
 group_classroom_attendance_bp = Blueprint('group_classroom_attendance', __name__)
 

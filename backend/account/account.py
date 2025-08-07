@@ -3,14 +3,15 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app import db, desc, contains_eager, and_, func
 from backend.functions.filters import old_current_dates, iterate_models
 from backend.functions.utils import get_json_field, find_calendar_date
 from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes, StudentPayments, Students, CalendarDay, \
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, \
     AccountingInfo, DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, \
     DeletedStaffSalaries, Users, Teachers, Dividend, CapitalExpenditure, \
-    Investment
+    Investment, db
+from sqlalchemy import desc, and_, func
+from sqlalchemy.orm import contains_eager
 from backend.models.settings import sum_money
 
 account_bp = Blueprint('account_bp', __name__)
@@ -1088,7 +1089,7 @@ def get_location_money(location_id):
         #     account_get.current_cash = current_cash
         #     account_get.all_dividend = all_dividend
         #     accounting_period.all_investment = 0
-            # db.session.commit()
+        # db.session.commit()
 
     return jsonify({
         "data": account_list

@@ -1,12 +1,13 @@
-from app import api, app, jsonify, contains_eager, request, db, and_, or_, extract
+from sqlalchemy import and_, or_, extract
 from backend.functions.utils import remove_items_create_group
 from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, Group_Room_Week, Students, Users, \
     StudentHistoryGroups, Groups, RegisterDeletedStudents, Roles, Locations, DeletedStudents, GroupReason, CalendarDay, \
-    TeacherGroupStatistics
+    TeacherGroupStatistics, db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import get_json_field, find_calendar_date
 from datetime import datetime
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
+from sqlalchemy.orm import contains_eager
 from pprint import pprint
 
 group_create_bp = Blueprint('group_create_bp', __name__)

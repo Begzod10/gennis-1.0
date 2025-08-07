@@ -6,8 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
 
-from app import db
-from app import desc
+
 from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
@@ -15,7 +14,8 @@ from backend.functions.utils import iterate_models
 from backend.models.models import Staff, Users
 from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, \
     UserBooks, StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
-    CalendarYear, Locations, TeacherBlackSalary
+    CalendarYear, Locations, TeacherBlackSalary, db
+from sqlalchemy import func, desc
 
 account_salary_bp = Blueprint('account_salary_bp', __name__)
 

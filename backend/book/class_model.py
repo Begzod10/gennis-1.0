@@ -1,5 +1,6 @@
-from backend.models.models import CenterBalance, CalendarMonth, EditorBalance, AccountingPeriod
-from app import db, contains_eager, desc
+from backend.models.models import CenterBalance, CalendarMonth, EditorBalance, AccountingPeriod, db
+from sqlalchemy import desc
+from sqlalchemy.orm import contains_eager
 from backend.functions.utils import find_calendar_date
 
 

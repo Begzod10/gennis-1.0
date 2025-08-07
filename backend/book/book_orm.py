@@ -3,16 +3,17 @@ from datetime import datetime
 
 from flask import Blueprint
 
-from app import  contains_eager, db, desc, or_
-from flask import request,jsonify
-from flask_jwt_extended import get_jwt_identity,jwt_required
+from flask import request, jsonify
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.filters import old_current_dates
+from sqlalchemy import desc, or_
+from sqlalchemy.orm import contains_eager
 from backend.functions.utils import update_staff_salary_id, update_teacher_salary_id, iterate_models, \
     find_calendar_date, get_json_field
 from backend.models.models import Users, Teachers, Locations, BookOrder, Book, BookOverhead, BookPayments, \
     BranchPayment, UserBooks, TeacherSalary, StaffSalary, CollectedBookPayments, Staff, AccountingPeriod, EditorBalance, \
-    CalendarMonth, CalendarDay, PaymentTypes, Students
+    CalendarMonth, CalendarDay, PaymentTypes, Students, CalendarYear, db
 from .class_model import check_editor_balance, update_balance_editor
 from .utils import handle_get_request, handle_post_request, delete_book_images, update_book
 

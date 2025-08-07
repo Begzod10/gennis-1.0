@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from app import app, request, jsonify, db, contains_eager
-from backend.group.test import api
+from app import app
 
-from backend.models.models import GroupTest, CalendarYear, CalendarMonth, StudentTest, Groups, Students
+from backend.group.test import api
+from sqlalchemy.orm import contains_eager
+from backend.models.models import GroupTest, CalendarYear, CalendarMonth, StudentTest, Groups, Students, db
 
 from backend.functions.small_info import user_photo_folder, checkFile
 

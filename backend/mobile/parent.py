@@ -1,11 +1,10 @@
 from sqlalchemy.orm import joinedload
 
-from app import app, db, request, jsonify, or_, contains_eager, classroom_server
 from backend.account.models import StudentPayments, BookPayments
 from backend.group.models import AttendanceHistoryStudent, GroupTest
 from backend.models.models import Users, Roles, CalendarMonth, CalendarDay, CalendarYear, Attendance, AttendanceDays, \
     Students, Groups, Teachers, StudentCharity, Subjects, SubjectLevels, TeacherBlackSalary, StaffSalary, \
-    DeletedTeachers, Locations, LessonPlan, Group_Room_Week, Parent
+    DeletedTeachers, Locations, LessonPlan, Group_Room_Week, Parent, db
 from werkzeug.security import check_password_hash
 from backend.functions.utils import api, refresh_age, update_salary, iterate_models, get_json_field, check_exist_id, \
     find_calendar_date, update_school_salary
@@ -14,9 +13,12 @@ from datetime import datetime
 from sqlalchemy import and_
 from datetime import timedelta
 from sqlalchemy import extract
+from flask import Blueprint, jsonify, request
+
+parent_mobile_bp = Blueprint('parent_mobile', __name__)
 
 
-@app.route(f"{api}/mobile/student_group_list/<int:id>", methods=['GET'])
+@parent_mobile_bp.route(f"/student_group_list/<int:id>", methods=['GET'])
 def get_student_group_list(id):
     user = Users.query.filter_by(id=id).first()
     student = Students.query.get(user.student.id)
@@ -53,7 +55,7 @@ def get_student_group_list(id):
     return jsonify({"group_list": group_list})
 
 
-@app.route(f"{api}/mobile/get_student_attendance_days_list/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
+@parent_mobile_bp.route(f"/get_student_attendance_days_list/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
 def get_student_attendance_days_list(username, group_id, year, month):
     user = Users.query.filter_by(id=id).first()
     student = Students.query.filter_by(user_id=user.id).first()
@@ -95,7 +97,7 @@ def get_student_attendance_days_list(username, group_id, year, month):
     return jsonify({"msg": info})
 
 
-@app.route(f"{api}/mobile/get_student_ranking/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
+@parent_mobile_bp.route(f"/get_student_ranking/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
 def get_student_ranking(id: int, group_id: int, year: int, month: int):
     calendar_year = db.session.query(CalendarYear).filter(
         db.extract('year', CalendarYear.date) == year
@@ -139,7 +141,7 @@ def get_student_ranking(id: int, group_id: int, year: int, month: int):
     return result
 
 
-@app.route(f"{api}/mobile/get_lesson_plan_list/<group_id>/<year>/<month>", methods=['GET'])
+@parent_mobile_bp.route(f"/get_lesson_plan_list/<group_id>/<year>/<month>", methods=['GET'])
 def get_lesson_plan_list(group_id, year, month):
     lesson_plans = (
         db.session.query(LessonPlan)
@@ -164,7 +166,7 @@ def get_lesson_plan_list(group_id, year, month):
     } for lp in lesson_plans]
 
 
-@app.route(f"{api}/mobile/lesson_plan_profile/<int:id>", methods=['GET'])
+@parent_mobile_bp.route(f"/lesson_plan_profile/<int:id>", methods=['GET'])
 def lesson_plan_profile(id):
     lesson_plan = LessonPlan.query.filter(LessonPlan.id == id).first()
 
@@ -180,8 +182,8 @@ def lesson_plan_profile(id):
     }
 
 
-@app.route(f"{api}/mobile/student_profile_edit/<int:id>", methods=['PUT'])
-def lesson_plan_profile(id):
+@parent_mobile_bp.route(f"/student_profile_edit/<int:id>", methods=['PUT'])
+def student_profile_edit(id):
     user = Users.query.filter_by(id=id).first()
 
     if request.method == "PUT":

@@ -7,14 +7,15 @@ from docx import Document
 from flask import Blueprint, jsonify, request, send_file
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
-
-from app import app, db, contains_eager, desc
+from sqlalchemy import and_, or_, extract, desc
+from sqlalchemy.orm import contains_eager
+from app import app
 from backend.functions.filters import old_current_dates
 from backend.functions.small_info import room_images, checkFile
 from backend.functions.utils import get_json_field, find_calendar_date, iterate_models
 from backend.models.models import Overhead, AccountingPeriod, PaymentTypes, DeletedOverhead, \
     CalendarMonth, CalendarDay, Category, ConnectedCategory, Capital, CapitalTerm, CapitalExpenditure, \
-    DeletedCapitalExpenditure
+    DeletedCapitalExpenditure, db
 from backend.models.models import func
 from .utils import update_capital
 

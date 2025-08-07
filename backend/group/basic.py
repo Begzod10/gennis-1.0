@@ -3,19 +3,20 @@ from datetime import datetime, timedelta
 
 from flask_jwt_extended import jwt_required
 
-from app import app, api, or_, db, contains_eager, extract, jsonify, request, desc
 from backend.account.models import StudentCharity
 from backend.functions.filters import old_current_dates, update_lesson_plan
 from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
 from backend.group.class_model import Group_Functions
 from backend.models.models import Groups, CalendarDay, Students, AttendanceDays, SubjectLevels, \
     AttendanceHistoryStudent, Group_Room_Week, Attendance, CalendarMonth, Week, Rooms, Teachers, Roles, \
-    CertificateLinks, GroupTest
+    CertificateLinks, GroupTest, db
 from backend.teacher.models import LessonPlan, TeacherObservationDay
 from backend.student.class_model import Student_Functions
 
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
+from sqlalchemy import desc, extract, or_
+from sqlalchemy.orm import contains_eager
 
 group_bp = Blueprint('group', __name__)
 
@@ -665,4 +666,3 @@ def student_group_dates2(student_id):
             "current_month": calendar_month.date.strftime("%m"),
         }
     })
-

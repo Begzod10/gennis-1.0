@@ -1,11 +1,12 @@
-from app import app, db, and_, jsonify, contains_eager, request
 from backend.models.models import Teachers, Group_Room_Week, Students, Groups, Subjects, Locations, Roles, \
-    EducationLanguage, CourseTypes, Rooms, Week
+    EducationLanguage, CourseTypes, Rooms, Week, db
+from sqlalchemy import desc, and_
+from sqlalchemy.orm import contains_eager
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 from pprint import pprint
 from backend.functions.utils import get_json_field, remove_items_create_group, api
-from flask import Blueprint
+from flask import Blueprint, jsonify, request
 
 group_change_bp = Blueprint('group_change', __name__)
 

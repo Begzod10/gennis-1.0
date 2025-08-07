@@ -3,11 +3,10 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
-from app import db, func
 from backend.functions.utils import find_calendar_date, desc, contains_eager, iterate_models
 from backend.models.models import MainOverhead, CalendarDay, AccountReport, CampStaffSalaries, Dividend, PaymentTypes, \
-    and_, CalendarYear, AccountPayable, Investment
-
+    and_, CalendarYear, AccountPayable, Investment, db
+from sqlalchemy import func
 account_encashment_bp = Blueprint('account_encashment_bp', __name__)
 
 

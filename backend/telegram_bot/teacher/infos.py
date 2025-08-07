@@ -1,10 +1,10 @@
 import pprint
 from datetime import datetime
 from backend.models.models import TeacherSalary, Teachers, CalendarYear, Locations, TeacherSalaries, TeacherBlackSalary, \
-    CalendarDay
+    CalendarDay, db
 from sqlalchemy import func, desc
 from flask import jsonify, Blueprint
-from app import db
+
 teacher_bp = Blueprint('teacher', __name__)
 
 

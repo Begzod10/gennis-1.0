@@ -1,0 +1,5 @@
+from .parent import parent_mobile_bp
+
+
+def register_parent_mobile_views(api, app):
+    app.register_blueprint(parent_mobile_bp, url_prefix=f"/{api}/mobile")
