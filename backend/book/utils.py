@@ -1,11 +1,13 @@
-from app import request, jsonify, db, app
-from backend.functions.utils import get_json_field, iterate_models
-from backend.functions.small_info import checkFile, user_photo_folder
-from backend.models.models import Book
-from werkzeug.utils import secure_filename
-import os
 import json
-from pprint import pprint
+import os
+
+from flask import jsonify, request
+from werkzeug.utils import secure_filename
+
+from app import db, app
+from backend.functions.small_info import checkFile, user_photo_folder
+from backend.functions.utils import iterate_models
+from backend.models.models import Book
 
 
 def handle_post_request():
@@ -49,7 +51,6 @@ def delete_book_images(book):
 
 
 def update_book(book):
-
     info = json.loads(request.form.get('info'))
     book.name = info.get('name', book.name)
     book.desc = info.get('desc', book.desc)

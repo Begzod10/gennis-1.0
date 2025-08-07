@@ -1,20 +1,25 @@
-from app import app, api, request, get_jwt_identity, contains_eager, jsonify, db, jwt_required, desc, or_
+import os
+from datetime import datetime
+
+from flask import Blueprint
+
+from app import  contains_eager, db, desc, or_
+from flask import request,jsonify
+from flask_jwt_extended import get_jwt_identity,jwt_required
+from backend.functions.debt_salary_update import staff_salary_update
+from backend.functions.filters import old_current_dates
+from backend.functions.utils import update_staff_salary_id, update_teacher_salary_id, iterate_models, \
+    find_calendar_date, get_json_field
 from backend.models.models import Users, Teachers, Locations, BookOrder, Book, BookOverhead, BookPayments, \
     BranchPayment, UserBooks, TeacherSalary, StaffSalary, CollectedBookPayments, Staff, AccountingPeriod, EditorBalance, \
     CalendarMonth, CalendarDay, PaymentTypes, Students
-from backend.functions.utils import update_staff_salary_id, update_teacher_salary_id, iterate_models, \
-    find_calendar_date, get_json_field
 from .class_model import check_editor_balance, update_balance_editor
-from datetime import datetime
 from .utils import handle_get_request, handle_post_request, delete_book_images, update_book
-from backend.functions.debt_salary_update import staff_salary_update
-from backend.functions.filters import old_current_dates
 
-import os
-from pprint import pprint
+book_orm_bp = Blueprint('book_orm_bp', __name__)
 
 
-@app.route(f'{api}/filter_book/')
+@book_orm_bp.route(f'/filter_book/')
 @jwt_required()
 def filter_book():
     identity = get_jwt_identity()
@@ -67,7 +72,7 @@ def filter_book():
     })
 
 
-@app.route(f'{api}/order_confirm/<int:order_id>')
+@book_orm_bp.route(f'/order_confirm/<int:order_id>')
 @jwt_required()
 def order_confirm(order_id):
     order = BookOrder.query.filter(BookOrder.id == order_id).first()
@@ -82,7 +87,7 @@ def order_confirm(order_id):
     })
 
 
-@app.route(f'{api}/buy_book', methods=['GET', 'POST'])
+@book_orm_bp.route(f'/buy_book', methods=['GET', 'POST'])
 @jwt_required()
 def buy_book():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -215,8 +220,8 @@ def buy_book():
         })
 
 
-@app.route(f'{api}/teacher_orders', defaults={"type_order": None})
-@app.route(f'{api}/teacher_orders/<type_order>')
+@book_orm_bp.route(f'/teacher_orders', defaults={"type_order": None})
+@book_orm_bp.route(f'/teacher_orders/<type_order>')
 @jwt_required()
 def teacher_orders(type_order):
     identity = get_jwt_identity()
@@ -263,7 +268,7 @@ def teacher_orders(type_order):
     })
 
 
-@app.route(f'{api}/delete_book_order/<int:order_id>', methods=['POST'])
+@book_orm_bp.route(f'/delete_book_order/<int:order_id>', methods=['POST'])
 @jwt_required()
 def delete_book_order(order_id):
     reason = get_json_field('otherReason')
@@ -286,8 +291,8 @@ def delete_book_order(order_id):
     })
 
 
-@app.route(f'{api}/filtered_orders_books2/', defaults={"type": None})
-@app.route(f'{api}/filtered_orders_books2/<type>')
+@book_orm_bp.route(f'/filtered_orders_books2/', defaults={"type": None})
+@book_orm_bp.route(f'/filtered_orders_books2/<type>')
 @jwt_required()
 def filtered_orders_books(type):
     identity = get_jwt_identity()
@@ -331,9 +336,9 @@ def filtered_orders_books(type):
 
             orders = db.session.query(BookOrder).join(BookOrder.collected).options(
                 contains_eager(BookOrder.collected)).filter(
-                                                            BookOrder.deleted == False,
-                                                            BookOrder.location_id == user.location_id,
-                                                            BookOrder.collected_payments_id != None).order_by(
+                BookOrder.deleted == False,
+                BookOrder.location_id == user.location_id,
+                BookOrder.collected_payments_id != None).order_by(
                 BookOrder.id).all()
         else:
 
@@ -348,7 +353,7 @@ def filtered_orders_books(type):
     })
 
 
-@app.route(f'{api}/deleted_orders')
+@book_orm_bp.route(f'/deleted_orders')
 @jwt_required()
 def deleted_orders():
     orders = BookOrder.query.filter(BookOrder.deleted == True).order_by(
@@ -358,7 +363,7 @@ def deleted_orders():
     })
 
 
-@app.route(f'{api}/book', methods=['POST', 'GET'])
+@book_orm_bp.route(f'/book', methods=['POST', 'GET'])
 def book():
     if request.method == "POST":
 
@@ -367,7 +372,7 @@ def book():
         return handle_get_request()
 
 
-@app.route(f'{api}/book_inside/<int:book_id>', methods=['POST', 'GET', 'DELETE'])
+@book_orm_bp.route(f'/book_inside/<int:book_id>', methods=['POST', 'GET', 'DELETE'])
 def book_inside(book_id):
     book = Book.query.filter(Book.id == book_id).first()
     if not book:
@@ -386,7 +391,7 @@ def book_inside(book_id):
     return jsonify({"book": book.convert_json(), "success": True})
 
 
-@app.route(f'{api}/del_img_book/<int:book_id>/<int:img_num>')
+@book_orm_bp.route(f'/del_img_book/<int:book_id>/<int:img_num>')
 @jwt_required()
 def del_img_book(book_id, img_num):
     book = Book.query.filter(Book.id == book_id).first()
@@ -422,8 +427,8 @@ def del_img_book(book_id, img_num):
         return jsonify({"error": "Invalid image number"}), 400
 
 
-@app.route(f'{api}/book_overhead2/', defaults={"type_info": None}, methods=['POST', 'GET', "DELETE"])
-@app.route(f'{api}/book_overhead2/<type_info>', methods=['POST', 'GET', "DELETE"])
+@book_orm_bp.route(f'/book_overhead2/', defaults={"type_info": None}, methods=['POST', 'GET', "DELETE"])
+@book_orm_bp.route(f'/book_overhead2/<type_info>', methods=['POST', 'GET', "DELETE"])
 @jwt_required()
 def book_overhead(type_info):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -478,8 +483,8 @@ def book_overhead(type_info):
     })
 
 
-@app.route(f'{api}/deleted_book_overhead2/', defaults={"type_info": None})
-@app.route(f'{api}/deleted_book_overhead2/<type_info>')
+@book_orm_bp.route(f'/deleted_book_overhead2/', defaults={"type_info": None})
+@book_orm_bp.route(f'/deleted_book_overhead2/<type_info>')
 def deleted_book_overhead(type_info):
     accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
         contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
@@ -501,7 +506,7 @@ def deleted_book_overhead(type_info):
     })
 
 
-@app.route(f'{api}/change_overhead_book/<int:overhead>/<type_id>')
+@book_orm_bp.route(f'/change_overhead_book/<int:overhead>/<type_id>')
 @jwt_required()
 def change_overhead_book(overhead, type_id):
     """
@@ -539,7 +544,7 @@ def change_overhead_book(overhead, type_id):
     })
 
 
-@app.route(f'{api}/delete_book_overhead/<overhead_id>', methods=['POST'])
+@book_orm_bp.route(f'/delete_book_overhead/<overhead_id>', methods=['POST'])
 @jwt_required()
 def delete_book_overhead(overhead_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -563,7 +568,7 @@ def delete_book_overhead(overhead_id):
     })
 
 
-@app.route(f'{api}/editor_balance_history2')
+@book_orm_bp.route(f'/editor_balance_history2')
 @jwt_required()
 def editor_balance_history():
     editor_balances = EditorBalance.query.order_by(EditorBalance.id).all()

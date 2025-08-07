@@ -1,7 +1,11 @@
-from flask_restful import Resource, reqparse
+from flask import Blueprint,request
+from flask_restful import Api, Resource, reqparse
 
-from app import db, apis as api, request
+from app import db
 from backend.student.register_for_tes.models import Defenation, School, StudentTestBlock
+
+student_bp_test_school = Blueprint('student_bp_test_school', __name__)
+api = Api(student_bp_test_school)
 
 
 class StudentResource(Resource):
@@ -70,7 +74,7 @@ class StudentResource(Resource):
             name=data['name'], surname=data['surname'], father_name=data['father_name'], phone=data['phone']
         ).first()
         if existing_student:
-            return {"msg": "Tafsilotlari berilgan talaba allaqachon mavjud",'success': False}, 200
+            return {"msg": "Tafsilotlari berilgan talaba allaqachon mavjud", 'success': False}, 200
 
         student = StudentTestBlock(
             name=data['name'],
@@ -87,9 +91,6 @@ class StudentResource(Resource):
         db.session.add(student)
         db.session.commit()
         return {"message": "Student added", "student_id": student.id, 'unique_id': student.unique_id}, 201
-
-
-api.add_resource(StudentResource, '/api/students_test')
 
 
 class SchoolResource(Resource):
@@ -135,9 +136,6 @@ class SchoolResource(Resource):
         db.session.delete(school)
         db.session.commit()
         return {"message": "School deleted"}
-
-
-api.add_resource(SchoolResource, '/api/schools', '/api/schools/<int:school_id>')
 
 
 class DefenationResource(Resource):
@@ -188,4 +186,6 @@ class DefenationResource(Resource):
         return {"message": "Defenation deleted"}
 
 
-api.add_resource(DefenationResource, '/api/defenations', '/api/defenations/<int:defenation_id>')
+api.add_resource(StudentResource, '/students_test')
+api.add_resource(SchoolResource, '/schools', '/schools/<int:school_id>')
+api.add_resource(DefenationResource, '/defenations', '/defenations/<int:defenation_id>')

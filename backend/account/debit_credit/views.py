@@ -1,16 +1,17 @@
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
+from sqlalchemy import func
 
-from app import app, jsonify, request, db
-from backend.functions.utils import api
+from app import db
 from backend.functions.utils import iterate_models, find_calendar_date
 from backend.models.models import StudentPayments, Investment, CalendarYear, Overhead, Capital, TeacherSalaries, \
     StaffSalaries, Dividend, MainOverhead, AccountPayable, CampStaffSalaries, AccountPayableHistory
 
-from sqlalchemy import func
+account_debit_credit = Blueprint('account_debit_credit', __name__)
 
 
-@app.route(f'{api}/month_years_calendar', methods=['POST', 'GET'])
+@account_debit_credit.route(f'/month_years_calendar', methods=['POST', 'GET'])
 @jwt_required()
 def month_years_calendar():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -22,7 +23,7 @@ def month_years_calendar():
     })
 
 
-@app.route(f'{api}/debit_credit/<int:location_id>', methods=['POST', 'GET'])
+@account_debit_credit.route(f'/debit_credit/<int:location_id>', methods=['POST', 'GET'])
 @jwt_required()
 def debit_credit(location_id):
     data = request.get_json()
@@ -91,7 +92,7 @@ def debit_credit(location_id):
     })
 
 
-@app.route(f'{api}/debit_credit_account', methods=['POST', 'GET'])
+@account_debit_credit.route(f'/debit_credit_account', methods=['POST', 'GET'])
 @jwt_required()
 def debit_credit_all():
     data = request.get_json()

@@ -2,9 +2,10 @@ import datetime
 from datetime import datetime
 
 from flask import Blueprint
+from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app import db, jsonify, request, desc
+from app import db, desc
 from backend.functions.utils import find_calendar_date
 from backend.models.models import Locations as Location
 from backend.models.models import TaskRatingsMonthly, TaskRatings, CalendarMonth, TaskDailyStatistics

@@ -1,20 +1,23 @@
+import datetime
 import pprint
 
+from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
-from backend.models.models import CampStaff, CampStaffSalary, CampStaffSalaries, Users, PhoneList, Roles, PaymentTypes
-from backend.functions.utils import api, find_calendar_date, refreshdatas, update_camp_salary_id, get_json_field, \
-    iterate_models
-from backend.functions.debt_salary_update import camp_staff_salary_update
-
 from sqlalchemy import desc
-import datetime
-from app import app, db
 from werkzeug.security import generate_password_hash
+
+from app import db
+from backend.functions.debt_salary_update import camp_staff_salary_update
+from backend.functions.utils import find_calendar_date, refreshdatas, update_camp_salary_id, get_json_field, \
+    iterate_models
+from backend.models.models import CampStaff, CampStaffSalary, CampStaffSalaries, Users, PhoneList, Roles, PaymentTypes
 from .utils import update_account
 
+account_camp_staff = Blueprint('account_camp_staff', __name__)
 
-@app.route(f'{api}/get_staff_salary', methods=['GET'])
+
+@account_camp_staff.route(f'/get_staff_salary', methods=['GET'])
 @jwt_required()
 def get_staff_salary():
     staff_salarys = CampStaffSalary.query.order_by(CampStaffSalary.id).all()
@@ -25,7 +28,7 @@ def get_staff_salary():
     return jsonify({'dividends': dividend_list}), 201
 
 
-@app.route(f'{api}/camp_staff/<int:user_id>')
+@account_camp_staff.route(f'/camp_staff/<int:user_id>')
 @jwt_required()
 def camp_staff(user_id):
     """
@@ -46,8 +49,8 @@ def camp_staff(user_id):
     })
 
 
-@app.route(f'{api}/camp_staff_inside/<int:salary_id>/', defaults={'deleted': False})
-@app.route(f'{api}/camp_staff_inside/<int:salary_id>/<deleted>/')
+@account_camp_staff.route(f'/camp_staff_inside/<int:salary_id>/', defaults={'deleted': False})
+@account_camp_staff.route(f'/camp_staff_inside/<int:salary_id>/<deleted>/')
 @jwt_required()
 def camp_staff_inside(salary_id, deleted):
     """
@@ -79,7 +82,7 @@ def camp_staff_inside(salary_id, deleted):
     })
 
 
-@app.route(f'{api}/camp_staff_salary/<int:salary_id>', methods=['POST'])
+@account_camp_staff.route(f'/camp_staff_salary/<int:salary_id>', methods=['POST'])
 @jwt_required()
 def camp_staff_salary(salary_id):
     pprint.pprint(request.get_json())
@@ -131,7 +134,7 @@ def camp_staff_salary(salary_id):
     })
 
 
-@app.route(f'{api}/update_camp_staff_salary/<int:salary_id>/<int:payment_type_id>', methods=['POST'])
+@account_camp_staff.route(f'/update_camp_staff_salary/<int:salary_id>/<int:payment_type_id>', methods=['POST'])
 @jwt_required()
 def update_camp_staff_salary(salary_id, payment_type_id):
     staff_salary = CampStaffSalaries.query.filter(CampStaffSalaries.id == salary_id).first()
@@ -145,7 +148,7 @@ def update_camp_staff_salary(salary_id, payment_type_id):
     })
 
 
-@app.route(f'{api}/delete_camp_staff_salary/<int:salary_id>', methods=['DELETE'])
+@account_camp_staff.route(f'/delete_camp_staff_salary/<int:salary_id>', methods=['DELETE'])
 @jwt_required()
 def delete_camp_staff_salary(salary_id):
     staff_salary = CampStaffSalaries.query.filter(CampStaffSalaries.id == salary_id).first()
@@ -159,7 +162,7 @@ def delete_camp_staff_salary(salary_id):
     })
 
 
-@app.route(f'{api}/register_camp_staff', methods=['POST', "GET"])
+@account_camp_staff.route(f'/register_camp_staff', methods=['POST', "GET"])
 @jwt_required()
 def register_camp_staff():
     if request.method == 'POST':
@@ -231,7 +234,7 @@ def register_camp_staff():
         return jsonify({'staffs': camp_list}), 201
 
 
-@app.route(f'{api}/roles', methods=['GET'])
+@account_camp_staff.route(f'/roles', methods=['GET'])
 @jwt_required()
 def get_roles():
     roles = Roles.query.order_by(Roles.id).all()
@@ -239,7 +242,7 @@ def get_roles():
     return jsonify({'roles': roles}), 201
 
 
-@app.route(f'{api}/camp_staff_salaries/<deleted>/<archive>/', methods=['GET'])
+@account_camp_staff.route(f'/camp_staff_salaries/<deleted>/<archive>/', methods=['GET'])
 @jwt_required()
 def get_camp_staff_salaries(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()

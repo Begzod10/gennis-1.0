@@ -1,24 +1,27 @@
-from app import app, db, jsonify, contains_eager, request, desc, send_file
+import json
+import os
+import uuid
+from datetime import datetime
+
+from docx import Document
+from flask import Blueprint, jsonify, request, send_file
+from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 
+from app import app, db, contains_eager, desc
+from backend.functions.filters import old_current_dates
+from backend.functions.small_info import room_images, checkFile
+from backend.functions.utils import get_json_field, find_calendar_date, iterate_models
 from backend.models.models import Overhead, AccountingPeriod, PaymentTypes, DeletedOverhead, \
     CalendarMonth, CalendarDay, Category, ConnectedCategory, Capital, CapitalTerm, CapitalExpenditure, \
     DeletedCapitalExpenditure
-from flask_jwt_extended import jwt_required
-from backend.functions.filters import old_current_dates
-from backend.functions.small_info import room_images, checkFile
-from backend.functions.utils import get_json_field, find_calendar_date, api, iterate_models, get_form_field
-from .utils import update_capital
-from datetime import datetime
-import os
-from docx import Document
-from pprint import pprint
-import json
 from backend.models.models import func
-import uuid
+from .utils import update_capital
+
+account_capital_bp = Blueprint('account_capital_bp', __name__)
 
 
-@app.route(f'{api}/add_capital_category', methods=['POST', "PUT", "DELETE"])
+@account_capital_bp.route(f'/add_capital_category', methods=['POST', "PUT", "DELETE"])
 @jwt_required()
 def add_capital_category():
     if request.method == "DELETE":
@@ -82,7 +85,7 @@ def add_capital_category():
         })
 
 
-@app.route(f'{api}/get_capital_category/<int:category_id>/<int:location_id>', methods=['GET', "POST"])
+@account_capital_bp.route(f'/get_capital_category/<int:category_id>/<int:location_id>', methods=['GET', "POST"])
 @jwt_required()
 def get_capital_category(category_id, location_id):
     category = Category.query.filter(Category.id == category_id).first()
@@ -114,7 +117,7 @@ def get_capital_category(category_id, location_id):
     })
 
 
-@app.route(f'{api}/deleted_capitals/<int:category_id>/<int:location_id>')
+@account_capital_bp.route(f'/deleted_capitals/<int:category_id>/<int:location_id>')
 @jwt_required()
 def deleted_capitals(category_id, location_id):
     capitals = Capital.query.filter(Capital.category_id == category_id, Capital.location_id == location_id).order_by(
@@ -124,7 +127,7 @@ def deleted_capitals(category_id, location_id):
     })
 
 
-@app.route(f'{api}/get_capital_categories/<int:location_id>', methods=['GET'])
+@account_capital_bp.route(f'/get_capital_categories/<int:location_id>', methods=['GET'])
 @jwt_required()
 def get_capital_categories(location_id):
     categories = Category.query.filter(Category.number == 1).order_by(Category.id).all()
@@ -144,8 +147,8 @@ def get_capital_categories(location_id):
     })
 
 
-# @app.route(f'{api}/add_capital', defaults={"location_id": None}, methods=['POST', "PUT", "DELETE"])
-# @app.route(f'{api}/add_capital/<location_id>', methods=['POST', "PUT", "DELETE"])
+# @app.route(f'/add_capital', defaults={"location_id": None}, methods=['POST', "PUT", "DELETE"])
+# @app.route(f'/add_capital/<location_id>', methods=['POST', "PUT", "DELETE"])
 # def add_capital(location_id):
 #     accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
 #         contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
@@ -257,7 +260,7 @@ def get_capital_categories(location_id):
 #         })
 
 
-@app.route(f'{api}/capital_info/<int:capital_id>')
+@account_capital_bp.route(f'/capital_info/<int:capital_id>')
 @jwt_required()
 def capital_info(capital_id):
     capital = Capital.query.filter(Capital.id == capital_id).first()
@@ -269,7 +272,7 @@ def capital_info(capital_id):
     })
 
 
-@app.route(f'{api}/get_capital_numbers', methods=['POST'])
+@account_capital_bp.route(f'/get_capital_numbers', methods=['POST'])
 @jwt_required()
 def get_capital_numbers():
     category_id = get_json_field('category_id')
@@ -303,7 +306,7 @@ def get_capital_numbers():
                      last_modified=None, max_age=None)
 
 
-@app.route(f'{api}/add_overhead/<int:location_id>', methods=['POST'])
+@account_capital_bp.route(f'/add_overhead/<int:location_id>', methods=['POST'])
 @jwt_required()
 def add_overhead(location_id):
     """
@@ -347,7 +350,7 @@ def add_overhead(location_id):
     })
 
 
-@app.route(f'{api}/delete_overhead/<overhead_id>', methods=["POST"])
+@account_capital_bp.route(f'/delete_overhead/<overhead_id>', methods=["POST"])
 @jwt_required()
 def delete_overhead(overhead_id):
     """
@@ -376,7 +379,7 @@ def delete_overhead(overhead_id):
     })
 
 
-@app.route(f'{api}/change_overhead/<int:overhead>/<type_id>')
+@account_capital_bp.route(f'/change_overhead/<int:overhead>/<type_id>')
 @jwt_required()
 def change_overhead(overhead, type_id):
     """
@@ -399,7 +402,7 @@ def change_overhead(overhead, type_id):
     })
 
 
-@app.route(f'{api}/add_capital/<int:location_id>', methods=["GET", 'POST'])
+@account_capital_bp.route(f'/add_capital/<int:location_id>', methods=["GET", 'POST'])
 @jwt_required()
 def add_capital(location_id):
     """
@@ -437,7 +440,7 @@ def add_capital(location_id):
         })
 
 
-@app.route(f'{api}/delete_capital/<overhead_id>', methods=["POST"])
+@account_capital_bp.route(f'/delete_capital/<overhead_id>', methods=["POST"])
 @jwt_required()
 def delete_capital(overhead_id):
     """
@@ -468,7 +471,7 @@ def delete_capital(overhead_id):
     })
 
 
-@app.route(f'{api}/change_capital/<int:overhead>/<type_id>')
+@account_capital_bp.route(f'/change_capital/<int:overhead>/<type_id>')
 @jwt_required()
 def change_capital(overhead, type_id):
     """
@@ -490,7 +493,7 @@ def change_capital(overhead, type_id):
         "msg": "Xarajat summa turi o'zgartirildi"
     })
 
-# @app.route(f'{api}/add_capital_category', methods=['POST'])
+# @app.route(f'/add_capital_category', methods=['POST'])
 # def add_capital_category():
 #     category = {
 #         "name": get_json_field('name'),

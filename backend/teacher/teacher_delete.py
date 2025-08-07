@@ -1,6 +1,6 @@
-from flask import Blueprint
+from flask import Blueprint, jsonify
 
-from app import jsonify, db
+from app import db
 from backend.functions.utils import find_calendar_date, get_json_field
 from backend.models.models import Teachers, DeletedTeachers
 

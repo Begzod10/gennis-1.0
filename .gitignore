@@ -1,7 +1,8 @@
 venv
 migrations
 frontend
-__pycache__*
-__pycache__/*
+__pycache__/
+*.py[codz]
 .py~
+*/__pycache__/
 .idea

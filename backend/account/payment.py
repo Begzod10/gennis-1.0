@@ -1,18 +1,20 @@
-from app import app, db, desc, contains_eager, request, jsonify, or_
+from datetime import datetime
+from datetime import timedelta
 
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
+
+from app import db, desc, contains_eager, or_
+from backend.functions.utils import get_json_field, find_calendar_date, update_salary
 from backend.models.models import AccountingPeriod, StudentPayments, Students, AttendanceHistoryStudent, PaymentTypes, \
     CalendarMonth, Groups, DeletedBookPayments, StudentCharity, DeletedStudentPayments, BookPayments, \
-    TeacherBlackSalary, Teachers, CalendarDay, CalendarYear, TaskStudents, TasksStatistics, TaskDailyStatistics, Tasks
-from flask_jwt_extended import jwt_required
-from datetime import timedelta
+    TeacherBlackSalary, Teachers, TaskStudents, TasksStatistics, Tasks
 from backend.student.class_model import Student_Functions
-from datetime import datetime
-from backend.functions.utils import get_json_field, find_calendar_date, api, update_salary
 
-from backend.tasks.utils import update_all_ratings
+account_payment_bp = Blueprint('account_payment_bp', __name__)
 
 
-@app.route(f'{api}/delete_payment/<int:payment_id>', methods=['POST'])
+@account_payment_bp.route(f'/delete_payment/<int:payment_id>', methods=['POST'])
 @jwt_required()
 def delete_payment(payment_id):
     """
@@ -136,7 +138,7 @@ def delete_payment(payment_id):
         })
 
 
-@app.route(f'{api}/get_payment/<int:user_id>', methods=['POST', 'GET'])
+@account_payment_bp.route(f'/get_payment/<int:user_id>', methods=['POST', 'GET'])
 @jwt_required()
 def get_payment(user_id):
     """
@@ -359,7 +361,7 @@ def get_payment(user_id):
         })
 
 
-@app.route(f'{api}/charity/<int:student_id>', methods=['POST'])
+@account_payment_bp.route(f'/charity/<int:student_id>', methods=['POST'])
 @jwt_required()
 def charity(student_id):
     """
@@ -395,7 +397,7 @@ def charity(student_id):
     })
 
 
-@app.route(f'{api}/book_payment/<int:user_id>', methods=['POST'])
+@account_payment_bp.route(f'/book_payment/<int:user_id>', methods=['POST'])
 def book_payment(user_id):
     """
     add data to BookPayments table
