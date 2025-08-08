@@ -147,6 +147,15 @@ def call_to_debts():
         TaskStudents.tasksstatistics_id == task_statistics.id,
         TaskStudents.student_id == student.id
     ).first()
+    other_task_students = TaskStudents.query.filter(
+        TaskStudents.task_id == task_type.id,
+        TaskStudents.tasksstatistics_id == task_statistics.id,
+        TaskStudents.student_id == student.id,
+        TaskStudents.id != task_student.id
+    ).all()
+    for other_task_student in other_task_students:
+        db.session.delete(other_task_student)
+        db.session.commit()
     if to_date > calendar_dt:
         exist_excuse = StudentExcuses.query.filter(
             StudentExcuses.added_date == calendar_day.date,
