@@ -19,6 +19,7 @@ from backend.models.models import Teachers, Users, Roles
 from backend.student.class_model import Student_Functions
 from backend.teacher.utils import send_telegram_message
 from .utils import get_students_info, prepare_scores
+from sqlalchemy import or_
 
 teachers_bp = Blueprint('teachers', __name__)
 
@@ -573,19 +574,24 @@ def get_teachers():
     })
 
 
+from sqlalchemy import or_
+
 @teachers_bp.route(f"/get_teachers_location/<int:location_id>", methods=["GET"])
 # @jwt_required()
 def get_teachers_location(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
 
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
 
+    # Yangi o'qituvchilarni location'ga biriktirish
     teachers_init = Teachers.query.join(Users).filter(
         Users.location_id == location_id,
         Teachers.deleted == None
     ).order_by(Users.location_id).all()
+
     location = Locations.query.filter(Locations.id == location_id).first()
     for teach in teachers_init:
         if location not in teach.locations:
@@ -595,7 +601,20 @@ def get_teachers_location(location_id):
     teachers_query = Teachers.query.join(Teachers.locations).filter(
         Locations.id == location_id,
         Teachers.deleted == None
-    ).order_by(Teachers.id)
+    )
+
+    # Search qo'shish
+    if search:
+        search_pattern = f"%{search}%"
+        teachers_query = teachers_query.join(Teachers.user).filter(
+            or_(
+                Users.name.ilike(search_pattern),
+                Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern)
+            )
+        )
+
+    teachers_query = teachers_query.order_by(Teachers.id)
 
     total = teachers_query.count()
 
@@ -608,14 +627,12 @@ def get_teachers_location(location_id):
 
     for teach in teachers:
         status = False
-        del_group = 0
-        for gr in teach.group:
-            if gr.deleted:
-                del_group += 1
+        del_group = sum(1 for gr in teach.group if gr.deleted)
         if del_group == len(teach.group):
             status = True
         if not teach.group:
             status = True
+
         info = {
             "id": teach.user.id,
             "name": teach.user.name.title(),
@@ -664,19 +681,31 @@ def add_teacher_to_branch(user_id, location_id):
     return jsonify(msg_info)
 
 
+
 @teachers_bp.route(f"/get_deletedTeachers_location/<int:location_id>", methods=["GET"])
 @jwt_required()
 def get_deletedTeachers_location(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
 
     teacher_role = Roles.query.filter_by(type_role="teacher").first().role
 
-    # Asosiy query
     teachers_query = Teachers.query.join(Users).filter(
         Users.location_id == location_id,
         Teachers.deleted != None
     )
+
+    # search qo‘shish
+    if search:
+        search_pattern = f"%{search}%"
+        teachers_query = teachers_query.filter(
+            or_(
+                Users.name.ilike(search_pattern),
+                Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern)
+            )
+        )
 
     total = teachers_query.count()
 
@@ -709,6 +738,7 @@ def get_deletedTeachers_location(location_id):
             "has_more": (offset + (limit or total)) < total
         }
     })
+
 
 
 class Test(db.Model):

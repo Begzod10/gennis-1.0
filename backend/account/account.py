@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
-from sqlalchemy import desc, and_, func
+from sqlalchemy import desc, and_, func, or_
 from sqlalchemy.orm import contains_eager
 
 from backend.functions.filters import old_current_dates, iterate_models
@@ -48,16 +48,60 @@ def account_info(type_filter):
         type_account = "user"
         payments_list = iterate_models(investments)
 
+
     elif type_account == "payments":
-        query = StudentPayments.query.filter(StudentPayments.location_id == location, StudentPayments.payment == True)
+
+        search = request.args.get("search", type=str)
+
+        query = StudentPayments.query.join(StudentPayments.student).join(Students.user).filter(
+
+            StudentPayments.location_id == location,
+
+            StudentPayments.payment == True
+
+        )
+
         if not type_filter:
             query = query.filter(StudentPayments.account_period_id == accounting_period)
+
+        if search:
+            search_term = f"%{search}%"
+
+            query = query.filter(or_(
+
+                Users.name.ilike(search_term),
+
+                Users.surname.ilike(search_term)
+
+            ))
+
         payments = query.order_by(desc(StudentPayments.id)).all()
+
         type_account = "user"
-        payments_list = [{"id": p.id, "name": p.student.user.name.title(), "surname": p.student.user.surname.title(),
-            "payment": p.payment_sum, "typePayment": p.payment_type.name, "date": p.day.date.strftime("%Y-%m-%d"),
-            "day": str(p.calendar_day), "month": str(p.calendar_month), "year": str(p.calendar_year),
-            "user_id": p.student.user_id} for p in payments]
+
+        payments_list = [{
+
+            "id": p.id,
+
+            "name": p.student.user.name.title(),
+
+            "surname": p.student.user.surname.title(),
+
+            "payment": p.payment_sum,
+
+            "typePayment": p.payment_type.name,
+
+            "date": p.day.date.strftime("%Y-%m-%d"),
+
+            "day": str(p.calendar_day),
+
+            "month": str(p.calendar_month),
+
+            "year": str(p.calendar_year),
+
+            "user_id": p.student.user_id
+
+        } for p in payments]
 
 
     elif type_account == "book_payments":
