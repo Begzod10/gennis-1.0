@@ -3,19 +3,18 @@ import datetime
 from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import desc
 from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
-
 
 from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
 from backend.functions.utils import iterate_models
 from backend.models.models import Staff, Users
-from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, \
-    UserBooks, StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
+from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
+    StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db
-from sqlalchemy import func, desc
 
 account_salary_bp = Blueprint('account_salary_bp', __name__)
 
@@ -50,20 +49,14 @@ def salary_info(user_id):
     else:
         locations_list = [location.convert_json()]
 
-    return jsonify({
-        "locations": locations_list,
-        "years": years_list,
-        "current_year": calendar_year.id
-    })
+    return jsonify({"locations": locations_list, "years": years_list, "current_year": calendar_year.id})
 
 
 @account_salary_bp.route(f'/teacher_locations_classroom/<user_id>')
 def teacher_locations_classroom(user_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     locations_list = [location.convert_json() for location in teacher.locations]
-    return jsonify({
-        "locations": locations_list
-    })
+    return jsonify({"locations": locations_list})
 
 
 @account_salary_bp.route(f'/salary_info_classroom/<user_id>')
@@ -77,11 +70,7 @@ def salary_info_classroom(user_id):
     years_list = iterate_models(years)
     locations_list = [location.convert_json() for location in teacher.locations]
 
-    return jsonify({
-        "locations": locations_list,
-        "years": years_list,
-        "current_year": calendar_year.id
-    })
+    return jsonify({"locations": locations_list, "years": years_list, "current_year": calendar_year.id})
 
 
 @account_salary_bp.route(f'/block_salary/<int:user_id>/<int:location_id>/<year_id>')
@@ -98,10 +87,8 @@ def block_salary(user_id, location_id, year_id):
             desc(TeacherSalary.id)).all()
         for salary in teacher_salaries:
             teacher_black_salaries = TeacherBlackSalary.query.filter(
-                TeacherBlackSalary.calendar_month == salary.calendar_month,
-                TeacherBlackSalary.teacher_id == teacher.id,
-                TeacherBlackSalary.location_id == location_id,
-                TeacherBlackSalary.status == False).all()
+                TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
+                TeacherBlackSalary.location_id == location_id, TeacherBlackSalary.status == False).all()
             user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
                                                 UserBooks.salary_location_id == salary.id).order_by(UserBooks.id).all()
             book_payments = 0
@@ -121,20 +108,13 @@ def block_salary(user_id, location_id, year_id):
                     residue = (salary.total_salary + salary.extra) - (
                             taken_money + black_salary + total_fine + book_payments - debt)
                 else:
-                    residue = salary.total_salary - (
-                            taken_money + black_salary + total_fine + book_payments - debt)
+                    residue = salary.total_salary - (taken_money + black_salary + total_fine + book_payments - debt)
             salary.remaining_salary = residue
             db.session.commit()
-            info = {
-                "id": salary.id,
+            info = {"id": salary.id,
                 "salary": salary.total_salary + salary.extra if salary.extra else salary.total_salary,
-                "residue": residue,
-                "taken_salary": salary.taken_money,
-                "black_salary": black_salary,
-                "date": salary.month.date.strftime("%Y-%m"),
-                "debt": salary.debt,
-                "total_fine": salary.total_fine
-            }
+                "residue": residue, "taken_salary": salary.taken_money, "black_salary": black_salary,
+                "date": salary.month.date.strftime("%Y-%m"), "debt": salary.debt, "total_fine": salary.total_fine}
             teacher_salary_list.append(info)
     else:
         staff_salaries = StaffSalary.query.filter(StaffSalary.staff_id == staff.id,
@@ -149,18 +129,11 @@ def block_salary(user_id, location_id, year_id):
                 residue = 0
             else:
                 residue = salary.total_salary
-            info = {
-                "id": salary.id,
-                "salary": salary.total_salary,
-                "residue": residue,
-                "taken_salary": salary.taken_money,
-                "date": salary.month.date.strftime("%Y-%m")
-            }
+            info = {"id": salary.id, "salary": salary.total_salary, "residue": residue,
+                "taken_salary": salary.taken_money, "date": salary.month.date.strftime("%Y-%m")}
             teacher_salary_list.append(info)
 
-    return jsonify({
-        "data": teacher_salary_list
-    })
+    return jsonify({"data": teacher_salary_list})
 
 
 @account_salary_bp.route(f'/block_salary_classroom/<int:user_id>/<int:location_id>/<year_id>')
@@ -176,10 +149,8 @@ def block_salary_classroom(user_id, location_id, year_id):
             desc(TeacherSalary.id)).all()
         for salary in teacher_salaries:
             teacher_black_salaries = TeacherBlackSalary.query.filter(
-                TeacherBlackSalary.calendar_month == salary.calendar_month,
-                TeacherBlackSalary.teacher_id == teacher.id,
-                TeacherBlackSalary.location_id == location_id,
-                TeacherBlackSalary.status == False).all()
+                TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
+                TeacherBlackSalary.location_id == location_id, TeacherBlackSalary.status == False).all()
             user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
                                                 UserBooks.salary_location_id == salary.id).order_by(UserBooks.id).all()
             book_payments = 0
@@ -199,20 +170,14 @@ def block_salary_classroom(user_id, location_id, year_id):
                     residue = (salary.total_salary + salary.extra) - (
                             taken_money + black_salary + total_fine + book_payments - debt)
                 else:
-                    residue = salary.total_salary - (
-                            taken_money + black_salary + total_fine + book_payments - debt)
+                    residue = salary.total_salary - (taken_money + black_salary + total_fine + book_payments - debt)
             salary.remaining_salary = residue
             db.session.commit()
-            info = {
-                "id": salary.id,
+            info = {"id": salary.id,
                 "salary": salary.total_salary + salary.extra if salary.extra else salary.total_salary,
-                "residue": residue,
-                "taken_salary": salary.taken_money,
-                "black_salary": black_salary,
-                "date": salary.month.date.strftime("%Y-%m"),
-                "debt": salary.debt if salary.debt else 0,
-                "total_fine": salary.total_fine
-            }
+                "residue": residue, "taken_salary": salary.taken_money, "black_salary": black_salary,
+                "date": salary.month.date.strftime("%Y-%m"), "debt": salary.debt if salary.debt else 0,
+                "total_fine": salary.total_fine}
             teacher_salary_list.append(info)
     else:
         staff_salaries = StaffSalary.query.filter(StaffSalary.staff_id == staff.id,
@@ -226,18 +191,11 @@ def block_salary_classroom(user_id, location_id, year_id):
                 residue = 0
             else:
                 residue = salary.total_salary
-            info = {
-                "id": salary.id,
-                "salary": salary.total_salary,
-                "residue": residue,
-                "taken_salary": salary.taken_money,
-                "date": salary.month.date.strftime("%Y-%m")
-            }
+            info = {"id": salary.id, "salary": salary.total_salary, "residue": residue,
+                "taken_salary": salary.taken_money, "date": salary.month.date.strftime("%Y-%m")}
             teacher_salary_list.append(info)
 
-    return jsonify({
-        "data": teacher_salary_list
-    })
+    return jsonify({"data": teacher_salary_list})
 
 
 @account_salary_bp.route(f'/teacher_salary/<int:user_id>/<int:location_id>')
@@ -255,16 +213,13 @@ def teacher_salary(user_id, location_id):
     teacher_salary_list = []
     if teacher:
         teacher_salaries = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id,
-                                                      TeacherSalary.location_id == location_id,
-                                                      ).order_by(
+                                                      TeacherSalary.location_id == location_id, ).order_by(
             desc(TeacherSalary.id)).all()
 
         for salary in teacher_salaries:
             teacher_black_salaries = TeacherBlackSalary.query.filter(
-                TeacherBlackSalary.calendar_month == salary.calendar_month,
-                TeacherBlackSalary.teacher_id == teacher.id,
-                TeacherBlackSalary.location_id == location_id,
-                TeacherBlackSalary.status == False).all()
+                TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
+                TeacherBlackSalary.location_id == location_id, TeacherBlackSalary.status == False).all()
             black_salary = 0
             for black in teacher_black_salaries:
                 black_salary += black.total_salary
@@ -284,21 +239,15 @@ def teacher_salary(user_id, location_id):
                     residue = (salary.total_salary + salary.extra) - (
                             taken_money + black_salary + total_fine + book_payments - debt)
                 else:
-                    residue = salary.total_salary - (
-                            taken_money + black_salary + total_fine + book_payments - debt)
+                    residue = salary.total_salary - (taken_money + black_salary + total_fine + book_payments - debt)
             salary.remaining_salary = residue
 
             db.session.commit()
-            info = {
-                "id": salary.id,
+            info = {"id": salary.id,
                 "salary": salary.total_salary + salary.extra if salary.extra else salary.total_salary,
-                "residue": residue,
-                "taken_salary": salary.taken_money,
-                "black_salary": black_salary,
-                "date": salary.month.date.strftime("%Y-%m"),
-                "debt": salary.debt if salary.debt else 0,
-                "total_fine": salary.total_fine
-            }
+                "residue": residue, "taken_salary": salary.taken_money, "black_salary": black_salary,
+                "date": salary.month.date.strftime("%Y-%m"), "debt": salary.debt if salary.debt else 0,
+                "total_fine": salary.total_fine}
             teacher_salary_list.append(info)
 
     else:
@@ -313,18 +262,11 @@ def teacher_salary(user_id, location_id):
                 residue = 0
             else:
                 residue = salary.total_salary
-            info = {
-                "id": salary.id,
-                "salary": salary.total_salary,
-                "residue": residue,
-                "taken_salary": salary.taken_money,
-                "date": salary.month.date.strftime("%Y-%m")
-            }
+            info = {"id": salary.id, "salary": salary.total_salary, "residue": residue,
+                "taken_salary": salary.taken_money, "date": salary.month.date.strftime("%Y-%m")}
             teacher_salary_list.append(info)
 
-    return jsonify({
-        "data": teacher_salary_list
-    })
+    return jsonify({"data": teacher_salary_list})
 
 
 @account_salary_bp.route(f'/teacher_salary_inside/<int:salary_id>/<int:user_id>')
@@ -345,10 +287,8 @@ def teacher_salary_inside(salary_id, user_id):
     if teacher:
         salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
         teacher_black_salaries = TeacherBlackSalary.query.filter(
-            TeacherBlackSalary.calendar_month == salary.calendar_month,
-            TeacherBlackSalary.teacher_id == teacher.id,
-            TeacherBlackSalary.location_id == salary.location_id,
-            TeacherBlackSalary.status == False).all()
+            TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
+            TeacherBlackSalary.location_id == salary.location_id, TeacherBlackSalary.status == False).all()
 
         get_old_month = int(datetime.datetime.strftime(salary.month.date, "%m")) - 1
         get_year = int(datetime.datetime.strftime(salary.month.date, "%Y"))
@@ -391,13 +331,10 @@ def teacher_salary_inside(salary_id, user_id):
             residue = (salary.total_salary + salary.extra) - (
                     taken_money + black_salary + total_fine + book_payments - debt)
         else:
-            residue = salary.total_salary - (
-                    taken_money + black_salary + total_fine + book_payments - debt)
+            residue = salary.total_salary - (taken_money + black_salary + total_fine + book_payments - debt)
 
-        TeacherSalary.query.filter(TeacherSalary.id == salary_id).update({
-            "remaining_salary": residue,
-            "taken_money": all_salaries,
-        })
+        TeacherSalary.query.filter(TeacherSalary.id == salary_id).update(
+            {"remaining_salary": residue, "taken_money": all_salaries, })
         db.session.commit()
 
         # update_teacher_salary_id(salary_id)
@@ -405,37 +342,23 @@ def teacher_salary_inside(salary_id, user_id):
         total_salary = salary.total_salary + salary.extra if salary.extra else salary.total_salary
     else:
         salary = StaffSalary.query.filter(StaffSalary.id == salary_id).first()
-        user_books = UserBooks.query.filter(UserBooks.user_id == user_id,
-                                            UserBooks.salary_id == salary_id).order_by(UserBooks.id).all()
+        user_books = UserBooks.query.filter(UserBooks.user_id == user_id, UserBooks.salary_id == salary_id).order_by(
+            UserBooks.id).all()
         update_staff_salary_id(salary_id)
-        salaries = StaffSalaries.query.filter(StaffSalaries.salary_id == salary_id).order_by(
-            StaffSalaries.id).all()
+        salaries = StaffSalaries.query.filter(StaffSalaries.salary_id == salary_id).order_by(StaffSalaries.id).all()
         total_salary = salary.total_salary
-    list_salaries = [{
-        "id": sal.id,
-        "salary": sal.payment_sum,
-        "reason": sal.reason,
-        "payment_type": sal.payment_type.name,
-        "date": sal.day.date.strftime("%Y-%m-%d"),
-        "status": False
-    } for sal in salaries]
+    list_salaries = [
+        {"id": sal.id, "salary": sal.payment_sum, "reason": sal.reason, "payment_type": sal.payment_type.name,
+            "date": sal.day.date.strftime("%Y-%m-%d"), "status": False} for sal in salaries]
 
     for book in user_books:
         list_salaries.append(book.convert_json())
 
     return jsonify({
-        "data": {
-            "salary": total_salary,
-            "residue": salary.remaining_salary,
-            "taken_salary": salary.taken_money,
+        "data": {"salary": total_salary, "residue": salary.remaining_salary, "taken_salary": salary.taken_money,
             "exist_salary": salary.remaining_salary if salary.remaining_salary else salary.total_salary,
-            "month": salary.month.date.strftime("%Y-%m"),
-            "data": list_salaries,
-            "black_salary": black_salary,
-            "salary_debt": salary_debt,
-            "total_fine": total_fine
-        }
-    })
+            "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries, "black_salary": black_salary,
+            "salary_debt": salary_debt, "total_fine": total_fine}})
 
 
 @account_salary_bp.route(f'/teacher_salary_inside_classroom/<user_id>/<salary_id>')
@@ -443,11 +366,10 @@ def teacher_salary_inside_classroom(user_id, salary_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     black_salary = 0
     salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
-    teacher_black_salaries = TeacherBlackSalary.query.filter(
-        TeacherBlackSalary.calendar_month == salary.calendar_month,
-        TeacherBlackSalary.teacher_id == teacher.id,
-        TeacherBlackSalary.location_id == salary.location_id,
-        TeacherBlackSalary.status == False).all()
+    teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.calendar_month == salary.calendar_month,
+                                                             TeacherBlackSalary.teacher_id == teacher.id,
+                                                             TeacherBlackSalary.location_id == salary.location_id,
+                                                             TeacherBlackSalary.status == False).all()
 
     get_old_month = int(datetime.datetime.strftime(salary.month.date, "%m")) - 1
     get_year = int(datetime.datetime.strftime(salary.month.date, "%Y"))
@@ -491,23 +413,15 @@ def teacher_salary_inside_classroom(user_id, salary_id):
         residue = (salary.total_salary + salary.extra) - (
                 taken_money + black_salary + total_fine + book_payments - debt)
     else:
-        residue = salary.total_salary - (
-                taken_money + black_salary + total_fine + book_payments - debt)
+        residue = salary.total_salary - (taken_money + black_salary + total_fine + book_payments - debt)
 
-    TeacherSalary.query.filter(TeacherSalary.id == salary_id).update({
-        "remaining_salary": residue,
-        "taken_money": all_salaries,
-    })
+    TeacherSalary.query.filter(TeacherSalary.id == salary_id).update(
+        {"remaining_salary": residue, "taken_money": all_salaries, })
     db.session.commit()
     update_teacher_salary_id(salary_id)
-    list_salaries = [{
-        "id": sal.id,
-        "salary": sal.payment_sum,
-        "reason": sal.reason,
-        "payment_type": sal.payment_type.name,
-        "date": sal.day.date.strftime("%Y-%m-%d"),
-        "status": False
-    } for sal in salaries]
+    list_salaries = [
+        {"id": sal.id, "salary": sal.payment_sum, "reason": sal.reason, "payment_type": sal.payment_type.name,
+            "date": sal.day.date.strftime("%Y-%m-%d"), "status": False} for sal in salaries]
 
     for book in user_books:
         list_salaries.append(book.convert_json())
@@ -516,54 +430,37 @@ def teacher_salary_inside_classroom(user_id, salary_id):
         exist_money = salary.remaining_salary
     else:
         exist_money = salary.total_salary
-    return jsonify({
-        "data": {
-            "salary": salary.total_salary + salary.extra if salary.extra else salary.total_salary,
-            "residue": salary.remaining_salary,
-            "taken_salary": salary.taken_money,
-            "exist_salary": exist_money,
-            "month": salary.month.date.strftime("%Y-%m"),
-            "data": list_salaries,
-            "black_salary": black_salary,
-            "salary_debt": salary.debt,
-            "total_fine": salary.total_fine
-        }
-    })
+    return jsonify({"data": {"salary": salary.total_salary + salary.extra if salary.extra else salary.total_salary,
+        "residue": salary.remaining_salary, "taken_salary": salary.taken_money, "exist_salary": exist_money,
+        "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries, "black_salary": black_salary,
+        "salary_debt": salary.debt, "total_fine": salary.total_fine}})
 
 
 @account_salary_bp.route(f'/black_salary/<teacher_id>')
 @jwt_required()
 def black_salary(teacher_id):
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
-    black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
-                                                     ).filter(
+    black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id, ).filter(
         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None)).order_by(
         TeacherBlackSalary.id).all()
     group_names = []
     for gr in teacher.group:
         if gr.deleted != True and gr.status == True:
             group_names.append(gr.name)
-    return jsonify({
-        "groups": group_names,
-        "students": iterate_models(black_salaries)
-    })
+    return jsonify({"groups": group_names, "students": iterate_models(black_salaries)})
 
 
 @account_salary_bp.route(f'/black_salary_classroom/<user_id>')
 def black_salary_classroom(user_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
-    black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
-                                                     ).filter(
+    black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id, ).filter(
         or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None)).order_by(
         TeacherBlackSalary.id).all()
     group_names = []
     for gr in teacher.group:
         if gr.deleted != True and gr.status == True:
             group_names.append(gr.name)
-    return jsonify({
-        "groups": group_names,
-        "students": iterate_models(black_salaries)
-    })
+    return jsonify({"groups": group_names, "students": iterate_models(black_salaries)})
 
 
 @account_salary_bp.route(f'/teacher_salary_deleted_inside/<int:salary_id>/<int:user_id>')
@@ -579,8 +476,7 @@ def teacher_salary_deleted_inside(salary_id, user_id):
     if teacher:
         salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
 
-        salaries = DeletedTeacherSalaries.query.filter(
-            DeletedTeacherSalaries.salary_location_id == salary_id).order_by(
+        salaries = DeletedTeacherSalaries.query.filter(DeletedTeacherSalaries.salary_location_id == salary_id).order_by(
             DeletedTeacherSalaries.id).all()
     else:
         salary = StaffSalary.query.filter(StaffSalary.id == salary_id).first()
@@ -589,23 +485,11 @@ def teacher_salary_deleted_inside(salary_id, user_id):
             DeletedStaffSalaries.id).all()
 
     list_salaries = [
-        {
-            "id": sal.id,
-            "salary": sal.payment_sum,
-            "reason": sal.reason_deleted,
-            "payment_type": sal.payment_type.name,
-            "date": sal.day.date.strftime("%Y-%m-%d")
-        } for sal in salaries
-    ]
+        {"id": sal.id, "salary": sal.payment_sum, "reason": sal.reason_deleted, "payment_type": sal.payment_type.name,
+            "date": sal.day.date.strftime("%Y-%m-%d")} for sal in salaries]
     return jsonify({
-        "data": {
-            "salary": salary.total_salary,
-            "residue": salary.remaining_salary,
-            "taken_salary": salary.taken_money,
-            "month": salary.month.date.strftime("%Y-%m"),
-            "data": list_salaries
-        }
-    })
+        "data": {"salary": salary.total_salary, "residue": salary.remaining_salary, "taken_salary": salary.taken_money,
+            "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries}})
 
 
 @account_salary_bp.route(f'/salary_give_teacher/<int:salary_id>/<int:user_id>', methods=['POST'])
@@ -639,11 +523,8 @@ def salary_give_teacher(salary_id, user_id):
     date_day = datetime.datetime.strptime(date_day, "%Y-%m-%d")
     date_month = datetime.datetime.strptime(date_month, "%Y-%m")
     year = datetime.datetime.strptime(date_year, '%Y')
-    calendar_year, calendar_month, calendar_day = find_calendar_date(
-        date_day=date_day,
-        date_month=date_month,
-        date_year=year
-    )
+    calendar_year, calendar_month, calendar_day = find_calendar_date(date_day=date_day, date_month=date_month,
+        date_year=year)
 
     payment_type_id = PaymentTypes.query.filter(PaymentTypes.id == payment_type).first()
     accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
@@ -658,10 +539,7 @@ def salary_give_teacher(salary_id, user_id):
             else:
                 total_salary = teacher_cash.total_salary
         if get_salary > total_salary:
-            return jsonify({
-                "success": False,
-                "msg": "Kiritilgan summa miqdori umumiy oylik miqdoridan kop"
-            })
+            return jsonify({"success": False, "msg": "Kiritilgan summa miqdori umumiy oylik miqdoridan kop"})
         else:
             add = TeacherSalaries(payment_sum=get_salary, reason=reason, payment_type_id=payment_type_id.id,
                                   teacher_id=teacher_cash.teacher_id, location_id=teacher_cash.location_id,
@@ -679,10 +557,7 @@ def salary_give_teacher(salary_id, user_id):
         else:
             total_salary = staff_cash.total_salary
         if get_salary > total_salary:
-            return jsonify({
-                "success": False,
-                "msg": "Kiritilgan summa miqdori umumiy oylik miqdoridan kop"
-            })
+            return jsonify({"success": False, "msg": "Kiritilgan summa miqdori umumiy oylik miqdoridan kop"})
         else:
             add = StaffSalaries(payment_sum=get_salary, reason=reason, payment_type_id=payment_type_id.id,
                                 staff_id=staff_cash.staff_id, location_id=staff_cash.location_id,
@@ -693,10 +568,7 @@ def salary_give_teacher(salary_id, user_id):
             db.session.commit()
             update_staff_salary_id(salary_id)
 
-    return jsonify({
-        "success": True,
-        "msg": "Oylik berildi"
-    })
+    return jsonify({"success": True, "msg": "Oylik berildi"})
 
 
 @account_salary_bp.route(f'/delete_salary_teacher/<int:salary_id>/<int:user_id>', methods=['POST'])
@@ -772,19 +644,14 @@ def delete_salary_teacher(salary_id, user_id):
                                               calendar_month=staff_salary.calendar_month,
                                               calendar_day=staff_salary.calendar_day,
                                               calendar_year=staff_salary.calendar_year,
-                                              account_period_id=staff_salary.account_period_id,
-                                              salary_id=staff_cash.id,
-                                              deleted_date=calendar_day.date,
-                                              profession_id=staff_salary.profession_id)
+                                              account_period_id=staff_salary.account_period_id, salary_id=staff_cash.id,
+                                              deleted_date=calendar_day.date, profession_id=staff_salary.profession_id)
         db.session.add(deleted_salary)
         db.session.commit()
         db.session.delete(staff_salary)
         db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "msg": "Oylik o'chirildi"
-    })
+    return jsonify({"success": True, "msg": "Oylik o'chirildi"})
 
 
 @account_salary_bp.route(f'/change_teacher_salary/<int:salary_id>/<type_id>/<int:user_id>')
@@ -802,28 +669,19 @@ def change_teacher_salary(salary_id, type_id, user_id):
     staff = Staff.query.filter(Staff.user_id == user_id).first()
     payment_type = PaymentTypes.query.filter(PaymentTypes.name == type_id).first()
     if teacher:
-        TeacherSalaries.query.filter(TeacherSalaries.id == salary_id).update({
-            "payment_type_id": payment_type.id
-        })
+        TeacherSalaries.query.filter(TeacherSalaries.id == salary_id).update({"payment_type_id": payment_type.id})
         db.session.commit()
 
     elif staff:
-        StaffSalaries.query.filter(StaffSalaries.id == salary_id).update({
-            "payment_type_id": payment_type.id
-        })
+        StaffSalaries.query.filter(StaffSalaries.id == salary_id).update({"payment_type_id": payment_type.id})
         db.session.commit()
 
     else:
 
-        StudentPayments.query.filter(StudentPayments.id == salary_id).update({
-            "payment_type_id": payment_type.id
-        })
+        StudentPayments.query.filter(StudentPayments.id == salary_id).update({"payment_type_id": payment_type.id})
         db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "msg": "Oylik qiymat turi o'zgartirildi"
-    })
+    return jsonify({"success": True, "msg": "Oylik qiymat turi o'zgartirildi"})
 
 
 @account_salary_bp.route(f'/set_salary/<int:user_id>', methods=['POST'])
@@ -835,14 +693,9 @@ def set_salary(user_id):
     :return:
     """
     salary = int(request.get_json()['salary'])
-    Staff.query.filter(Staff.user_id == user_id).update({
-        "salary": salary
-    })
+    Staff.query.filter(Staff.user_id == user_id).update({"salary": salary})
     db.session.commit()
-    return jsonify({
-        "success": True,
-        "msg": "Oylik belgilandi"
-    })
+    return jsonify({"success": True, "msg": "Oylik belgilandi"})
 
 
 @account_salary_bp.route(f'/employees/<int:location_id>', defaults={"status": None})
@@ -853,9 +706,9 @@ def employees(location_id, status):
     :param location_id: Location table primary key
     :return: Staff data
     """
-
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
 
     user_id = get_jwt_identity()
     staff_salary_update()
@@ -863,13 +716,16 @@ def employees(location_id, status):
 
     if not status:
         staffs_query = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
-            Users.location_id == location_id
-        ).filter(or_(Staff.deleted == False, Staff.deleted == None)).order_by(Users.id)
+            Users.location_id == location_id).filter(or_(Staff.deleted == False, Staff.deleted == None)).order_by(
+            Users.id)
     else:
         staffs_query = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
-            Users.location_id == location_id,
-            Staff.deleted == True
-        ).order_by(Users.id)
+            Users.location_id == location_id, Staff.deleted == True).order_by(Users.id)
+
+    if search:
+        search_pattern = f"%{search}%"
+        staffs_query = staffs_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
+            Users.username.ilike(search_pattern)))
 
     total = staffs_query.count()
 
@@ -880,39 +736,20 @@ def employees(location_id, status):
 
     staffs = staffs_query.all()
 
-    list_staff = [{
-        "id": staff.user.id,
-        "name": staff.user.name.title(),
-        "surname": staff.user.surname.title(),
-        "username": staff.user.username,
-        "language": staff.user.language.name,
-        "age": staff.user.age,
-        "reg_date": staff.user.day.date.strftime("%Y-%m-%d"),
-        "job": staff.profession.name,
-        "role": staff.user.role_info.role,
-        "status": False if user.id == staff.user.id or status else True
-    } for staff in staffs]
+    list_staff = [{"id": staff.user.id, "name": staff.user.name.title(), "surname": staff.user.surname.title(),
+        "username": staff.user.username, "language": staff.user.language.name, "age": staff.user.age,
+        "reg_date": staff.user.day.date.strftime("%Y-%m-%d"), "job": staff.profession.name,
+        "role": staff.user.role_info.role, "status": False if user.id == staff.user.id or status else True} for staff in
+        staffs]
 
-    return jsonify({
-        "data": list_staff,
-        "pagination": {
-            "total": total,
-            "offset": offset,
-            "limit": limit,
-            "has_more": (offset + (limit or total)) < total
-        }
-    })
+    return jsonify({"data": list_staff, "pagination": {"total": total, "offset": offset, "limit": limit,
+        "has_more": (offset + (limit or total)) < total}})
 
 
 @account_salary_bp.route(f'/delete_staff/<user_id>', methods=['DELETE'])
 @jwt_required()
 def delete_staff(user_id):
-    Staff.query.filter(Staff.user_id == user_id).update({
-        "deleted": True,
-        "deleted_comment": request.get_json()['otherReason']
-    })
+    Staff.query.filter(Staff.user_id == user_id).update(
+        {"deleted": True, "deleted_comment": request.get_json()['otherReason']})
     db.session.commit()
-    return jsonify({
-        "msg": "O'chirildi",
-        "status": True
-    })
+    return jsonify({"msg": "O'chirildi", "status": True})

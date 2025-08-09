@@ -93,23 +93,24 @@ def change_student_info(user_id):
 
                 subjects = json['selectedSubjects']
 
-                if subjects:
-                    teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
-                    while teacher.subject:
-                        for sub in teacher.subject:
-                            teacher.subject.remove(sub)
-                            db.session.commit()
-                    for sub in subjects:
-                        subject = Subjects.query.filter(Subjects.id == sub['id']).first()
-                        teacher.subject.append(subject)
-                        db.session.commit()
 
-                else:
-                    while teacher.subject:
-                        for sub in teacher.subject:
-                            teacher.subject.remove(sub)
-                            db.session.commit()
                 if teacher:
+                    if subjects:
+                        teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
+                        while teacher.subject:
+                            for sub in teacher.subject:
+                                teacher.subject.remove(sub)
+                                db.session.commit()
+                        for sub in subjects:
+                            subject = Subjects.query.filter(Subjects.id == sub['id']).first()
+                            teacher.subject.append(subject)
+                            db.session.commit()
+
+                    else:
+                        while teacher.subject:
+                            for sub in teacher.subject:
+                                teacher.subject.remove(sub)
+                                db.session.commit()
                     Teachers.query.filter(Teachers.user_id == user_id).update({
                         "table_color": json['color']
                     })
