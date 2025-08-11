@@ -85,6 +85,7 @@ def get_back_student(user_id):
 
 from sqlalchemy import or_
 
+
 @student_functions.route(f'/studyingStudents/<int:id>', methods=['POST', 'GET'])
 @jwt_required()
 def studyingStudents(id):
@@ -166,9 +167,6 @@ def studyingStudents(id):
         }
     })
 
-
-
-from sqlalchemy import or_
 
 @student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
 @jwt_required()
@@ -341,7 +339,7 @@ def newStudentsDeleted(location_id):
     if search:
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
-            Users.username.ilike(search_pattern)))
+                                           Users.username.ilike(search_pattern)))
 
     base_query = base_query.order_by(desc(Students.id))
 
@@ -356,7 +354,7 @@ def newStudentsDeleted(location_id):
     list_students = [st.convert_json() for st in students]
 
     return jsonify({"newStudents": list_students, "pagination": {"total": total, "offset": offset, "limit": limit,
-        "has_more": (offset + (limit or total)) < total}})
+                                                                 "has_more": (offset + (limit or total)) < total}})
 
 
 @student_functions.route(f'/new_del_students/<location_id>')

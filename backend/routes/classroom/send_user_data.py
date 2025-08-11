@@ -7,14 +7,14 @@ from flask import Blueprint
 classroom_basic_bp = Blueprint('classroom_basic', __name__)
 
 
-@classroom_basic_bp.route(f'/send_user_data/<user_id>')
-def send_user_data(user_id):
-    user = Users.query.filter(Users.id == user_id).first()
+@classroom_basic_bp.route(f'/send_user_data/<username>')
+def send_user_data(username):
+    user = Users.query.filter(Users.username == username, Users.deleted == None).first()
 
     if user.student:
-        get_user = Students.query.filter(Students.user_id == user_id).first()
+        get_user = Students.query.filter(Students.user_id == user.id).first()
     else:
-        get_user = Teachers.query.filter(Teachers.user_id == user_id).first()
+        get_user = Teachers.query.filter(Teachers.user_id == user.id).first()
     return jsonify({"status": "true", "user": get_user.convert_groups()})
 
 

@@ -199,7 +199,7 @@ def login():
     if request.method == "POST":
         username = get_json_field('username')
         password = get_json_field('password')
-        username_sign = Users.query.filter_by(username=username).first()
+        username_sign = Users.query.filter(Users.username == username).filter(Users.deleted == None).first()
 
         if username_sign and check_password_hash(username_sign.password, password):
             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
