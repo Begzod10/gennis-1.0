@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 SECRET_KEY = os.urandom(32)
 # Grabs the folder where the script runs.
@@ -9,10 +9,11 @@ DEBUG = True
 
 DB_USER = os.getenv('FLASK_DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
-DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5433')
-# DB_HOST = os.getenv('DB_HOST', '192.168.68.103:5432')~~
+DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost')
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
-database_path = 'postgresql://{}:{}@{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_NAME)
+DB_PORT = os.getenv('FLASK_DB_PORT', '5433')
+
+database_path = 'postgresql://{}:{}@{}:{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
 SQLALCHEMY_DATABASE_URI = database_path
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 SQLALCHEMY_ECO = True
