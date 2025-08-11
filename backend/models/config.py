@@ -11,7 +11,7 @@ DB_USER = os.getenv('FLASK_DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
 DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost')
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
-DB_PORT = os.getenv('FLASK_DB_PORT', '5433')
+DB_PORT = os.getenv('FLASK_DB_PORT', '5432')
 
 database_path = 'postgresql://{}:{}@{}:{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
 SQLALCHEMY_DATABASE_URI = database_path
