@@ -7,9 +7,9 @@ import docx
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
-from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
 from werkzeug.utils import secure_filename
+from sqlalchemy import or_
 
 from app import app
 from backend.functions.small_info import checkFile, user_contract_folder
@@ -82,10 +82,13 @@ def get_back_student(user_id):
 
     return jsonify({"success": True, "msg": "Student ro'yxatga qaytarildi"})
 
+<<<<<<< HEAD
 
 from sqlalchemy import or_
 
 
+=======
+>>>>>>> 58726dd6176e228405343c91f5e3898ebe141e6e
 @student_functions.route(f'/studyingStudents/<int:id>', methods=['POST', 'GET'])
 @jwt_required()
 def studyingStudents(id):
@@ -93,29 +96,22 @@ def studyingStudents(id):
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
 
-    user_list = (
-        Users.query
-        .join(Students)
-        .filter(
-            Students.group != None,
-            Users.location_id == id
-        )
-        .order_by(Users.id)
-        .all()
-    )
-    user_id = list(dict.fromkeys([user.id for user in user_list]))
-
     students_query = (
         Students.query
-        .filter(Students.user_id.in_(user_id))
+        .join(Students.user)
         .join(Students.group)
-        .filter(Groups.status == True)
+        .filter(
+            Students.group != None,
+            Groups.status == True,
+            Users.location_id == id
+        )
+        .distinct(Students.id)
+        .order_by(Students.id, Students.user_id)
     )
 
-    # Search qo'shish
     if search:
         search_pattern = f"%{search}%"
-        students_query = students_query.join(Students.user).filter(
+        students_query = students_query.filter(
             or_(
                 Users.name.ilike(search_pattern),
                 Users.surname.ilike(search_pattern),
@@ -168,6 +164,11 @@ def studyingStudents(id):
     })
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 58726dd6176e228405343c91f5e3898ebe141e6e
 @student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
 @jwt_required()
 def deletedStudents(id):
@@ -178,50 +179,23 @@ def deletedStudents(id):
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
 
-    user_list = (
-        db.session.query(Students)
-        .join(Students.user)
-        .options(contains_eager(Students.user))
-        .filter(
-            Students.deleted_from_group != None,
-            Students.group == None,
-            Users.location_id == id
-        )
-        .join(Students.deleted_from_group)
-        .join(DeletedStudents.day)
-        .order_by(desc(CalendarDay.date))
-        .all()
-    )
+    base_students = (db.session.query(Students.id).join(Students.user).filter(Students.deleted_from_group != None,
+                                                                              Students.group == None,
+                                                                              Users.location_id == id).distinct().subquery())
 
-    user_id = list(dict.fromkeys([user.id for user in user_list]))
+    students_query = DeletedStudents.query.join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id).filter(
+        DeletedStudents.student_id.in_(db.session.query(base_students.c.id)))
 
-    if reason == "Hammasi":
-        students_query = (
-            DeletedStudents.query
-            .join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)
-            .filter(DeletedStudents.student_id.in_(user_id))
-        )
-    else:
-        group_reason = GroupReason.query.filter(GroupReason.id == reason).first()
-        students_query = (
-            DeletedStudents.query
-            .filter(
-                DeletedStudents.student_id.in_(user_id),
-                DeletedStudents.reason_id == group_reason.id
-            )
-            .join(DeletedStudents.day)
-        )
+    if reason != "Hammasi":
+        group_reason = GroupReason.query.filter_by(id=reason).first()
+        if group_reason:
+            students_query = students_query.filter(DeletedStudents.reason_id == group_reason.id)
 
-    # Search qo'shish (Users ustunlari bo'yicha)
     if search:
         search_pattern = f"%{search}%"
-        students_query = students_query.join(DeletedStudents.student).join(Students.user).filter(
-            or_(
-                Users.name.ilike(search_pattern),
-                Users.surname.ilike(search_pattern),
-                Users.username.ilike(search_pattern)
-            )
-        )
+        students_query = (students_query.join(DeletedStudents.student).join(Students.user).filter(
+            or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern))))
 
     students_query = students_query.order_by(desc(CalendarDay.date))
 
@@ -236,42 +210,26 @@ def deletedStudents(id):
 
     role = Roles.query.filter(Roles.type_role == "student").first()
 
-    list_students = [
-        {
-            "id": st.student.user.id,
-            "name": st.student.user.name.title(),
-            "surname": st.student.user.surname.title(),
-            "username": st.student.user.username,
-            "language": st.student.user.language.name,
-            "age": st.student.user.age,
-            "reg_date": st.student.user.day.date.strftime("%Y-%m-%d"),
-            "deleted_date": st.day.date.strftime("%Y-%m-%d"),
-            "day": st.calendar_day,
-            "teacher": st.teacher_id,
-            "comment": st.student.user.comment,
-            "money": st.student.user.balance,
-            "role": role.role,
-            "photo_profile": st.student.user.photo_profile,
-            "moneyType": ["green", "yellow", "red", "navy", "black"][st.student.debtor] if st.student.debtor else 0,
-            "phone": st.student.user.phone[0].phone,
-            "reason": st.reason,
-            "group": st.group.id
-        }
-        for st in students_list
-    ]
+    list_students = []
+    for st in students_list:
+        try:
+            list_students.append({"id": st.student.user.id, "name": st.student.user.name.title(),
+                                  "surname": st.student.user.surname.title(), "username": st.student.user.username,
+                                  "language": st.student.user.language.name, "age": st.student.user.age,
+                                  "reg_date": st.student.user.day.date.strftime("%Y-%m-%d"),
+                                  "deleted_date": st.day.date.strftime("%Y-%m-%d"), "day": st.calendar_day,
+                                  "teacher": st.teacher_id, "comment": st.student.user.comment,
+                                  "money": st.student.user.balance, "role": role.role,
+                                  "photo_profile": st.student.user.photo_profile,
+                                  "moneyType": ["green", "yellow", "red", "navy", "black"][
+                                      st.student.debtor] if st.student.debtor else 0,
+                                  "phone": st.student.user.phone[0].phone if st.student.user.phone else None,
+                                  "reason": st.reason, "group": st.group.id if st.group else None})
+        except Exception:
+            continue
 
-    day_dict = {gr['id']: gr for gr in list_students}
-    day_list = list(day_dict.values())
-
-    return jsonify({
-        "data": day_list,
-        "pagination": {
-            "total": total,
-            "offset": offset,
-            "limit": limit,
-            "has_more": (offset + (limit or total)) < total
-        }
-    })
+    return jsonify({"data": list_students, "pagination": {"total": total, "offset": offset, "limit": limit,
+                                                          "has_more": (offset + (limit or total)) < total}})
 
 
 @student_functions.route(f"/newStudents/<int:location_id>", methods=["GET"])
@@ -283,13 +241,13 @@ def newStudents(location_id):
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
 
-    base_query = Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
-        Students.user).filter(Users.location_id == int(location_id))
+    base_query = (Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
+        Students.user).filter(Users.location_id == int(location_id)).distinct(Students.id))
 
     if search:
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
-                                           Users.username.ilike(search_pattern)))
+            Users.username.ilike(search_pattern)))
 
     base_query = base_query.order_by(desc(Students.id))
 
@@ -303,8 +261,8 @@ def newStudents(location_id):
     students = base_query.all()
 
     return jsonify({"newStudents": iterate_models(students),
-                    "pagination": {"total": total, "offset": offset, "limit": limit,
-                                   "has_more": (offset + (limit or total)) < total}})
+        "pagination": {"total": total, "offset": offset, "limit": limit,
+            "has_more": (offset + (limit or total)) < total}})
 
 
 @student_functions.route(f'/get_filtered_students_list/<int:location_id>', methods=["GET"])

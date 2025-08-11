@@ -6,3 +6,4 @@ __pycache__/
 .py~
 */__pycache__/
 .idea
+.env
