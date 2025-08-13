@@ -267,8 +267,9 @@ def update_debt_progress(location_id):
 
     if task_statistics:
         students = [ts.student for ts in in_progress_tasks]
-    if not task_statistics:
+    else:
         students = filter_debts(location_id)
+    if not task_statistics:
         task_statistics = TasksStatistics(
             task_id=task.id,
             calendar_year=calendar_year.id,
