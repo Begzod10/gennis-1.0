@@ -199,7 +199,8 @@ def login():
     if request.method == "POST":
         username = get_json_field('username')
         password = get_json_field('password')
-        username_sign = Users.query.filter(Users.username == username).filter(Users.deleted == None).first()
+        username_sign = Users.query.filter(Users.username == username).filter(
+            or_(Users.deleted == False, Users.deleted == None)).first()
 
         if username_sign and check_password_hash(username_sign.password, password):
             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
@@ -745,6 +746,8 @@ def profile(user_id):
     old_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime("2025-01", "%Y-%m")).first()
     refresh_age(user_get.id)
     att_count = 0
+    # user_get.deleted = True
+    # db.session.commit()
     if teacher_get:
         groups = Groups.query.filter(Groups.teacher_id == teacher_get.id,
                                      Groups.status == True).order_by(Groups.id).all()
@@ -1118,6 +1121,7 @@ def profile(user_id):
             "photo_profile": user_get.photo_profile,
             "observer": user_get.observer,
             "att_count": att_count,
+            "deleted": user_get.deleted,
             "activeToChange": {
                 "username": True,
                 "name": True,
@@ -1216,6 +1220,15 @@ def profile(user_id):
     return jsonify({
         "user": user
     })
+
+
+@base_bp.route(f'/change/delete/status/<user_id>/')
+def change_delete_status(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    if user:
+        user.deleted = None
+        db.session.commit()
+    return jsonify({"msg": "Deleted status changed"})
 
 
 @base_bp.route(f'/user_time_table/<int:user_id>/<int:location_id>')

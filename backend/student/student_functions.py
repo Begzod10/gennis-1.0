@@ -82,13 +82,10 @@ def get_back_student(user_id):
 
     return jsonify({"success": True, "msg": "Student ro'yxatga qaytarildi"})
 
-<<<<<<< HEAD
 
 from sqlalchemy import or_
 
 
-=======
->>>>>>> 58726dd6176e228405343c91f5e3898ebe141e6e
 @student_functions.route(f'/studyingStudents/<int:id>', methods=['POST', 'GET'])
 @jwt_required()
 def studyingStudents(id):
@@ -164,11 +161,6 @@ def studyingStudents(id):
     })
 
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 58726dd6176e228405343c91f5e3898ebe141e6e
 @student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
 @jwt_required()
 def deletedStudents(id):
@@ -247,7 +239,7 @@ def newStudents(location_id):
     if search:
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
-            Users.username.ilike(search_pattern)))
+                                           Users.username.ilike(search_pattern)))
 
     base_query = base_query.order_by(desc(Students.id))
 
@@ -261,8 +253,8 @@ def newStudents(location_id):
     students = base_query.all()
 
     return jsonify({"newStudents": iterate_models(students),
-        "pagination": {"total": total, "offset": offset, "limit": limit,
-            "has_more": (offset + (limit or total)) < total}})
+                    "pagination": {"total": total, "offset": offset, "limit": limit,
+                                   "has_more": (offset + (limit or total)) < total}})
 
 
 @student_functions.route(f'/get_filtered_students_list/<int:location_id>', methods=["GET"])

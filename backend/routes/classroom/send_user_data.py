@@ -3,13 +3,15 @@ from backend.functions.utils import api
 from backend.models.models import Users, Students, Teachers, Subjects, SubjectLevels
 from backend.parent.models import Parent
 from flask import Blueprint
+from sqlalchemy import or_
 
 classroom_basic_bp = Blueprint('classroom_basic', __name__)
 
 
 @classroom_basic_bp.route(f'/send_user_data/<username>')
 def send_user_data(username):
-    user = Users.query.filter(Users.username == username, Users.deleted == None).first()
+    user = Users.query.filter(Users.username == username).filter(
+        or_(Users.deleted == False, Users.deleted == None)).first()
 
     if user.student:
         get_user = Students.query.filter(Students.user_id == user.id).first()
@@ -24,7 +26,7 @@ def send_parent_data(user_id):
 
     if user.parent:
         get_user = Parent.query.filter(Parent.user_id == user_id).first()
-    return jsonify({"status": "true", "user": get_user.convert_json()})
+        return jsonify({"status": "true", "user": get_user.convert_json()})
 
 
 @classroom_basic_bp.route(f'/send_student_data/<user_id>')

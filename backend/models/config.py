@@ -1,10 +1,10 @@
 import os
-<<<<<<< HEAD
+
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-=======
+
 from datetime import timedelta
->>>>>>> 58726dd6176e228405343c91f5e3898ebe141e6e
+
 
 load_dotenv()
 SECRET_KEY = os.urandom(32)
@@ -15,12 +15,11 @@ DEBUG = True
 
 DB_USER = os.getenv('FLASK_DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
-<<<<<<< HEAD
+
 # DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5433')
 DB_HOST = os.getenv('DB_HOST', 'localhost:5432')
-=======
-DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost')
->>>>>>> 58726dd6176e228405343c91f5e3898ebe141e6e
+
+
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
 DB_PORT = os.getenv('FLASK_DB_PORT', '5432')
 
