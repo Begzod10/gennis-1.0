@@ -255,8 +255,20 @@ def update_debt_progress(location_id):
         calendar_year=calendar_year.id,
         task_id=task.id
     ).first()
+    in_progress_tasks = TaskStudents.query.filter(
+        TaskStudents.task_id == task.id,
+        TaskStudents.tasksstatistics_id == task_statistics.id,
+        TaskStudents.status.is_(False),
+        TaskStudents.calendar_day == calendar_day.id
+    ).join(TaskStudents.student).filter(
+        Students.debtor != 4,
+        Students.debtor != 0
+    ).distinct(TaskStudents.student_id).all()
 
+    if task_statistics:
+        students = [ts.student for ts in in_progress_tasks]
     if not task_statistics:
+        students = filter_debts(location_id)
         task_statistics = TasksStatistics(
             task_id=task.id,
             calendar_year=calendar_year.id,
@@ -269,28 +281,6 @@ def update_debt_progress(location_id):
         db.session.add(task_statistics)
         db.session.commit()
 
-    in_progress_tasks = TaskStudents.query.filter(
-        TaskStudents.task_id == task.id,
-        TaskStudents.tasksstatistics_id == task_statistics.id,
-        TaskStudents.status.is_(False),
-        TaskStudents.calendar_day == calendar_day.id
-    ).join(TaskStudents.student).filter(
-        Students.debtor != 4,
-        Students.debtor != 0
-    ).distinct(TaskStudents.student_id).all()
-
-    task_student_exists = TaskStudents.query.filter_by(
-        task_id=task.id,
-        tasksstatistics_id=task_statistics.id,
-        calendar_day=calendar_day.id
-    ).first()
-
-    if task_student_exists:
-        students = [ts.student for ts in in_progress_tasks]
-    else:
-        students = filter_debts(location_id)
-
-    if not task_student_exists:
         for st in students:
             exists = db.session.query(TaskStudents).filter_by(
                 task_id=task.id,
