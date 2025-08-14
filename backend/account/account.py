@@ -10,7 +10,7 @@ from backend.functions.utils import get_json_field, find_calendar_date
 from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes, StudentPayments, Students, CalendarDay, \
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
-    CapitalExpenditure, Investment, db
+    CapitalExpenditure, Investment, db, Groups, StudentExcuses
 from backend.models.settings import sum_money
 
 account_bp = Blueprint('account_bp', __name__)
@@ -50,268 +50,33 @@ def account_info(type_filter):
 
 
     elif type_account == "payments":
-
         search = request.args.get("search", type=str)
-
         query = StudentPayments.query.join(StudentPayments.student).join(Students.user).filter(
-
             StudentPayments.location_id == location,
-
             StudentPayments.payment == True
-
         )
-
         if not type_filter:
             query = query.filter(StudentPayments.account_period_id == accounting_period)
-
         if search:
             search_term = f"%{search}%"
-
             query = query.filter(or_(
-
                 Users.name.ilike(search_term),
-
                 Users.surname.ilike(search_term)
-
             ))
-
         payments = query.order_by(desc(StudentPayments.id)).all()
-
         type_account = "user"
-
         payments_list = [{
-
             "id": p.id,
-
             "name": p.student.user.name.title(),
-
             "surname": p.student.user.surname.title(),
-
             "payment": p.payment_sum,
-
             "typePayment": p.payment_type.name,
-
             "date": p.day.date.strftime("%Y-%m-%d"),
-
             "day": str(p.calendar_day),
-
             "month": str(p.calendar_month),
-
             "year": str(p.calendar_year),
-
             "user_id": p.student.user_id
-
         } for p in payments]
-
-
-    elif type_account == "book_payments":
-
-        type_pagenation = get_json_field("type_pagenation")
-
-        type_account = "studentBookPayment"
-
-        if not type_filter:
-
-            branch_payments = BranchPayment.query.filter(
-
-                BranchPayment.location_id == location,
-
-                BranchPayment.account_period_id == accounting_period
-
-            ).order_by(BranchPayment.id).all()
-
-            center_balance_overhead = CenterBalanceOverhead.query.filter(
-
-                CenterBalanceOverhead.location_id == location,
-
-                CenterBalanceOverhead.account_period_id == accounting_period,
-
-                CenterBalanceOverhead.deleted == False
-
-            ).order_by(CenterBalanceOverhead.id).all()
-
-        else:
-
-            branch_payments = BranchPayment.query.filter(
-
-                BranchPayment.location_id == location
-
-            ).order_by(BranchPayment.id).all()
-
-            center_balance_overhead = CenterBalanceOverhead.query.filter(
-
-                CenterBalanceOverhead.location_id == location,
-
-                CenterBalanceOverhead.deleted == False
-
-            ).order_by(CenterBalanceOverhead.id).all()
-
-        # FULL list
-
-        full_book_payments = [{
-
-            "id": p.id,
-
-            "name": "Kitobchiga pul",
-
-            "price": int(p.order.book.own_price) if p.order.book else 0,
-
-            "typePayment": p.payment_type.name,
-
-            "date": p.order.day.date.strftime("%Y-%m-%d"),
-
-            "day": str(p.calendar_day),
-
-            "month": str(p.calendar_month),
-
-            "year": str(p.calendar_year),
-
-            "reason": "",
-
-            "type": "book_payments",
-
-        } for p in branch_payments]
-
-
-        if type_pagenation == "book_payments":
-
-            total = len(full_book_payments)
-
-            paginated_book_payments = full_book_payments[offset:offset + limit]
-
-        else:
-
-            total = len(full_book_payments)
-
-            paginated_book_payments = full_book_payments  # no pagination
-
-        book_overheads = [{
-
-            "id": o.id,
-
-            "name": "Kitob pulidan",
-
-            "price": int(o.payment_sum),
-
-            "typePayment": o.payment_type.name,
-
-            "date": o.day.date.strftime("%Y-%m-%d"),
-
-            "day": str(o.calendar_day),
-
-            "month": str(o.calendar_month),
-
-            "year": str(o.calendar_year),
-
-            "reason": "",
-
-            "type": "book_overheads",
-
-        } for o in center_balance_overhead]
-
-        # Return structure
-
-        payments_list = {
-
-            "book_overheads": book_overheads,
-
-            "book_payments": paginated_book_payments,
-
-        }
-
-        pagination_data = {
-
-            "total": total,
-
-            "offset": offset,
-
-            "limit": limit,
-
-            "has_more": (offset + limit) < total
-
-        } if type_pagenation == "book_payments" else None
-
-
-    elif type_account == "teacher_salary":
-        query = TeacherSalaries.query.filter(TeacherSalaries.location_id == location)
-        if not type_filter:
-            query = query.filter(TeacherSalaries.account_period_id == accounting_period)
-        teacher_salaries = query.order_by(desc(TeacherSalaries.id)).all()
-        type_account = "user"
-        payments_list = [{"id": s.id, "name": s.teacher.user.name.title(), "surname": s.teacher.user.surname.title(),
-            "salary": s.payment_sum, "typePayment": s.payment_type.name, "date": s.day.date.strftime("%Y-%m-%d"),
-            "day": str(s.calendar_day), "month": str(s.calendar_month), "year": str(s.calendar_year),
-            "user_id": s.teacher.user_id} for s in teacher_salaries]
-
-    elif type_account == "staff_salary":
-        query = StaffSalaries.query.filter(StaffSalaries.location_id == location)
-        if not type_filter:
-            query = query.filter(StaffSalaries.account_period_id == accounting_period)
-        staff_salaries = query.order_by(desc(StaffSalaries.id)).all()
-        type_account = "user"
-        payments_list = [{"id": s.id, "name": s.staff.user.name.title(), "surname": s.staff.user.surname.title(),
-            "salary": s.payment_sum, "typePayment": s.payment_type.name, "date": s.day.date.strftime("%Y-%m-%d"),
-            "day": str(s.calendar_day), "month": str(s.calendar_month), "year": str(s.calendar_year),
-            "user_id": s.staff.user_id, "job": s.profession.name} for s in staff_salaries]
-
-    elif type_account == "discounts":
-        query = StudentPayments.query.filter(StudentPayments.location_id == location, StudentPayments.payment == False)
-        if not type_filter:
-            query = query.filter(StudentPayments.account_period_id == accounting_period)
-        discounts = query.order_by(desc(StudentPayments.id)).all()
-        type_account = "user"
-        payments_list = [{"id": p.id, "name": p.student.user.name.title(), "surname": p.student.user.surname.title(),
-            "payment": p.payment_sum, "typePayment": p.payment_type.name, "date": p.day.date.strftime("%Y-%m-%d"),
-            "day": str(p.calendar_day), "month": str(p.calendar_month), "year": str(p.calendar_year),
-            "user_id": p.student.user_id} for p in discounts]
-
-    elif type_account == "debts":
-        students = db.session.query(Students).join(Students.user).options(contains_eager(Students.user)).filter(
-            Users.balance < 0, Users.location_id == location).order_by(Users.balance).all()
-        type_account = "user"
-        for student in students:
-            info = {"id": student.user.id, "name": student.user.name.title(), "surname": student.user.surname.title(),
-                "moneyType": ["green", "yellow", "red", "navy", "black"][student.debtor],
-                "phone": student.user.phone[0].phone, "balance": student.user.balance,
-                "status": "Guruh" if student.group else "Guruhsiz", "teacher": [], "reason": "",
-                "payment_reason": "tel qilinmaganlar", "reason_days": ""}
-            if student.group:
-                for gr in student.group:
-                    teacher = Teachers.query.filter(Teachers.id == gr.teacher_id).first()
-                    if teacher:
-                        info['teacher'].append(str(teacher.user_id))
-            if student.reasons_list:
-                for reason in student.reasons_list:
-                    if not reason.to_date:
-                        if reason.added_date == calendar_day.date:
-                            info['reason_days'] = reason.added_date.strftime("%Y-%m-%d")
-                            info['payment_reason'] = "tel ko'tarmadi"
-                    else:
-                        if reason.to_date >= calendar_day.date:
-                            info['reason'] = reason.reason
-                            info['reason_days'] = reason.to_date.strftime("%Y-%m-%d")
-                            info['payment_reason'] = "tel ko'tardi"
-            payments_list.append(info)
-
-    elif type_account == "overhead":
-        query = Overhead.query.filter(Overhead.location_id == location)
-        if not type_filter:
-            query = query.filter(Overhead.account_period_id == accounting_period)
-        overheads = query.order_by(desc(Overhead.id)).all()
-        type_account = ''
-        payments_list = [{"id": o.id, "name": o.item_name, "price": int(o.item_sum), "typePayment": o.payment_type.name,
-            "date": o.day.date.strftime("%Y-%m-%d"), "day": str(o.calendar_day), "month": str(o.calendar_month),
-            "year": str(o.calendar_year), "reason": "", "type": "overhead", } for o in overheads]
-
-    elif type_account == "capital":
-        query = CapitalExpenditure.query.filter(CapitalExpenditure.location_id == location)
-        if not type_filter:
-            query = query.filter(CapitalExpenditure.account_period_id == accounting_period)
-        capital = query.order_by(desc(CapitalExpenditure.id)).all()
-        type_account = ''
-        payments_list = [{"id": c.id, "name": c.item_name, "price": c.item_sum, "typePayment": c.payment_type.name,
-            "date": c.day.date.strftime("%Y-%m-%d"), "day": str(c.calendar_day), "month": str(c.calendar_month),
-            "year": str(c.calendar_year)} for c in capital]
 
     # Apply pagination
     pagination_data = None
@@ -325,11 +90,513 @@ def account_info(type_filter):
             total = len(payments_list[key])
             payments_list[key] = payments_list[key][offset:offset + limit]
             pagination_data[key] = {"total": total, "page": offset, "limit": limit,
-                "has_more": (offset + limit) < total}
+                                    "has_more": (offset + limit) < total}
 
     return jsonify({"data": {"typeOfMoney": type_account, "data": payments_list, "pagination": pagination_data,
-        "overhead_tools": old_current_dates(observation=True), "capital_tools": old_current_dates(observation=True),
-        "teacher_list": final_list, "location": location}})
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "teacher_list": final_list, "location": location}})
+
+
+@account_bp.route('/account_info/students_payments/', methods=["GET"])
+@jwt_required()
+def account_info_payments():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    payment_type = request.args.get('paymentType')
+    year = request.args.get('year')
+    month = request.args.get('month')
+    day = request.args.get('day')
+    calendar_year = None
+    calendar_month = None
+    calendar_day = None
+    if year:
+        calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
+    if month:
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month).first()
+    if day:
+        calendar_day = CalendarDay.query.filter(CalendarDay.id == day).first()
+
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+    search = request.args.get("search", type=str)
+    query = StudentPayments.query.join(StudentPayments.student).join(Students.user).filter(
+        StudentPayments.location_id == location,
+        StudentPayments.payment == True
+    )
+    if not type_filter:
+        query = query.filter(StudentPayments.account_period_id == accounting_period)
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(or_(
+            Users.name.ilike(search_term),
+            Users.surname.ilike(search_term)
+        ))
+    if payment_type:
+        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type).first().id
+        query = query.filter(StudentPayments.payment_type_id == payment_type)
+    if calendar_year:
+        query = query.filter(StudentPayments.calendar_year == calendar_year.id)
+    if calendar_month:
+        query = query.filter(StudentPayments.calendar_month == calendar_month.id)
+    if calendar_day:
+        query = query.filter(StudentPayments.calendar_day == calendar_day.id)
+    payments = query.order_by(desc(StudentPayments.id)).all()
+    payments_list = [{
+        "id": p.id,
+        "name": p.student.user.name.title(),
+        "surname": p.student.user.surname.title(),
+        "payment": p.payment_sum,
+        "typePayment": p.payment_type.name,
+        "date": p.day.date.strftime("%Y-%m-%d"),
+        "day": str(p.calendar_day),
+        "month": str(p.calendar_month),
+        "year": str(p.calendar_year),
+        "user_id": p.student.user_id
+    } for p in payments]
+    pagination_data = None
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {"total": total, "page": offset, "limit": limit, "has_more": (offset + limit) < total}
+    return jsonify({"data": {"typeOfMoney": "payments", "data": payments_list, "pagination": pagination_data,
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "location": location}})
+
+
+@account_bp.route('/account_info/book_payments/', methods=["GET"])
+@jwt_required()
+def account_info_book_payments():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    accounting_period = request.args.get('accountingPeriod')
+    offset = request.args.get('offset', default=0, type=int)
+    limit = request.args.get('limit', type=int)
+    type_pagenation = request.args.get("type_pagenation")
+
+    type_account = "studentBookPayment"
+
+    # Queries
+    if not type_filter:
+        branch_payments = BranchPayment.query.filter(
+            BranchPayment.location_id == location,
+            BranchPayment.account_period_id == accounting_period
+        ).order_by(BranchPayment.id).all()
+
+        center_balance_overhead = CenterBalanceOverhead.query.filter(
+            CenterBalanceOverhead.location_id == location,
+            CenterBalanceOverhead.account_period_id == accounting_period,
+            CenterBalanceOverhead.deleted == False
+        ).order_by(CenterBalanceOverhead.id).all()
+    else:
+        branch_payments = BranchPayment.query.filter(
+            BranchPayment.location_id == location
+        ).order_by(BranchPayment.id).all()
+
+        center_balance_overhead = CenterBalanceOverhead.query.filter(
+            CenterBalanceOverhead.location_id == location,
+            CenterBalanceOverhead.deleted == False
+        ).order_by(CenterBalanceOverhead.id).all()
+
+    # FULL list
+    full_book_payments = [{
+        "id": p.id,
+        "name": "Kitobchiga pul",
+        "price": int(p.order.book.own_price) if p.order.book else 0,
+        "typePayment": p.payment_type.name,
+        "date": p.order.day.date.strftime("%Y-%m-%d"),
+        "day": str(p.calendar_day),
+        "month": str(p.calendar_month),
+        "year": str(p.calendar_year),
+        "reason": "",
+        "type": "book_payments",
+    } for p in branch_payments]
+
+    if type_pagenation == "book_payments" and limit is not None:
+        total = len(full_book_payments)
+        paginated_book_payments = full_book_payments[offset:offset + limit]
+        pagination_data = {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < total
+        }
+    else:
+        paginated_book_payments = full_book_payments
+        pagination_data = None
+
+    book_overheads = [{
+        "id": o.id,
+        "name": "Kitob pulidan",
+        "price": int(o.payment_sum),
+        "typePayment": o.payment_type.name,
+        "date": o.day.date.strftime("%Y-%m-%d"),
+        "day": str(o.calendar_day),
+        "month": str(o.calendar_month),
+        "year": str(o.calendar_year),
+        "reason": "",
+        "type": "book_overheads",
+    } for o in center_balance_overhead]
+
+    payments_list = {
+        "book_overheads": book_overheads,
+        "book_payments": paginated_book_payments,
+    }
+
+    return jsonify({
+        "data": {
+            "typeOfMoney": type_account,
+            "data": payments_list,
+            "pagination": pagination_data,
+            "overhead_tools": old_current_dates(observation=True),
+            "capital_tools": old_current_dates(observation=True),
+            "location": location
+        }
+    })
+
+
+@account_bp.route('/account_info/teacher_salary/', methods=["GET"])
+@jwt_required()
+def account_info_teacher_salary():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    payment_type = request.args.get('paymentType')
+    year = request.args.get('year')
+    month = request.args.get('month')
+    day = request.args.get('day')
+    calendar_year = None
+    calendar_month = None
+    calendar_day = None
+    if year:
+        calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
+    if month:
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month).first()
+    if day:
+        calendar_day = CalendarDay.query.filter(CalendarDay.id == day).first()
+
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+    query = TeacherSalaries.query.filter(TeacherSalaries.location_id == location)
+    if not type_filter:
+        query = query.filter(TeacherSalaries.account_period_id == accounting_period)
+    if payment_type:
+        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type).first().id
+        query = query.filter(TeacherSalaries.payment_type_id == payment_type)
+    if calendar_year:
+        query = query.filter(TeacherSalaries.calendar_year == calendar_year.id)
+    if calendar_month:
+        query = query.filter(TeacherSalaries.calendar_month == calendar_month.id)
+    if calendar_day:
+        query = query.filter(TeacherSalaries.calendar_day == calendar_day.id)
+
+    teacher_salaries = query.order_by(desc(TeacherSalaries.id)).all()
+
+    payments_list = [{"id": s.id, "name": s.teacher.user.name.title(), "surname": s.teacher.user.surname.title(),
+                      "salary": s.payment_sum, "typePayment": s.payment_type.name,
+                      "date": s.day.date.strftime("%Y-%m-%d"),
+                      "day": str(s.calendar_day), "month": str(s.calendar_month), "year": str(s.calendar_year),
+                      "user_id": s.teacher.user_id} for s in teacher_salaries]
+
+    pagination_data = None
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {"total": total, "page": offset, "limit": limit, "has_more": (offset + limit) < total}
+    return jsonify({"data": {"typeOfMoney": "teacher_salary", "data": payments_list, "pagination": pagination_data,
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "location": location}})
+
+
+@account_bp.route('/account_info/staff_salary/', methods=["GET"])
+@jwt_required()
+def account_info_staff_salary():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    payment_type = request.args.get('paymentType')
+    year = request.args.get('year')
+    month = request.args.get('month')
+    day = request.args.get('day')
+    calendar_year = None
+    calendar_month = None
+    calendar_day = None
+    if year:
+        calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
+    if month:
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month).first()
+    if day:
+        calendar_day = CalendarDay.query.filter(CalendarDay.id == day).first()
+
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+    query = StaffSalaries.query.filter(StaffSalaries.location_id == location)
+    if not type_filter:
+        query = query.filter(StaffSalaries.account_period_id == accounting_period)
+    if payment_type:
+        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type).first().id
+        query = query.filter(StaffSalaries.payment_type_id == payment_type)
+    if calendar_year:
+        query = query.filter(StaffSalaries.calendar_year == calendar_year.id)
+    if calendar_month:
+        query = query.filter(StaffSalaries.calendar_month == calendar_month.id)
+    if calendar_day:
+        query = query.filter(StaffSalaries.calendar_day_id == calendar_day.id)
+    staff_salaries = query.order_by(desc(StaffSalaries.id)).all()
+    payments_list = [{"id": s.id, "name": s.staff.user.name.title(), "surname": s.staff.user.surname.title(),
+                      "salary": s.payment_sum, "typePayment": s.payment_type.name,
+                      "date": s.day.date.strftime("%Y-%m-%d"),
+                      "day": str(s.calendar_day), "month": str(s.calendar_month), "year": str(s.calendar_year),
+                      "user_id": s.staff.user_id, "job": s.profession.name} for s in staff_salaries]
+    pagination_data = None
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {"total": total, "page": offset, "limit": limit, "has_more": (offset + limit) < total}
+    return jsonify({"data": {"typeOfMoney": "staff_salary", "data": payments_list, "pagination": pagination_data,
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "location": location}})
+
+
+@account_bp.route('/account_info/discounts/', methods=["GET"])
+@jwt_required()
+def account_info_discounts():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+    query = StudentPayments.query.filter(StudentPayments.location_id == location, StudentPayments.payment == False)
+    if not type_filter:
+        query = query.filter(StudentPayments.account_period_id == accounting_period)
+    discounts = query.order_by(desc(StudentPayments.id)).all()
+    payments_list = [{"id": p.id, "name": p.student.user.name.title(), "surname": p.student.user.surname.title(),
+                      "payment": p.payment_sum, "typePayment": p.payment_type.name,
+                      "date": p.day.date.strftime("%Y-%m-%d"),
+                      "day": str(p.calendar_day), "month": str(p.calendar_month), "year": str(p.calendar_year),
+                      "user_id": p.student.user_id} for p in discounts]
+    pagination_data = None
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {"total": total, "page": offset, "limit": limit, "has_more": (offset + limit) < total}
+    return jsonify({"data": {"typeOfMoney": "discountss", "data": payments_list, "pagination": pagination_data,
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "location": location}})
+
+
+@account_bp.route('/account_info/capital/', methods=["GET"])
+@jwt_required()
+def account_info_capital():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    payment_type = request.args.get('paymentType')
+    year = request.args.get('year')
+    month = request.args.get('month')
+    day = request.args.get('day')
+    calendar_year = None
+    calendar_month = None
+    calendar_day = None
+    if year:
+        calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
+    if month:
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month).first()
+    if day:
+        calendar_day = CalendarDay.query.filter(CalendarDay.id == day).first()
+
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+    query = CapitalExpenditure.query.filter(CapitalExpenditure.location_id == location)
+    if not type_filter:
+        query = query.filter(CapitalExpenditure.account_period_id == accounting_period)
+    if calendar_year:
+        query = query.filter(CapitalExpenditure.calendar_year == calendar_year.id)
+    if calendar_month:
+        query = query.filter(CapitalExpenditure.calendar_month == calendar_month.id)
+    if calendar_day:
+        query = query.filter(CapitalExpenditure.calendar_day == calendar_day.id)
+    if payment_type:
+        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type).first().id
+        query = query.filter(CapitalExpenditure.payment_type_id == payment_type)
+    capital = query.order_by(desc(CapitalExpenditure.id)).all()
+    payments_list = [{"id": c.id, "name": c.item_name, "price": c.item_sum, "typePayment": c.payment_type.name,
+                      "date": c.day.date.strftime("%Y-%m-%d"), "day": str(c.calendar_day),
+                      "month": str(c.calendar_month),
+                      "year": str(c.calendar_year)} for c in capital]
+    pagination_data = None
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {"total": total, "page": offset, "limit": limit, "has_more": (offset + limit) < total}
+    return jsonify({"data": {"typeOfMoney": "capital", "data": payments_list, "pagination": pagination_data,
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "location": location}})
+
+
+@account_bp.route('/account_info/overhead/', methods=["GET"])
+@jwt_required()
+def account_info_overhead():
+    location = request.args.get('locationId')
+    type_filter = request.args.get('typeFilter')
+    payment_type = request.args.get('paymentType')
+    overhead_type = request.args.get('overheadType')
+    year = request.args.get('year')
+    month = request.args.get('month')
+    day = request.args.get('day')
+    calendar_year = None
+    calendar_month = None
+    calendar_day = None
+    if year:
+        calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
+    if month:
+        calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month).first()
+    if day:
+        calendar_day = CalendarDay.query.filter(CalendarDay.id == day).first()
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+    query = Overhead.query.filter(Overhead.location_id == location)
+    if not type_filter:
+        query = query.filter(Overhead.account_period_id == accounting_period)
+    if calendar_year:
+        query = query.filter(Overhead.calendar_year == calendar_year.id)
+    if calendar_month:
+        query = query.filter(Overhead.calendar_month == calendar_month.id)
+    if calendar_day:
+        query = query.filter(Overhead.calendar_day == calendar_day.id)
+    if payment_type:
+        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type).first().id
+        query = query.filter(Overhead.payment_type_id == payment_type)
+    if overhead_type:
+        query = query.filter(Overhead.item_name == overhead_type)
+    overheads = query.order_by(desc(Overhead.id)).all()
+    payments_list = [{"id": o.id, "name": o.item_name, "price": int(o.item_sum), "typePayment": o.payment_type.name,
+                      "date": o.day.date.strftime("%Y-%m-%d"), "day": str(o.calendar_day),
+                      "month": str(o.calendar_month),
+                      "year": str(o.calendar_year), "reason": "", "type": "overhead", } for o in overheads]
+    pagination_data = None
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {
+            "total": total,
+            "page": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < total
+        }
+
+    return jsonify({"data": {"typeOfMoney": "overhead", "data": payments_list, "pagination": pagination_data,
+                             "overhead_tools": old_current_dates(observation=True),
+                             "capital_tools": old_current_dates(observation=True),
+                             "location": location}})
+
+
+@account_bp.route('/account_info/debts/', methods=["GET"])
+@jwt_required()
+def account_info_debts():
+    location = request.args.get('locationId')
+    color = request.args.get("color", type=str)
+    limit = request.args.get("limit", type=int)
+    group_status = request.args.get("groupStatus", type=str)
+    teacher_id = request.args.get("teacherId", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+
+    payments_list = []
+
+    # Base query
+    students_query = (
+        db.session.query(Students)
+        .join(Students.user)
+        .options(contains_eager(Students.user))
+        .filter(Users.balance < 0)
+    )
+
+    if location:
+        students_query = students_query.filter(Users.location_id == location)
+
+    if teacher_id:
+        if teacher_id != "all":
+            students_query = (
+                students_query.join(Students.group)
+                .options(contains_eager(Students.group))
+                .filter(Groups.teacher_id == teacher_id)
+            )
+    if group_status:
+        if group_status == "Guruh":
+            students_query = students_query.filter(Students.group != None)
+        else:
+            students_query = students_query.filter(Students.group == None)
+
+    if color:
+        colors = ["green", "yellow", "red", "navy", "black"]
+        if color in colors:
+            students_query = students_query.filter(Students.debtor == colors.index(color))
+
+    students = students_query.order_by(Users.balance).all()
+
+    for student in students:
+        phone = student.user.phone[0].phone if student.user.phone else None
+        student_excuse = StudentExcuses.query.filter_by(student_id=student.id).order_by(desc(StudentExcuses.id)).first()
+        info = {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "moneyType": ["green", "yellow", "red", "navy", "black"][student.debtor],
+            "phone": phone,
+            "balance": student.user.balance,
+            "status": "Guruh" if student.group else "Guruhsiz",
+            "teacher": [],
+            "reason": student_excuse.reason if student_excuse else "",
+            "date": student_excuse.added_date.strftime("%Y-%m-%d") if student_excuse else "",
+            "payment_reason": "tel qilinmaganlar",
+            "reason_days": ""
+        }
+
+        if student.group:
+            teachers = (
+                db.session.query(Teachers)
+                .join(Teachers.group)
+                .options(contains_eager(Teachers.group))
+                .filter(
+                    Groups.teacher_id == teacher_id,
+                    Groups.id.in_([gr.id for gr in student.group])
+                )
+                .all()
+            )
+            if teachers:
+                info['teacher'] = [t.user_id for t in teachers]
+
+        payments_list.append(info)
+
+    # Pagination
+    pagination_data = None
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {
+            "total": total,
+            "page": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < total
+        }
+
+    return jsonify({
+        "data": {
+            "data": payments_list,
+            "pagination": pagination_data,
+            "overhead_tools": old_current_dates(observation=True),
+            "capital_tools": old_current_dates(observation=True),
+            "location": location
+        }
+    })
+
 
 @account_bp.route('/account_info_deleted/', defaults={"type_filter": None}, methods=["POST"])
 @account_bp.route('/account_info_deleted/<type_filter>', methods=["POST"])
@@ -594,6 +861,7 @@ def account_info_deleted(type_filter):
         }
     })
 
+
 @account_bp.route(f'/account_details/<int:location_id>', methods=["POST", "GET"])
 @jwt_required()
 def account_details(location_id):
@@ -650,9 +918,10 @@ def account_details(location_id):
                  Overhead.payment_type_id == payment_type.id)).order_by(desc(Overhead.id)).all()
 
         all_overhead = \
-        db.session.query(func.sum(Overhead.item_sum)).join(CalendarDay, CalendarDay.id == Overhead.calendar_day).filter(
-            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Overhead.location_id == location_id,
-                 Overhead.payment_type_id == payment_type.id)).first()[0] if overhead else 0
+            db.session.query(func.sum(Overhead.item_sum)).join(CalendarDay,
+                                                               CalendarDay.id == Overhead.calendar_day).filter(
+                and_(CalendarDay.date >= ot, CalendarDay.date <= do, Overhead.location_id == location_id,
+                     Overhead.payment_type_id == payment_type.id)).first()[0] if overhead else 0
 
         branch_payments = BranchPayment.query.join(CalendarDay).filter(
             BranchPayment.location_id == location_id, ).filter(
@@ -703,34 +972,36 @@ def account_details(location_id):
                  Dividend.payment_type_id == payment_type.id, Dividend.deleted == False)).order_by(
             desc(Dividend.id)).all()
         all_dividend = \
-        db.session.query(func.sum(Dividend.amount_sum)).join(CalendarDay, CalendarDay.id == Dividend.day_id).filter(
-            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Dividend.location_id == location_id,
-                 Dividend.deleted == False, Dividend.payment_type_id == payment_type.id, )).first()[
-            0] if dividends else 0
+            db.session.query(func.sum(Dividend.amount_sum)).join(CalendarDay, CalendarDay.id == Dividend.day_id).filter(
+                and_(CalendarDay.date >= ot, CalendarDay.date <= do, Dividend.location_id == location_id,
+                     Dividend.deleted == False, Dividend.payment_type_id == payment_type.id, )).first()[
+                0] if dividends else 0
 
         payments_list = [{"id": payment.id, "name": payment.student.user.name.title(),
-            "surname": payment.student.user.surname.title(), "payment": payment.payment_sum,
-            "date": payment.day.date.strftime('%Y-%m-%d'), "user_id": payment.student.user_id} for payment in
-            student_payments]
+                          "surname": payment.student.user.surname.title(), "payment": payment.payment_sum,
+                          "date": payment.day.date.strftime('%Y-%m-%d'), "user_id": payment.student.user_id} for payment
+                         in
+                         student_payments]
 
         teacher_salary = [
             {"id": salary.id, "name": salary.teacher.user.name.title(), "surname": salary.teacher.user.surname.title(),
-                "salary": salary.payment_sum, "reason": salary.reason,
-                "month": salary.salary.month.date.strftime("%Y-%m") if salary.salary else None,
-                "date": salary.day.date.strftime('%Y-%m-%d'), "user_id": salary.teacher.user_id} for salary in
+             "salary": salary.payment_sum, "reason": salary.reason,
+             "month": salary.salary.month.date.strftime("%Y-%m") if salary.salary else None,
+             "date": salary.day.date.strftime('%Y-%m-%d'), "user_id": salary.teacher.user_id} for salary in
             teacher_salaries]
         staff_salary = [{"id": salary.id, "name": salary.staff.user.name.title() if salary.staff else None,
-            "surname": salary.staff.user.surname if salary.staff else None, "payment": salary.payment_sum,
-            "month": salary.month.date.strftime("%Y-%m"), "date": salary.day.date.strftime('%Y-%m-%d'),
-            "user_id": salary.staff.user_id if salary.staff else None} for salary in staff_salaries]
+                         "surname": salary.staff.user.surname if salary.staff else None, "payment": salary.payment_sum,
+                         "month": salary.month.date.strftime("%Y-%m"), "date": salary.day.date.strftime('%Y-%m-%d'),
+                         "user_id": salary.staff.user_id if salary.staff else None} for salary in staff_salaries]
 
         overhead_list = [{"id": salary.id, "name": salary.item_name, "payment": salary.item_sum,
-            "date": salary.day.date.strftime('%Y-%m-%d')} for salary in overhead]
+                          "date": salary.day.date.strftime('%Y-%m-%d')} for salary in overhead]
         overhead_list += [{"id": branch_payment.id, "name": "Kitobchiga pul ", "payment": branch_payment.payment_sum,
-            "date": branch_payment.day.date.strftime('%Y-%m-%d')} for branch_payment in branch_payments]
+                           "date": branch_payment.day.date.strftime('%Y-%m-%d')} for branch_payment in branch_payments]
 
         overhead_list += [{"id": branch_payment.id, "name": "Kitob pulidan", "payment": branch_payment.payment_sum,
-            "date": branch_payment.day.date.strftime('%Y-%m-%d')} for branch_payment in center_balance_overhead]
+                           "date": branch_payment.day.date.strftime('%Y-%m-%d')} for branch_payment in
+                          center_balance_overhead]
         # capital_list = [{
         #     "id": salary.id,
         #     "name": salary.name,
@@ -739,19 +1010,20 @@ def account_details(location_id):
         # } for salary in capitals]
 
         capital_list = [{"id": salary.id, "name": salary.item_name, "payment": salary.item_sum,
-            "date": salary.day.date.strftime('%Y-%m-%d')} for salary in capitals]
+                         "date": salary.day.date.strftime('%Y-%m-%d')} for salary in capitals]
         investment_list = iterate_models(investments)
         # all_investment = all_investment if all_investment else 0
         all_investment = sum([investment.amount for investment in investments])
         result = (all_payment + all_investment) - (
                 all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all + all_dividend)
         return jsonify({"data": {"data": {"studentPayment": {"list": payments_list, "value": all_payment},
-            "teacherSalary": {"list": teacher_salary, "value": all_teacher},
-            "employeeSalary": {"list": staff_salary, "value": all_staff},
-            "overheads": {"list": overhead_list, "value": all_overhead},
-            "capitals": {"list": capital_list, "value": all_capital},
-            "investments": {"list": investment_list, "value": all_investment},
-            "dividends": {"list": iterate_models(dividends), "value": all_dividend}, "result": result}, }})
+                                          "teacherSalary": {"list": teacher_salary, "value": all_teacher},
+                                          "employeeSalary": {"list": staff_salary, "value": all_staff},
+                                          "overheads": {"list": overhead_list, "value": all_overhead},
+                                          "capitals": {"list": capital_list, "value": all_capital},
+                                          "investments": {"list": investment_list, "value": all_investment},
+                                          "dividends": {"list": iterate_models(dividends), "value": all_dividend},
+                                          "result": result}, }})
 
 
 @account_bp.route(f'/get_location_money/<int:location_id>')
@@ -836,10 +1108,10 @@ def get_location_money(location_id):
                  Dividend.payment_type_id == payment_type.id, Dividend.deleted == False)).order_by(
             desc(Dividend.id)).all()
         all_dividend = \
-        db.session.query(func.sum(Dividend.amount_sum)).join(CalendarDay, CalendarDay.id == Dividend.day_id).filter(
-            and_(Dividend.location_id == location_id, Dividend.deleted == False,
-                 Dividend.account_period_id == accounting_period.id,
-                 Dividend.payment_type_id == payment_type.id, )).first()[0] if dividends else 0
+            db.session.query(func.sum(Dividend.amount_sum)).join(CalendarDay, CalendarDay.id == Dividend.day_id).filter(
+                and_(Dividend.location_id == location_id, Dividend.deleted == False,
+                     Dividend.account_period_id == accounting_period.id,
+                     Dividend.payment_type_id == payment_type.id, )).first()[0] if dividends else 0
         # center_balance = CenterBalance.query.filter(CenterBalance.location_id == location_id,
         #                                             CenterBalance.account_period_id == accounting_period).first()
 
@@ -873,9 +1145,9 @@ def get_location_money(location_id):
                 teacher_salaries + staff_salaries + overhead + capital + center_balance_overhead + branch_payments + all_dividend)
 
         account_list += [{"value": current_cash, "type": payment_type.name, "student_payments": student_payments,
-            "teacher_salaries": teacher_salaries, "staff_salaries": staff_salaries,
-            "overhead": overhead + branch_payments + center_balance_overhead, "capital": capital,
-            "dividend": all_dividend}]
+                          "teacher_salaries": teacher_salaries, "staff_salaries": staff_salaries,
+                          "overhead": overhead + branch_payments + center_balance_overhead, "capital": capital,
+                          "dividend": all_dividend}]
 
         account_get = AccountingInfo.query.filter(AccountingInfo.account_period_id == accounting_period.id,
                                                   AccountingInfo.location_id == location_id,
@@ -885,7 +1157,6 @@ def get_location_money(location_id):
         # if not account_get:  #     add = AccountingInfo(account_period_id=accounting_period.id, all_payments=student_payments,  #                          location_id=location_id, all_teacher_salaries=teacher_salaries,  #                          all_dividend=all_dividend,  #                          payment_type_id=payment_type.id, all_staff_salaries=staff_salaries,  #                          all_overhead=overhead + branch_payments + center_balance_overhead, all_capital=capital,  #                          all_charity=student_discounts, current_cash=current_cash,  #                          calendar_year=accounting_period.year_id)  #     add.add()  # else:  #     account_get.all_payments = student_payments  #     account_get.all_teacher_salaries = teacher_salaries  #     account_get.all_staff_salaries = staff_salaries  #     account_get.all_overhead = overhead + branch_payments + center_balance_overhead  #     account_get.all_capital = capital  #     account_get.all_charity = student_discounts  #     account_get.current_cash = current_cash  #     account_get.all_dividend = all_dividend  #     accounting_period.all_investment = 0  # db.session.commit()
 
     return jsonify({"data": account_list})
-
 
 
 @account_bp.route(f'/account_history/<int:location_id>', methods=['POST'])
@@ -910,11 +1181,11 @@ def account_history(location_id):
             desc(AccountingInfo.id)).all()
         account_list = [
             {"id": account.id, "month": account.period.month.date.strftime("%h"), "type": account.payment_type.name,
-                "payment": account.all_payments, "teacherSalary": account.all_teacher_salaries,
-                "employeesSalary": account.all_staff_salaries, "overheads": account.all_overhead,
-                "capitalExpenditures": account.all_capital, "current_cash": account.current_cash,
-                "old_cash": account.old_cash, "period_id": account.account_period_id, "discount": account.all_charity,
-                "dividend": account.all_dividend} for account in account_infos]
+             "payment": account.all_payments, "teacherSalary": account.all_teacher_salaries,
+             "employeesSalary": account.all_staff_salaries, "overheads": account.all_overhead,
+             "capitalExpenditures": account.all_capital, "current_cash": account.current_cash,
+             "old_cash": account.old_cash, "period_id": account.account_period_id, "discount": account.all_charity,
+             "dividend": account.all_dividend} for account in account_infos]
 
         return jsonify({"data": account_list, })
 

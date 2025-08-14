@@ -1,29 +1,27 @@
 from datetime import datetime
 from datetime import timedelta
-from pprint import pprint
 
-import requests
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
+from sqlalchemy import desc, or_
+from sqlalchemy.orm import contains_eager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
-    deleted_students_filter, debt_students, deleted_reg_students_filter
+    deleted_students_filter, debt_students, deleted_reg_students_filter, capital_tools
+from backend.functions.filters import old_current_dates
+from backend.functions.functions import update_user_time_table
 from backend.functions.utils import find_calendar_date, get_json_field, check_exist_id
 from backend.functions.utils import refresh_age, iterate_models, refreshdatas, hour2, update_salary
 from backend.models.models import CourseTypes, Students, Users, Staff, \
-    PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, AccountingInfo, Groups, \
+    PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, Groups, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
     CalendarYear, TeacherData, StudentTest, GroupTest, AttendanceDays, CalendarDay, CalendarMonth, \
-    CertificateLinks, GroupReason, Rooms, Parent, db
+    GroupReason, Rooms, Parent, db
 from backend.student.class_model import Student_Functions
-from backend.functions.functions import update_user_time_table
 from backend.student.register_for_tes.populate import create_school
-from backend.functions.filters import old_current_dates
-from flask import Blueprint, jsonify, request
-from sqlalchemy import desc, or_
-from sqlalchemy.orm import contains_eager
 
 base_bp = Blueprint('base', __name__)
 
@@ -71,6 +69,8 @@ def filters(name, location_id, type_filter):
         filter_block = group_filter(location_id)
     if name == "accounting_payment":
         filter_block = accounting_payments(type_filter)
+    if name == "capital_tools":
+        filter_block = capital_tools(type_filter)
     if name == "collection":
         filter_block = collection()
     if name == "debt_students":

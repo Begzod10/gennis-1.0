@@ -1,4 +1,5 @@
 import calendar
+import pprint
 from datetime import date
 from datetime import datetime, timedelta
 
@@ -199,10 +200,10 @@ def accounting_payments(type_filter=None):
     years_id_list = []
     for year in years:
         years_id_list.append(year.id)
-    months = CalendarMonth.query.order_by(CalendarMonth.date).all()
-    months_id_list = []
-    for month in months:
-        months_id_list.append(month.id)
+    months = CalendarMonth.query.filter(
+        or_(CalendarMonth.overhead_data != None, CalendarMonth.stuff_salary != None,
+            CalendarMonth.student_payment != None, CalendarMonth.teacher_cash != None)).order_by(
+        CalendarMonth.date).all()
     accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
         contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
     days = CalendarDay.query.filter(CalendarDay.account_period_id == accounting_period.id).order_by(
@@ -229,6 +230,7 @@ def accounting_payments(type_filter=None):
 
     day_dict = {gr['value']: gr for gr in day_list}
     filtered_days = list(day_dict.values())
+    filtered_days = sorted(filtered_days, key=lambda x: int(x['name']))
     if type_filter:
         filtered_days = []
         days = CalendarDay.query.filter(CalendarDay.account_period_id == accounting_period.id).order_by(
@@ -248,15 +250,15 @@ def accounting_payments(type_filter=None):
         day_dict = {gr['name']: gr for gr in years_list}
         filtered_years = list(day_dict.values())
         filters = {
-            "day": {
-                "id": 1,
-                "title": "Kun bo'yicha",
-                "name": "Kun",
-                "type": "select",
-                "activeFilters": [],
-                "filtersList": filtered_days,
-
-            },
+            # "day": {
+            #     "id": 1,
+            #     "title": "Kun bo'yicha",
+            #     "name": "Kun",
+            #     "type": "select",
+            #     "activeFilters": [],
+            #     "filtersList": filtered_days,
+            #
+            # },
             "month": {
                 "id": 2,
                 "title": "Oy bo'yicha",
@@ -319,6 +321,120 @@ def accounting_payments(type_filter=None):
     return filters
 
 
+def capital_tools(type_filter):
+    if type_filter == "undefined":
+        type_filter = None
+    years = CalendarYear.query.order_by(
+        CalendarYear.date).all()
+    years_id_list = []
+    for year in years:
+        years_id_list.append(year.id)
+    months = CalendarMonth.query.filter(CalendarMonth.capital_data != None).order_by(CalendarMonth.date).all()
+    accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
+        contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
+    days = CalendarDay.query.filter(CalendarDay.account_period_id == accounting_period.id).order_by(
+        CalendarDay.date).all()
+    years_list = [{
+        "value": str(year.id),
+        "name": year.date.strftime("%Y")
+    } for year in years]
+
+    month_list = [{
+        "value": str(month.id),
+        "name": month.date.strftime("%m"),
+        "year_id": month.year_id
+    } for month in months]
+
+    day_list = [{
+        "value": str(day.id),
+        "name": day.date.strftime("%d"),
+        "month_id": day.month_id
+    } for day in days]
+
+    payment_types = PaymentTypes.query.all()
+    payment_types_list = [sub.name for sub in payment_types]
+
+    day_dict = {gr['value']: gr for gr in day_list}
+    filtered_days = list(day_dict.values())
+    filtered_days = sorted(filtered_days, key=lambda x: int(x['name']))
+    if type_filter:
+        filtered_days = []
+        days = CalendarDay.query.filter(CalendarDay.account_period_id == accounting_period.id).order_by(
+            CalendarDay.date).all()
+        day_list = [{
+            "value": str(day.id),
+            "name": day.date.strftime("%d"),
+            "month_id": day.month_id
+        } for day in days]
+
+        day_dict = {gr['value']: gr for gr in day_list}
+        filtered_days = list(day_dict.values())
+
+        day_dict = {gr['name']: gr for gr in month_list}
+        filtered_months = list(day_dict.values())
+
+        day_dict = {gr['name']: gr for gr in years_list}
+        filtered_years = list(day_dict.values())
+        filters = {
+            # "day": {
+            #     "id": 1,
+            #     "title": "Kun bo'yicha",
+            #     "name": "Kun",
+            #     "type": "select",
+            #     "activeFilters": [],
+            #     "filtersList": filtered_days,
+            #
+            # },
+            "month": {
+                "id": 2,
+                "title": "Oy bo'yicha",
+                "name": "Oy",
+                "type": "select",
+                "activeFilters": [],
+                "filtersList": filtered_months,
+
+            },
+            "year": {
+                "id": 3,
+                "title": "Yil bo'yicha",
+                "name": "Yil",
+                "type": "select",
+                "activeFilters": [],
+                "filtersList": filtered_years,
+
+            },
+            "typePayment": {
+                "id": 1,
+                "title": "To'lov turi bo'yicha",
+                "type": "btn",
+                "typeChange": "multiple",
+                "activeFilters": [],
+                "filtersList": payment_types_list
+            }
+        }
+    else:
+        filters = {
+            "day": {
+                "id": 1,
+                "title": "Kun bo'yicha",
+                "name": "Kun",
+                "type": "select",
+                "activeFilters": [],
+                "filtersList": filtered_days,
+
+            },
+            "typePayment": {
+                "id": 2,
+                "title": "To'lov turi bo'yicha",
+                "type": "btn",
+                "typeChange": "multiple",
+                "activeFilters": [],
+                "filtersList": payment_types_list
+            }
+        }
+    return filters
+
+
 def collection():
     """
 
@@ -357,25 +473,25 @@ def debt_students(location_id):
                 teacher = Teachers.query.filter(Teachers.id == gr.teacher_id).first()
                 if teacher:
                     for_teacher = {
-                        "value": str(teacher.user.id),
+                        "value": str(teacher.id),
                         "name": f"{teacher.user.name.title()} {teacher.user.surname.title()}",
                     }
                     teacher_list.append(for_teacher)
 
-        if student.reasons_list:
-            for reason in student.reasons_list:
-                if reason.to_date:
-                    if calendar_day.date <= reason.to_date:
-                        info = {
-
-                            "name": reason.to_date.strftime("%Y-%m-%d")
-                        }
-                        reasons_days.append(info)
-                if calendar_day.date == reason.added_date:
-                    info = {
-                        "name": reason.added_date.strftime("%Y-%m-%d")
-                    }
-                    reasons_days.append(info)
+        # if student.reasons_list:
+        #     for reason in student.reasons_list:
+        #         if reason.to_date:
+        #             if calendar_day.date <= reason.to_date:
+        #                 info = {
+        #
+        #                     "name": reason.to_date.strftime("%Y-%m-%d")
+        #                 }
+        #                 reasons_days.append(info)
+        #         if calendar_day.date == reason.added_date:
+        #             info = {
+        #                 "name": reason.added_date.strftime("%Y-%m-%d")
+        #             }
+        #             reasons_days.append(info)
 
     day_dict = {gr['value']: gr for gr in teacher_list}
     final_list = list(day_dict.values())
@@ -407,22 +523,22 @@ def debt_students(location_id):
             "activeFilters": [],
             "filtersList": final_list
         },
-        "payment_reason": {
-            "id": 4,
-            "title": "Telefon status",
-            "type": "btn",
-            "typeChange": "once",
-            "activeFilters": [],
-            "filtersList": ["tel ko'tardi", "tel ko'tarmadi", "tel qilinmaganlar"]
-        },
-        "reason_days": {
-            "id": 5,
-            "title": "To'lov olib kelish kunlari",
-            "name": "To'lov kunlari",
-            "type": "select",
-            "activeFilters": [],
-            "filtersList": filtered_days
-        },
+        # "payment_reason": {
+        #     "id": 4,
+        #     "title": "Telefon status",
+        #     "type": "btn",
+        #     "typeChange": "once",
+        #     "activeFilters": [],
+        #     "filtersList": ["tel ko'tardi", "tel ko'tarmadi", "tel qilinmaganlar"]
+        # },
+        # "reason_days": {
+        #     "id": 5,
+        #     "title": "To'lov olib kelish kunlari",
+        #     "name": "To'lov kunlari",
+        #     "type": "select",
+        #     "activeFilters": [],
+        #     "filtersList": filtered_days
+        # },
 
     }
 
