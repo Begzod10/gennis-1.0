@@ -15,6 +15,7 @@ def send_user_data(user_id):
         get_user = Students.query.filter(Students.user_id == user_id).first()
     else:
         get_user = Teachers.query.filter(Teachers.user_id == user_id).first()
+    print(get_user.convert_groups())
     return jsonify({"status": "true", "user": get_user.convert_groups()})
 
 
