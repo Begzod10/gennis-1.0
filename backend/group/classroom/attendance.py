@@ -460,12 +460,7 @@ def make_attendance_classroom():
 
     target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
 
-    lesson_plans = LessonPlan.query.filter(
-        LessonPlan.group_id == group.id,
-        LessonPlan.date.in_(target_dates),
-        LessonPlan.main_lesson == None,
-        LessonPlan.homework == None
-    ).all()
+
     fine = 0
     today_lesson_plan = LessonPlan.query.filter(LessonPlan.group_id == group.id,
                                                 LessonPlan.teacher_id == teacher.id,
