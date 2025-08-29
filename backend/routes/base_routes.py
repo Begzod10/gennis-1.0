@@ -1,29 +1,29 @@
+import hashlib
 from datetime import datetime
 from datetime import timedelta
-from pprint import pprint
 
-import requests
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
+from sqlalchemy import desc, or_
+from sqlalchemy import text
+from sqlalchemy.orm import contains_eager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
     deleted_students_filter, debt_students, deleted_reg_students_filter
+from backend.functions.filters import old_current_dates
+from backend.functions.functions import update_user_time_table
 from backend.functions.utils import find_calendar_date, get_json_field, check_exist_id
 from backend.functions.utils import refresh_age, iterate_models, refreshdatas, hour2, update_salary
 from backend.models.models import CourseTypes, Students, Users, Staff, \
-    PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, AccountingInfo, Groups, \
+    PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, Groups, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
     CalendarYear, TeacherData, StudentTest, GroupTest, AttendanceDays, CalendarDay, CalendarMonth, \
-    CertificateLinks, GroupReason, Rooms, Parent, db
+    GroupReason, Rooms, Parent, db
 from backend.student.class_model import Student_Functions
-from backend.functions.functions import update_user_time_table
 from backend.student.register_for_tes.populate import create_school
-from backend.functions.filters import old_current_dates
-from flask import Blueprint, jsonify, request
-from sqlalchemy import desc, or_
-from sqlalchemy.orm import contains_eager
 
 base_bp = Blueprint('base', __name__)
 
@@ -188,6 +188,26 @@ def refresh():
     })
 
 
+def verify_and_upgrade_password(conn, user, input_password):
+    stored_hash = user.password
+
+    if stored_hash.startswith("pbkdf2:"):
+        # Normal case
+        return check_password_hash(stored_hash, input_password)
+
+    else:
+        # Legacy SHA256 case
+        if hashlib.sha256(input_password.encode()).hexdigest() == stored_hash:
+            # ✅ Correct password → upgrade to pbkdf2
+            new_hash = generate_password_hash(input_password, method="pbkdf2:sha256")
+            conn.execute(
+                text("UPDATE users SET password = :p WHERE id = :uid"),
+                {"p": new_hash, "uid": user.id}
+            )
+            return True
+        return False
+
+
 @base_bp.route(f'/login', methods=['POST', 'GET'])
 def login():
     """
@@ -199,10 +219,30 @@ def login():
     if request.method == "POST":
         username = get_json_field('username')
         password = get_json_field('password')
+
         username_sign = Users.query.filter(Users.username == username).filter(
             or_(Users.deleted == False, Users.deleted == None)).first()
 
-        if username_sign and check_password_hash(username_sign.password, password):
+        if not username_sign:
+            return jsonify({"success": False, "msg": "Username yoki parol noturg'i"})
+
+        stored_hash = username_sign.password
+        password_ok = False
+
+        # ✅ Case 1: new pbkdf2 hash
+        if stored_hash.startswith("pbkdf2:"):
+            password_ok = check_password_hash(stored_hash, password)
+
+        else:
+            # ✅ Case 2: legacy SHA256 hash
+            sha256_hash = hashlib.sha256(password.encode()).hexdigest()
+            if sha256_hash == stored_hash:
+                password_ok = True
+                # Upgrade user password to pbkdf2 immediately
+                username_sign.password = generate_password_hash(password, method="pbkdf2:sha256")
+                db.session.commit()
+
+        if password_ok:
             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
             access_token = create_access_token(identity=username_sign.user_id)
             refresh_age(username_sign.id)
@@ -229,13 +269,10 @@ def login():
                 "type_user": role.type_role,
                 "parent": parent.convert_json() if parent else {},
                 "location": location.convert_json()
+            })
 
-            })
         else:
-            return jsonify({
-                "success": False,
-                "msg": "Username yoki parol noturg'i"
-            })
+            return jsonify({"success": False, "msg": "Username yoki parol noturg'i"})
 
 
 @base_bp.route(f'/get_user')
