@@ -142,6 +142,7 @@ class CalendarMonth(db.Model):
     stuff_salary = relationship('StaffSalary', backref="month", order_by="StaffSalary.id")
     staff_given_salary = relationship("StaffSalaries", backref="month", order_by="StaffSalaries.id")
     overhead_data = relationship('Overhead', backref="month", order_by="Overhead.id")
+    capital_data = relationship("CapitalExpenditure", backref="month", order_by="CapitalExpenditure.id")
     # accounting = relationship("AccountingInfo", backref="month", order_by="AccountingInfo.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="month", order_by="DeletedStudentPayments.id")
     deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="month",
@@ -619,11 +620,11 @@ class CourseTypes(db.Model):
     old_id = Column(Integer)
 
 
-db.Table('student_subject',
-         db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
-         db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))
-         )
-
+student_subject = db.Table(
+    'student_subject',
+    db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))
+)
 db.Table('teacher_subject',
          db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
          db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))

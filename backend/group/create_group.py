@@ -2,13 +2,14 @@ from sqlalchemy import and_, or_, extract
 from backend.functions.utils import remove_items_create_group
 from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, Group_Room_Week, Students, Users, \
     StudentHistoryGroups, Groups, RegisterDeletedStudents, Roles, Locations, DeletedStudents, GroupReason, CalendarDay, \
-    TeacherGroupStatistics, db
+    TeacherGroupStatistics, db, student_subject
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import get_json_field, find_calendar_date
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import contains_eager
 from pprint import pprint
+from sqlalchemy import delete
 
 group_create_bp = Blueprint('group_create_bp', __name__)
 
@@ -434,10 +435,14 @@ def add_group_students2(group_id):
         ).order_by(
             'id').all()
         for st in students_checked:
-
-            if subject in st.subject:
-                st.subject.remove(subject)
-                db.session.commit()
+            # ✅ Directly delete any existing student-subject relationship
+            db.session.execute(
+                delete(student_subject).where(
+                    student_subject.c.subject_id == subject.id,
+                    student_subject.c.student_id == st.id
+                )
+            )
+            db.session.commit()
             st.group.append(group)
             group_history = StudentHistoryGroups(teacher_id=group.teacher_id, student_id=st.id, group_id=group.id,
                                                  joined_day=calendar_day.date)

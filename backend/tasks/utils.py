@@ -255,20 +255,21 @@ def update_debt_progress(location_id):
         calendar_year=calendar_year.id,
         task_id=task.id
     ).first()
-    in_progress_tasks = TaskStudents.query.filter(
-        TaskStudents.task_id == task.id,
-        TaskStudents.tasksstatistics_id == task_statistics.id,
-        TaskStudents.status.is_(False),
-        TaskStudents.calendar_day == calendar_day.id
-    ).join(TaskStudents.student).filter(
-        Students.debtor != 4,
-        Students.debtor != 0
-    ).distinct(TaskStudents.student_id).all()
 
     if task_statistics:
+        in_progress_tasks = TaskStudents.query.filter(
+            TaskStudents.task_id == task.id,
+            TaskStudents.tasksstatistics_id == task_statistics.id,
+            TaskStudents.status.is_(False),
+            TaskStudents.calendar_day == calendar_day.id
+        ).join(TaskStudents.student).filter(
+            Students.debtor != 4,
+            Students.debtor != 0
+        ).distinct(TaskStudents.student_id).all()
         students = [ts.student for ts in in_progress_tasks]
-    if not task_statistics:
+    else:
         students = filter_debts(location_id)
+    if not task_statistics:
         task_statistics = TasksStatistics(
             task_id=task.id,
             calendar_year=calendar_year.id,

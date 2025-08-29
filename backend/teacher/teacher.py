@@ -416,7 +416,7 @@ def make_attendance():
         date=calendar_day.date
     ).first()
     fine = 0
-    fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
+    # fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
 
     # Add attendance day
 
