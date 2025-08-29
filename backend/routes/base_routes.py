@@ -6,16 +6,13 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
 from sqlalchemy import desc, or_
-
 from sqlalchemy import text
-
 from sqlalchemy.orm import contains_eager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
     deleted_students_filter, debt_students, deleted_reg_students_filter, capital_tools
-
 from backend.functions.filters import old_current_dates
 from backend.functions.functions import update_user_time_table
 from backend.functions.utils import find_calendar_date, get_json_field, check_exist_id
@@ -213,7 +210,7 @@ def verify_and_upgrade_password(conn, user, input_password):
         return False
 
 
-@base_bp.route(f'/login', methods=['POST', 'GET'])
+@base_bp.route('/login', methods=['POST', 'GET'])
 def login():
     """
     login function
@@ -221,39 +218,23 @@ def login():
     :return: logged User datas
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
+
     if request.method == "POST":
         username = get_json_field('username')
         password = get_json_field('password')
 
         username_sign = Users.query.filter(Users.username == username).filter(
-            or_(Users.deleted == False, Users.deleted == None)).first()
+            or_(Users.deleted == False, Users.deleted == None)
+        ).first()
 
-        if not username_sign:
-            return jsonify({"success": False, "msg": "Username yoki parol noturg'i"})
-
-        stored_hash = username_sign.password
-        password_ok = False
-
-        # ✅ Case 1: new pbkdf2 hash
-        if stored_hash.startswith("pbkdf2:"):
-            password_ok = check_password_hash(stored_hash, password)
-
-        else:
-            # ✅ Case 2: legacy SHA256 hash
-            sha256_hash = hashlib.sha256(password.encode()).hexdigest()
-            if sha256_hash == stored_hash:
-                password_ok = True
-                # Upgrade user password to pbkdf2 immediately
-                username_sign.password = generate_password_hash(password, method="pbkdf2:sha256")
-                db.session.commit()
-
-        if password_ok:
+        if username_sign and check_password_hash(username_sign.password, password):
             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
             access_token = create_access_token(identity=username_sign.user_id)
             refresh_age(username_sign.id)
             class_status = False
             location = Locations.query.filter(Locations.id == username_sign.location_id).first()
             parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
+
             return jsonify({
                 'class': class_status,
                 "type_platform": "gennis",
@@ -275,9 +256,11 @@ def login():
                 "parent": parent.convert_json() if parent else {},
                 "location": location.convert_json()
             })
-
         else:
-            return jsonify({"success": False, "msg": "Username yoki parol noturg'i"})
+            return jsonify({
+                "success": False,
+                "msg": "Username yoki parol noturg'i"
+            })
 
 
 @base_bp.route(f'/get_user')
