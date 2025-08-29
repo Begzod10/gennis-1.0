@@ -6,20 +6,16 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
 from sqlalchemy import desc, or_
-<<<<<<< HEAD
+
 from sqlalchemy import text
-=======
->>>>>>> 37a950b04253b877caa9ff127e80fb4e967f3288
+
 from sqlalchemy.orm import contains_eager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
-<<<<<<< HEAD
-    deleted_students_filter, debt_students, deleted_reg_students_filter
-=======
     deleted_students_filter, debt_students, deleted_reg_students_filter, capital_tools
->>>>>>> 37a950b04253b877caa9ff127e80fb4e967f3288
+
 from backend.functions.filters import old_current_dates
 from backend.functions.functions import update_user_time_table
 from backend.functions.utils import find_calendar_date, get_json_field, check_exist_id
