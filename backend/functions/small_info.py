@@ -1,50 +1,50 @@
 def user_photo_folder():
-    folder = "frontend/build/static/img_folder"
+    folder = "static/img_folder"
     return folder
 
 
 def advantages_photo_folder():
-    folder = "frontend/build/static/advantages"
+    folder = "static/advantages"
     return folder
 
 
 def news_photo_folder():
-    folder = "frontend/build/static/news"
+    folder = "static/news"
     return folder
 
 
 def gallery_folder():
-    folder = "frontend/build/static/gallery"
+    folder = "static/gallery"
     return folder
 
 
 def user_contract_folder():
-    folder = "frontend/build/static/contract_pdf"
+    folder = "static/contract_pdf"
     return folder
 
 
 def home_design():
-    folder = "frontend/build/static/home_design"
+    folder = "static/home_design"
     return folder
 
 
 def certificate():
-    folder = "frontend/build/static/certificates"
+    folder = "static/certificates"
     return folder
 
 
 def link_img():
-    folder = "frontend/build/static/link_img"
+    folder = "static/link_img"
     return folder
 
 
 def teacher_certificate():
-    folder = "frontend/build/static/teacher_certificate"
+    folder = "static/teacher_certificate"
     return folder
 
 
 def room_images():
-    folder = "frontend/build/static/room"
+    folder = "static/room"
     return folder
 
 
