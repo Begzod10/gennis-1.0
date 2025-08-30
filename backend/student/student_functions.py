@@ -402,7 +402,7 @@ def create_contract(user_id):
         name = student.representative_name
         surname = student.representative_surname
         father_name = contract.father_name
-    doc = docx.Document('frontend/build/static/contract_folder/contract.docx')
+    doc = docx.Document('staticfiles/contract_folder/contract.docx')
     id = uuid.uuid1()
     text = location.address.split(" ")
     text_item = ""
@@ -459,10 +459,10 @@ def create_contract(user_id):
         row_cells[1].text = item['right_info']
 
     doc.save(
-        f"frontend/build/static/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx")
-    new_doc = f"static/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx"
+        f"staticfiles/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx")
+    new_doc = f"staticfiles/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx"
     Students.query.filter(Students.id == student.id).update({
-        "contract_word_url": f"frontend/build/static/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx"})
+        "contract_word_url": f"staticfiles/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx"})
     db.session.commit()
     return jsonify({"success": True, "msg": "Shartnoma yaratildi", "file": new_doc})
 
@@ -479,7 +479,7 @@ def upload_pdf_contract(user_id):
         file.filename = f"{student.id}/{student.user.name}/{student.user.surname}.pdf"
         file_name = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], file_name))
-        url = "static" + "/" + "contract_pdf" + "/" + file_name
+        url = "staticfiles" + "/" + "contract_pdf" + "/" + file_name
     Students.query.filter(Students.user_id == user_id).update({"contract_pdf_url": url})
     db.session.commit()
     return jsonify({"success": True, "msg": "Fayl yuklandi", "url": url})

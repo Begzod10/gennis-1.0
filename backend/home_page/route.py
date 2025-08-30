@@ -56,7 +56,7 @@ def advantage_img(advantage_id):
     if photo and checkFile(photo.filename):
         photo_filename = secure_filename(photo.filename)
         photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-        url = "static" + "/" + "advantages" + "/" + photo_filename
+        url = "staticfiles" + "/" + "advantages" + "/" + photo_filename
         advantage = Advantages.query.filter(Advantages.id == advantage_id).first()
         if os.path.exists(f'frontend/build/{advantage.img}'):
             os.remove(f'frontend/build/{advantage.img}')
@@ -114,7 +114,7 @@ def change_link():
                 os.remove(f'frontend/build/{link.img}')
             photo_filename = secure_filename(img.filename)
             img.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-            url = "static" + "/" + "link_img" + "/" + photo_filename
+            url = "staticfiles" + "/" + "link_img" + "/" + photo_filename
             link.img = url
         db.session.commit()
     else:
@@ -250,7 +250,7 @@ def add_home_design():
     if photo and checkFile(photo.filename):
         photo_filename = secure_filename(photo.filename)
         photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-        url = "static" + "/" + "home_design" + "/" + photo_filename
+        url = "staticfiles" + "/" + "home_design" + "/" + photo_filename
         design = HomeDesign.query.first()
         if design:
             if os.path.exists(f'frontend/build/{design.img}'):
@@ -407,7 +407,7 @@ def add_news():
         if checkFile(file.filename):
             img_name = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], img_name))
-            url = "static" + "/" + "news" + "/" + img_name
+            url = "staticfiles" + "/" + "news" + "/" + img_name
             img = NewsImg(url=url, new_id=add.id)
             db.session.add(img)
             db.session.commit()
@@ -465,7 +465,7 @@ def change_news(news_id):
         if checkFile(file.filename):
             img_name = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], img_name))
-            url = "static" + "/" + "news" + "/" + img_name
+            url = "staticfiles" + "/" + "news" + "/" + img_name
             exist_img = NewsImg.query.filter(NewsImg.new_id == news_id, NewsImg.url == url).first()
 
             if not exist_img:
@@ -532,7 +532,7 @@ def add_gallery(img_id):
         if photo and checkFile(photo.filename):
             photo_filename = secure_filename(photo.filename)
             photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-            url = "static" + "/" + "gallery" + "/" + photo_filename
+            url = "staticfiles" + "/" + "gallery" + "/" + photo_filename
             if os.path.exists(f'frontend/build{gallery.img}'):
                 os.remove(f'frontend/build{gallery.img}')
             Gallery.query.filter(Gallery.id == img_id).update({
@@ -543,7 +543,7 @@ def add_gallery(img_id):
         if photo and checkFile(photo.filename):
             photo_filename = secure_filename(photo.filename)
             photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-            url = "static" + "/" + "gallery" + "/" + photo_filename
+            url = "staticfiles" + "/" + "gallery" + "/" + photo_filename
             add = Gallery(id=img_id, img=url)
             db.session.add(add)
             db.session.commit()

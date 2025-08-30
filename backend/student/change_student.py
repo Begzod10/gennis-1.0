@@ -23,11 +23,11 @@ def update_photo_profile(user_id):
     url = ""
 
     if photo and checkFile(photo.filename):
-        if os.path.exists(f'frontend/build{user.photo_profile}'):
-            os.remove(f'frontend/build{user.photo_profile}')
+        if os.path.exists(f'staticfiles/img_folder/{user.photo_profile}'):
+            os.remove(f'staticfiles/img_folder/{user.photo_profile}')
         photo_filename = secure_filename(photo.filename)
         photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-        url = "static" + "/" + "img_folder" + "/" + photo_filename
+        url = "staticfiles" + "/" + "img_folder" + "/" + photo_filename
 
         Users.query.filter(Users.id == user_id).update({
             "photo_profile": url
@@ -92,7 +92,6 @@ def change_student_info(user_id):
                 db.session.commit()
 
                 subjects = json['selectedSubjects']
-
 
                 if teacher:
                     if subjects:
