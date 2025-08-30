@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime
 from datetime import timedelta
 
@@ -5,6 +6,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
 from sqlalchemy import desc, or_
+from sqlalchemy import text
 from sqlalchemy.orm import contains_eager
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -188,7 +190,27 @@ def refresh():
     })
 
 
-@base_bp.route(f'/login', methods=['POST', 'GET'])
+def verify_and_upgrade_password(conn, user, input_password):
+    stored_hash = user.password
+
+    if stored_hash.startswith("pbkdf2:"):
+        # Normal case
+        return check_password_hash(stored_hash, input_password)
+
+    else:
+        # Legacy SHA256 case
+        if hashlib.sha256(input_password.encode()).hexdigest() == stored_hash:
+            # ✅ Correct password → upgrade to pbkdf2
+            new_hash = generate_password_hash(input_password, method="pbkdf2:sha256")
+            conn.execute(
+                text("UPDATE users SET password = :p WHERE id = :uid"),
+                {"p": new_hash, "uid": user.id}
+            )
+            return True
+        return False
+
+
+@base_bp.route('/login', methods=['POST', 'GET'])
 def login():
     """
     login function
@@ -196,11 +218,14 @@ def login():
     :return: logged User datas
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
+
     if request.method == "POST":
         username = get_json_field('username')
         password = get_json_field('password')
+
         username_sign = Users.query.filter(Users.username == username).filter(
-            or_(Users.deleted == False, Users.deleted == None)).first()
+            or_(Users.deleted == False, Users.deleted == None)
+        ).first()
 
         if username_sign and check_password_hash(username_sign.password, password):
             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
@@ -209,6 +234,7 @@ def login():
             class_status = False
             location = Locations.query.filter(Locations.id == username_sign.location_id).first()
             parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
+
             return jsonify({
                 'class': class_status,
                 "type_platform": "gennis",
@@ -229,7 +255,6 @@ def login():
                 "type_user": role.type_role,
                 "parent": parent.convert_json() if parent else {},
                 "location": location.convert_json()
-
             })
         else:
             return jsonify({
