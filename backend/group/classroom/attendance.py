@@ -468,8 +468,8 @@ def make_attendance_classroom():
                                                 LessonPlan.main_lesson == None, LessonPlan.homework == None,
                                                 LessonPlan.activities == None, LessonPlan.objective == None,
                                                 LessonPlan.resources == None, LessonPlan.assessment == None).first()
-    if today_lesson_plan or ball < 5:
-        fine = round(salary_per_day / group.attendance_days)
+    # if today_lesson_plan or ball < 5:
+    #     fine = round(salary_per_day / group.attendance_days)
     if not type_status:
         attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student.id,
                                         calendar_day=calendar_day.id, attendance_id=attendance.id,
