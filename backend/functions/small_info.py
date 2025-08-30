@@ -1,50 +1,50 @@
 def user_photo_folder():
-    folder = "static/img_folder"
+    folder = "staticfiles/img_folder"
     return folder
 
 
 def advantages_photo_folder():
-    folder = "static/advantages"
+    folder = "staticfiles/advantages"
     return folder
 
 
 def news_photo_folder():
-    folder = "static/news"
+    folder = "staticfiles/news"
     return folder
 
 
 def gallery_folder():
-    folder = "static/gallery"
+    folder = "staticfiles/gallery"
     return folder
 
 
 def user_contract_folder():
-    folder = "static/contract_pdf"
+    folder = "staticfiles/contract_pdf"
     return folder
 
 
 def home_design():
-    folder = "static/home_design"
+    folder = "staticfiles/home_design"
     return folder
 
 
 def certificate():
-    folder = "static/certificates"
+    folder = "staticfiles/certificates"
     return folder
 
 
 def link_img():
-    folder = "static/link_img"
+    folder = "staticfiles/link_img"
     return folder
 
 
 def teacher_certificate():
-    folder = "static/teacher_certificate"
+    folder = "staticfiles/teacher_certificate"
     return folder
 
 
 def room_images():
-    folder = "static/room"
+    folder = "staticfiles/room"
     return folder
 
 
