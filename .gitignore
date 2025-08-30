@@ -5,5 +5,6 @@ __pycache__/
 *.py[codz]
 .py~
 */__pycache__/
+copy_flask_admin_static.sh
 .idea
 .env
