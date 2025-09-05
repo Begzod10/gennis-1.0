@@ -3,7 +3,7 @@ from sqlalchemy import desc
 from backend.functions.utils import iterate_models, find_calendar_date
 from backend.models.models import StudentTest, Groups, GroupTest, Students, Users
 
-classroom_student_tests_bp = Blueprint('classroom', __name__)
+classroom_student_tests_bp = Blueprint('classroom_student_tests', __name__)
 
 
 @classroom_student_tests_bp.route(f'test/dates/<platform_id>')
@@ -28,7 +28,7 @@ def classroom_student_test_dates(platform_id):
 
 
 @classroom_student_tests_bp.route(f'test/results/<platform_id>', methods=['POST'])
-def classroom_student_test_results(platform_id):
+def parent_student_test_results(platform_id):
     user = Users.query.filter(Users.id == platform_id).first()
     student = user.student
     student_id = student.id
