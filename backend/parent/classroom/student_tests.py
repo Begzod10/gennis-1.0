@@ -14,7 +14,7 @@ def classroom_student_test_dates(platform_id):
     student_id = student.id
     student = Students.query.filter(Students.id == student_id).first()
     groups = student.group
-    group_tests = GroupTest.query.filter(GroupTest.group_id.in_(groups)).order_by(desc(GroupTest.calendar_day)).all()
+    group_tests = GroupTest.query.filter(GroupTest.group_id.in_([gr.id for gr in groups])).order_by(desc(GroupTest.calendar_day)).all()
     dates = []
     for group_test in group_tests:
         info = {
