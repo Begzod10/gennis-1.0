@@ -1,13 +1,17 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import desc
-from backend.functions.utils import iterate_models
-from backend.models.models import StudentTest, Groups, GroupTest, Students
+from backend.functions.utils import iterate_models, find_calendar_date
+from backend.models.models import StudentTest, Groups, GroupTest, Students, Users
 
 classroom_student_tests_bp = Blueprint('classroom', __name__)
 
 
-@classroom_student_tests_bp.route(f'test/dates/<student_id>')
-def classroom_student_test_dates(student_id):
+@classroom_student_tests_bp.route(f'test/dates/<platform_id>')
+def classroom_student_test_dates(platform_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    user = Users.query.filter(Users.id == platform_id).first()
+    student = user.student
+    student_id = student.id
     student = Students.query.filter(Students.id == student_id).first()
     groups = student.groups
     group_tests = GroupTest.query.filter(GroupTest.group_id.in_(groups)).order_by(desc(GroupTest.calendar_day)).all()
@@ -18,11 +22,16 @@ def classroom_student_test_dates(student_id):
             "month": {"id": group_test.calendar_month, "value": group_test.month.date.strftime("%m")},
         }
         dates.append(info)
-    return jsonify({"test_dates": dates})
+    return jsonify(
+        {"test_dates": dates, "current_year": {"id": calendar_year.id, "value": calendar_year.date.strftime("%Y")},
+         "current_month": {"id": calendar_month.id, "value": calendar_month.date.strftime("%m")}})
 
 
-@classroom_student_tests_bp.route(f'test/results/<student_id>', methods=['POST'])
-def classroom_student_test_results(student_id):
+@classroom_student_tests_bp.route(f'test/results/<platform_id>', methods=['POST'])
+def classroom_student_test_results(platform_id):
+    user = Users.query.filter(Users.id == platform_id).first()
+    student = user.student
+    student_id = student.id
     tests = []
     student_tests = StudentTest.query.filter(StudentTest.student_id == student_id).order_by(desc(StudentTest.id)).all()
     group_ids = [gr.group_id for gr in student_tests]
