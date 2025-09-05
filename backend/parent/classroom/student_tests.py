@@ -40,8 +40,8 @@ def parent_student_test_results(platform_id):
     student_tests = StudentTest.query.filter(StudentTest.student_id == student_id).order_by(desc(StudentTest.id)).all()
     group_ids = [gr.group_id for gr in student_tests]
     group_ids = list(dict.fromkeys(group_ids))
-    year_id = request.get_json()['year_id', None]
-    month_id = request.get_json()['month_id', None]
+    year_id = request.get_json()['year_id']
+    month_id = request.get_json()['month_id']
     if year_id is not None:
         groups = Groups.query.filter(Groups.id.in_(group_ids)).join(Groups.test).filter(
             GroupTest.calendar_year == year_id,
