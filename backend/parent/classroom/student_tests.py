@@ -1,3 +1,5 @@
+import pprint
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy import desc
 from backend.functions.utils import iterate_models, find_calendar_date
@@ -14,7 +16,8 @@ def classroom_student_test_dates(platform_id):
     student_id = student.id
     student = Students.query.filter(Students.id == student_id).first()
     groups = student.group
-    group_tests = GroupTest.query.filter(GroupTest.group_id.in_([gr.id for gr in groups])).order_by(desc(GroupTest.calendar_day)).all()
+    group_tests = GroupTest.query.filter(GroupTest.group_id.in_([gr.id for gr in groups])).order_by(
+        desc(GroupTest.calendar_day)).all()
     dates = []
     for group_test in group_tests:
         info = {
@@ -30,6 +33,7 @@ def classroom_student_test_dates(platform_id):
 @classroom_student_tests_bp.route(f'test/results/<platform_id>', methods=['POST'])
 def parent_student_test_results(platform_id):
     user = Users.query.filter(Users.id == platform_id).first()
+    pprint.pprint(request.get_json())
     student = user.student
     student_id = student.id
     tests = []
