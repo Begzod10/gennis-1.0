@@ -33,7 +33,6 @@ def classroom_student_test_dates(platform_id):
 @classroom_student_tests_bp.route(f'test/results/<platform_id>', methods=['POST'])
 def parent_student_test_results(platform_id):
     user = Users.query.filter(Users.id == platform_id).first()
-    pprint.pprint(request.get_json())
     student = user.student
     student_id = student.id
     tests = []
