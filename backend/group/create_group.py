@@ -634,87 +634,52 @@ def add_group_students2(group_id):
     })
 
 
-@group_create_bp.route('/move_group/<int:new_group_id>/<int:old_group_id>', methods=['POST'])
+@group_create_bp.route(f'/move_group/<int:new_group_id>/<int:old_group_id>', methods=['POST'])
 @jwt_required()
 def move_group(new_group_id, old_group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    today_date = getattr(calendar_day, "date", calendar_day)
-    students = get_json_field('checkedStudents') or []
-    reason = get_json_field('reason') or None
+    students = get_json_field('checkedStudents')
+    reason = get_json_field('reason')
+    student_list = []
+    for st in students:
+        if st['id'] not in student_list:
+            student_list.append(st['id'])
 
-    # Deduplicate incoming IDs
-    student_user_ids = {st['id'] for st in students if 'id' in st}
-    if not student_user_ids:
-        return jsonify({"success": False, "msg": "Hech qanday o‘quvchi tanlanmadi"}), 400
+    new_group = Groups.query.filter(Groups.id == new_group_id).first()
+    old_group = Groups.query.filter(Groups.id == old_group_id).first()
 
-    new_group = Groups.query.get(new_group_id)
-    old_group = Groups.query.get(old_group_id)
-    if not new_group or not old_group:
-        return jsonify({"success": False, "msg": "Guruh topilmadi"}), 404
-    if new_group.id == old_group.id:
-        return jsonify({"success": False, "msg": "Yangi va eski guruh bir xil bo‘lolmaydi"}), 400
-
-    # Load Students by their related Users.id (matches your current payload)
-    students_checked = (
-        db.session.query(Students)
-        .join(Students.user)
-        .options(contains_eager(Students.user))
-        .filter(Users.id.in_(list(student_user_ids)))
-        .all()
-    )
-    if not students_checked:
-        return jsonify({"success": False, "msg": "O‘quvchi(lar) topilmadi"}), 404
-
-    try:
-        # Single atomic transaction
-        with db.session.begin():
-            for st in students_checked:
-                # 1) Remove OLD membership (cleans any duplicates too)
-                db.session.execute(
-                    delete(student_group).where(
-                        student_group.c.group_id == old_group.id,
-                        student_group.c.student_id == st.id,
-                    )
-                )
-
-                # 2) Ensure no duplicate NEW membership rows exist, then attach once
-                db.session.execute(
-                    delete(student_group).where(
-                        student_group.c.group_id == new_group.id,
-                        student_group.c.student_id == st.id,
-                    )
-                )
-                # only append if not already present in the in-memory relationship
-                if new_group not in st.group:
-                    st.group.append(new_group)
-
-                # 3) Close previous open history row for OLD group (if any)
-                db.session.query(StudentHistoryGroups).filter_by(
-                    group_id=old_group.id,
-                    student_id=st.id,
-                    teacher_id=old_group.teacher_id,
-                    left_day=None,  # only close open records
-                ).update(
-                    {"left_day": today_date, "reason": reason},
-                    synchronize_session=False,
-                )
-
-                # 4) Create NEW history row for NEW group
-                db.session.add(
-                    StudentHistoryGroups(
-                        teacher_id=new_group.teacher_id,
-                        student_id=st.id,
-                        group_id=new_group.id,
-                        joined_day=today_date,
-                    )
-                )
-
-        msg = "O'quvchi yangi guruhga qo'shildi" if len(student_user_ids) == 1 else "O'quvchilar yangi guruhga qo'shilishdi"
-        return jsonify({"success": True, "msg": msg})
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "msg": f"Xatolik: {e}"}), 500
+    students_checked = db.session.query(Students).join(Students.user).options(
+        contains_eager(Students.user)).filter(Users.id.in_([st_id for st_id in student_list])).all()
+    for st in students_checked:
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == old_group.id,
+                student_group.c.student_id == st.id
+            )
+        )
+        db.session.commit()
+        st.group.append(new_group)
+        StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,
+                                          StudentHistoryGroups.student_id == st.id,
+                                          StudentHistoryGroups.teacher_id == old_group.teacher_id).update(
+            {'left_day': calendar_day.date,
+             "reason": reason})
+        db.session.commit()
+        group_history = StudentHistoryGroups(teacher_id=new_group.teacher_id, student_id=st.id, group_id=new_group.id,
+                                             joined_day=calendar_day.date)
+        db.session.add(group_history)
+        db.session.commit()
+    db.session.commit()
+    if len(student_list) > 1:
+        return jsonify({
+            "success": True,
+            "msg": "O'quvchilar yangi guruhga qo'shilishdi"
+        })
+    else:
+        return jsonify({
+            "success": True,
+            "msg": "O'quvchi yangi guruhga qo'shildi"
+        })
 
 
 @group_create_bp.route(f'/filtered_groups/<int:group_id>')
