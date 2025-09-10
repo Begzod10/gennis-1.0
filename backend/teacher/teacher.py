@@ -553,6 +553,7 @@ def get_teachers():
     list_teachers = [
         {
             "id": teach.user.id,
+            'teacherID': teach.id,
             "name": teach.user.name.title(),
             "surname": teach.user.surname.title(),
             "username": teach.user.username,

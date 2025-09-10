@@ -10,10 +10,134 @@ from backend.functions.utils import get_json_field, find_calendar_date
 from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes, StudentPayments, Students, CalendarDay, \
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
-    CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure
+    CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead
 from backend.models.settings import sum_money
 
 account_bp = Blueprint('account_bp', __name__)
+
+
+@account_bp.route("/statistics", methods=["GET"])
+def get_statistics():
+    location_id = request.args.get("location_id", type=int)
+    from_date_str = request.args.get("from_date")
+    to_date_str = request.args.get("to_date")
+
+    if not (location_id and from_date_str and to_date_str):
+        return jsonify({"error": "location_id, from_date, to_date required"}), 400
+
+    try:
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d")
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "Invalid date format, use YYYY-MM-DD"}), 400
+
+    calendar_days = CalendarDay.query.filter(
+        CalendarDay.date.between(from_date, to_date)
+    ).all()
+    if not calendar_days:
+        return jsonify({"error": "No CalendarDay found in given range"}), 404
+
+    calendar_day_ids = [c.id for c in calendar_days]
+
+    def get_stats(model, location_field, sum_field, calendar_field):
+        total_sum = db.session.query(func.coalesce(func.sum(sum_field), 0)).filter(
+            location_field == location_id,
+            calendar_field.in_(calendar_day_ids)
+        ).scalar()
+
+        return {
+            "count": db.session.query(func.count(model.id)).filter(
+                location_field == location_id,
+                calendar_field.in_(calendar_day_ids)
+            ).scalar(),
+            "sum": total_sum,
+            "items": [
+                m.convert_json() for m in model.query.filter(
+                    location_field == location_id,
+                    calendar_field.in_(calendar_day_ids)
+                ).all()
+            ]
+        }, total_sum
+
+    def get_simple_stats(model, filter_field):
+        return {
+            "count": db.session.query(func.count(model.id)).filter(
+                filter_field.in_(calendar_day_ids)
+            ).scalar(),
+            "items": [
+                m.convert_json() for m in model.query.filter(
+                    filter_field.in_(calendar_day_ids)
+                ).all()
+            ]
+        }
+
+    payments, payments_sum = get_stats(
+        StudentPayments, StudentPayments.location_id,
+        StudentPayments.payment_sum, StudentPayments.calendar_day
+    )
+
+    teacher_salaries, teacher_salaries_sum = get_stats(
+        TeacherSalaries, TeacherSalaries.location_id,
+        TeacherSalaries.payment_sum, TeacherSalaries.calendar_day
+    )
+
+    staff_salaries, staff_salaries_sum = get_stats(
+        StaffSalaries, StaffSalaries.location_id,
+        StaffSalaries.payment_sum, StaffSalaries.calendar_day
+    )
+
+    overheads, overheads_sum = get_stats(
+        Overhead, Overhead.location_id,
+        Overhead.item_sum, Overhead.calendar_day
+    )
+
+    new_students = get_simple_stats(Students, Students.created_day_id)
+
+    joined_students = get_simple_stats(Students, Students.joined_day_id)
+
+    new_groups = {
+        "count": db.session.query(func.count(Groups.id)).filter(
+            Groups.location_id == location_id,
+            Groups.calendar_day.in_(calendar_day_ids)
+        ).scalar(),
+        "items": [
+            g.convert_json() for g in Groups.query.filter(
+                Groups.location_id == location_id,
+                Groups.calendar_day.in_(calendar_day_ids)
+            ).all()
+        ]
+    }
+
+    new_leads = {
+        "count": db.session.query(func.count(Lead.id)).filter(
+            Lead.location_id == location_id,
+            Lead.calendar_day.in_(calendar_day_ids)
+        ).scalar(),
+        "items": [
+            l.convert_json() for l in Lead.query.filter(
+                Lead.location_id == location_id,
+                Lead.calendar_day.in_(calendar_day_ids)
+            ).all()
+        ]
+    }
+
+    expenses_sum = teacher_salaries_sum + staff_salaries_sum + overheads_sum
+    overall_sum = payments_sum - expenses_sum
+
+    data = {
+        "payments": payments,
+        "teacher_salaries": teacher_salaries,
+        "staff_salaries": staff_salaries,
+        "overheads": overheads,
+        "new_students": new_students,
+        "joined_students": joined_students,
+        "new_groups": new_groups,
+        "new_leads": new_leads,
+        "expenses": expenses_sum,
+        "overall": overall_sum
+    }
+
+    return jsonify(data)
 
 
 @account_bp.route('/account_info/dividends/', methods=["GET"])

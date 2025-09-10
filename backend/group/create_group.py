@@ -846,7 +846,12 @@ def move_group_time(old_group_id, new_group_id):
     old_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == old_group.id).all()
     new_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == new_group.id).all()
     for st in students_checked:
-        st.group.remove(old_group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == old_group.id,
+                student_group.c.student_id == st.id
+            )
+        )
         db.session.commit()
         st.group.append(new_group)
         StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,

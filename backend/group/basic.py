@@ -21,6 +21,31 @@ from sqlalchemy.orm import contains_eager
 group_bp = Blueprint('group', __name__)
 
 
+@group_bp.route(f'/groups_by_teacher/<int:teacher_id>', methods=['POST', 'GET'])
+@jwt_required()
+def groups_by_teacher(teacher_id):
+    groups = Groups.query.filter(Groups.teacher_id == teacher_id).all()
+
+    list_group = [{
+        "id": gr.id,
+        "name": gr.name.title(),
+        "teacherID": gr.teacher_id,
+        "subjects": gr.subject.name.title(),
+        "payment": gr.price,
+        "typeOfCourse": gr.course_type.name,
+        "studentsLength": len(gr.student),
+        "status": "True" if gr.status else "False",
+        "teacherName": Teachers.query.filter(Teachers.id == gr.teacher_id).first().user.name.title(),
+        "teacherSurname": Teachers.query.filter(Teachers.id == gr.teacher_id).first().user.surname.title(),
+        'languages': gr.language.name
+    } for gr in groups]
+
+    return jsonify({
+        "info": list_group
+    })
+
+
+# @group_bp.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
 @group_bp.route(f'/group_statistics/<int:group_id>', methods=['POST', 'GET'])
 @jwt_required()
 def group_statistics(group_id):

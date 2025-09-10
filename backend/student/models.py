@@ -103,6 +103,8 @@ class Students(db.Model):
     old_id = Column(Integer)
     morning_shift = Column(Boolean)
     night_shift = Column(Boolean)
+    created_day_id = db.Column(db.Integer, db.ForeignKey("calendarday.id"))
+    joined_day_id = db.Column(db.Integer, db.ForeignKey("calendarday.id"))
     reasons_list = relationship("StudentExcuses", backref="student_get", order_by="StudentExcuses.id", lazy="select")
     time_table = relationship("Group_Room_Week", secondary="time_table_student", backref="student",
                               order_by="Group_Room_Week.id",
@@ -137,8 +139,10 @@ class Students(db.Model):
             "balance": self.user.balance,
             "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor != None else 0,
             'subjects': [subject.name for subject in self.subject],
-            "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
-            "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
+            "phone": "",
+            # "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
+            "parent": "",
+            # "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
             "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None,
             "debtor": self.debtor
         }

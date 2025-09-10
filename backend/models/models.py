@@ -287,6 +287,10 @@ class CalendarDay(db.Model):
 
     school_teacher_salary_day = relationship("SchoolUserSalaryDay", backref="day",
                                              order_by="SchoolUserSalaryDay.id")
+    students_created = db.relationship("Students", foreign_keys="Students.created_day_id", backref="created_day",
+                                       lazy=True)
+    students_joined = db.relationship("Students", foreign_keys="Students.joined_day_id", backref="joined_day",
+                                      lazy=True)
 
     def convert_json(self, entire=False):
         return {
