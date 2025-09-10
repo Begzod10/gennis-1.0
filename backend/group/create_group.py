@@ -653,7 +653,7 @@ def move_group(new_group_id, old_group_id):
     for st in students_checked:
         db.session.execute(
             delete(student_group).where(
-                student_group.c.subject_id == old_group.id,
+                student_group.c.group_id == old_group.id,
                 student_group.c.student_id == st.id
             )
         )
