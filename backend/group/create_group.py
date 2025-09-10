@@ -820,59 +820,104 @@ def moving_students(old_id, new_id):
     })
 
 
-@group_create_bp.route(f'/move_group_time/<int:old_group_id>/<int:new_group_id>', methods=['POST'])
+@group_create_bp.route('/move_group_time/<int:old_group_id>/<int:new_group_id>', methods=['POST'])
 @jwt_required()
 def move_group_time(old_group_id, new_group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     students = get_json_field('checkedStudents')
-    reason = get_json_field('reason')
-    student_list = []
+    reason = get_json_field('reason') or None
 
-    for st in students:
-        if st['id'] not in student_list:
-            student_list.append(st['id'])
+    # Deduplicate incoming IDs
+    student_ids = {st['id'] for st in (students or [])}
+    if not student_ids:
+        return jsonify({"success": False, "msg": "Hech qanday o‘quvchi tanlanmadi"}), 400
 
-    new_group = Groups.query.filter(Groups.id == new_group_id).first()
-    old_group = Groups.query.filter(Groups.id == old_group_id).first()
+    new_group = Groups.query.get(new_group_id)
+    old_group = Groups.query.get(old_group_id)
+    if not new_group or not old_group:
+        return jsonify({"success": False, "msg": "Guruh topilmadi"}), 404
 
-    students_checked = db.session.query(Students).join(Students.user).options(
-        contains_eager(Students.user)).filter(Users.id.in_([st_id for st_id in student_list])).all()
+    # Preload
+    students_checked = (
+        db.session.query(Students)
+        .join(Students.user)
+        .options(contains_eager(Students.user))
+        .filter(Users.id.in_(list(student_ids)))
+        .all()
+    )
 
-    old_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == old_group.id).all()
-    new_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == new_group.id).all()
-    for st in students_checked:
-        st.group.remove(old_group)
-        db.session.commit()
-        st.group.append(new_group)
-        StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,
-                                          StudentHistoryGroups.student_id == st.id,
-                                          StudentHistoryGroups.teacher_id == old_group.teacher_id).update(
-            {'left_day': calendar_day.date,
-             "reason": reason})
-        db.session.commit()
-        group_history = StudentHistoryGroups(teacher_id=new_group.teacher_id, student_id=st.id, group_id=new_group.id,
-                                             joined_day=calendar_day.date)
-        db.session.add(group_history)
-        db.session.commit()
-        for time in old_time_table:
-            if time in st.time_table:
-                st.time_table.remove(time)
-                db.session.commit()
-        for time in new_time_table:
-            if time in st.time_table:
-                st.time_table.append(time)
-                db.session.commit()
-    db.session.commit()
-    if len(student_list) > 1:
-        return jsonify({
-            "success": True,
-            "msg": "O'quvchilar yangi guruhga qo'shilishdi"
-        })
-    else:
-        return jsonify({
-            "success": True,
-            "msg": "O'quvchi yangi guruhga qo'shildi"
-        })
+    old_time_table = Group_Room_Week.query.filter_by(group_id=old_group.id).all()
+    new_time_table = Group_Room_Week.query.filter_by(group_id=new_group.id).all()
+
+    try:
+        with db.session.begin():  # single atomic transaction
+            for st in students_checked:
+                # --- Move group membership ---
+
+                # Ensure no duplicates remain in join table before removing (defensive; optional once UNIQUE exists)
+                db.session.execute(
+                    db.text("""
+                        DELETE FROM student_group
+                        WHERE student_id = :sid AND group_id = :gid
+                    """),
+                    {"sid": st.id, "gid": old_group.id},
+                )
+                # Also ensure not already duplicated for new group
+                db.session.execute(
+                    db.text("""
+                        DELETE FROM student_group
+                        WHERE student_id = :sid AND group_id = :gid
+                    """),
+                    {"sid": st.id, "gid": new_group.id},
+                )
+
+                # Now attach exactly once
+                st.group.append(new_group)
+
+                # History: close old, open new
+                db.session.query(StudentHistoryGroups).filter_by(
+                    group_id=old_group.id,
+                    student_id=st.id,
+                    teacher_id=old_group.teacher_id,
+                    left_day=None,  # optional: only close if open
+                ).update(
+                    {
+                        "left_day": getattr(calendar_day, "date", calendar_day),
+                        "reason": reason,
+                    },
+                    synchronize_session=False,
+                )
+
+                group_history = StudentHistoryGroups(
+                    teacher_id=new_group.teacher_id,
+                    student_id=st.id,
+                    group_id=new_group.id,
+                    joined_day=getattr(calendar_day, "date", calendar_day),
+                )
+                db.session.add(group_history)
+
+                # --- Move timetable slots ---
+
+                # Remove old group's times
+                for t in old_time_table:
+                    if t in st.time_table:
+                        st.time_table.remove(t)
+
+                # Add new group's times (avoid duplicates)
+                for t in new_time_table:
+                    if t not in st.time_table:
+                        st.time_table.append(t)
+
+        # commit happens automatically via context manager
+
+    except Exception as e:
+        db.session.rollback()
+        # Log e for debugging if you have logging
+        return jsonify({"success": False, "msg": f"Xatolik: {str(e)}"}), 500
+
+    msg = "O'quvchi yangi guruhga qo'shildi" if len(student_ids) == 1 else "O'quvchilar yangi guruhga qo'shilishdi"
+    return jsonify({"success": True, "msg": msg})
+
 
 
 @group_create_bp.route(f'/delete_student', methods=['POST'])
