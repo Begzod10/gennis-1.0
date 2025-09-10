@@ -2,7 +2,7 @@ from sqlalchemy import and_, or_, extract
 from backend.functions.utils import remove_items_create_group
 from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, Group_Room_Week, Students, Users, \
     StudentHistoryGroups, Groups, RegisterDeletedStudents, Roles, Locations, DeletedStudents, GroupReason, CalendarDay, \
-    TeacherGroupStatistics, db, student_subject
+    TeacherGroupStatistics, db, student_subject, student_group
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import get_json_field, find_calendar_date
 from datetime import datetime
@@ -651,7 +651,12 @@ def move_group(new_group_id, old_group_id):
     students_checked = db.session.query(Students).join(Students.user).options(
         contains_eager(Students.user)).filter(Users.id.in_([st_id for st_id in student_list])).all()
     for st in students_checked:
-        st.group.remove(old_group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.subject_id == old_group.id,
+                student_group.c.student_id == st.id
+            )
+        )
         db.session.commit()
         st.group.append(new_group)
         StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,
@@ -842,6 +847,7 @@ def move_group_time(old_group_id, new_group_id):
     new_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == new_group.id).all()
     for st in students_checked:
         st.group.remove(old_group)
+        db.session.commit()
         st.group.append(new_group)
         StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,
                                           StudentHistoryGroups.student_id == st.id,

@@ -1,14 +1,14 @@
 from backend.models.models import Column, Integer, Float, ForeignKey, String, Boolean, relationship, DateTime, db
 
-db.Table('student_group',
-         db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
-         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
-         )
+student_group = db.Table('student_group',
+                         db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
+                         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
+                         )
 
-db.Table('teacher_group',
-         db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
-         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
-         )
+teacher_group = db.Table('teacher_group',
+                         db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
+                         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
+                         )
 
 
 class Groups(db.Model):
