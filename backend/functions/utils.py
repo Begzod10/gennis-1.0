@@ -1,10 +1,9 @@
 import pprint
-
-from app import request, db
+from flask import request
 import requests
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, AccountingPeriod, Professions, PaymentTypes, \
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
-    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries
+    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries, db
 from dateutil.relativedelta import relativedelta
 from backend.school.models import SchoolUserSalary, SchoolUserSalaryAttendance, SchoolUserSalaryDay, SchoolUser
 from calendar import monthrange
@@ -67,6 +66,7 @@ def refreshdatas(location_id=0):
     :param location_id:
     :return:
     """
+
     calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
     if not calendar_year:
         calendar_year = CalendarYear(date=new_year())
@@ -243,6 +243,27 @@ def update_all_datas():
     # if not methodist:
     #     methodist = Roles(type_role="methodist", role="d32q69n53")
     #     methodist.add()
+    #
+
+    main_admin = Professions.query.filter(Professions.name == "Main_Admin").first()
+    if not main_admin:
+        main_admin = Professions(name="Main_Admin")
+        main_admin.add()
+
+    main_admin = Roles.query.filter(Roles.type_role == "main_admin", Roles.role == "22ada11daw").first()
+    if not main_admin:
+        main_admin = Roles(type_role="main_admin", role="22ada11daw")
+        main_admin.add()
+
+    # editor = Professions.query.filter(Professions.name == "Editor").first()
+    # if not editor:
+    #     editor = Professions(name="Editor")
+    #     editor.add()
+    #
+    # editor = Roles.query.filter(Roles.type_role == "editor", Roles.role == "n41c88z45").first()
+    # if not editor:
+    #     editor = Roles(type_role="editor", role="n41c88z45")
+    #     editor.add()
     #
     # editor = Professions.query.filter(Professions.name == "Muxarir").first()
     # if not editor:

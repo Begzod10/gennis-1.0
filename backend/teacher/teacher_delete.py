@@ -1,9 +1,13 @@
-from app import app, api, jsonify, db
-from backend.models.models import Teachers, DeletedTeachers
+from flask import Blueprint, jsonify
+
+from app import db
 from backend.functions.utils import find_calendar_date, get_json_field
+from backend.models.models import Teachers, DeletedTeachers
+
+teacher_delete_bp = Blueprint('teacher_delete', __name__)
 
 
-@app.route(f'{api}/delete_teacher/<int:user_id>', methods=["POST"])
+@teacher_delete_bp.route(f'/delete_teacher/<int:user_id>', methods=["POST"])
 def teacher_delete(user_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     reason = get_json_field('otherReason')

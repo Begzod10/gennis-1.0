@@ -1,30 +1,27 @@
-import json
-
-import os
-from app import app, api, request, db, jsonify, contains_eager, classroom_server, or_, migrate
-
-import pprint
-
-from app import app, api, request, db, jsonify, contains_eager, classroom_server, or_
-
-from backend.functions.filters import old_current_dates
-import requests
-from backend.functions.debt_salary_update import salary_debt
-from flask_jwt_extended import jwt_required
-from backend.student.class_model import Student_Functions
-from backend.group.class_model import Group_Functions
 from datetime import datetime
-from .utils import get_students_info, prepare_scores
+
+from flask import Blueprint
+from flask import request, jsonify
+from flask_jwt_extended import jwt_required
+from sqlalchemy import desc
+from sqlalchemy.orm import contains_eager
+from backend.functions.debt_salary_update import salary_debt
+from backend.functions.filters import old_current_dates
+from backend.functions.functions import get_dates_for_weekdays
 from backend.functions.utils import find_calendar_date, update_salary, iterate_models, get_json_field, \
     update_school_salary
-from backend.models.models import Users, Attendance, Students, AttendanceDays, Teachers, Groups, Locations, Subjects, \
-    StudentCharity, Roles, TeacherBlackSalary, GroupReason, TeacherObservationDay, DeletedStudents, \
-    TeacherGroupStatistics, Group_Room_Week, LessonPlan
-from backend.school.models import SchoolUser, SchoolUserSalary, SchoolUserSalaryDay, SchoolUserSalaryAttendance
-from datetime import timedelta
-from backend.models.models import CalendarDay, CalendarMonth, CalendarYear
-from sqlalchemy import func
-from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
+from backend.group.class_model import Group_Functions
+from backend.models.models import Attendance, Students, AttendanceDays, Groups, Locations, Subjects, \
+    StudentCharity, TeacherBlackSalary, GroupReason, TeacherObservationDay, TeacherGroupStatistics, \
+    Group_Room_Week, LessonPlan
+from backend.models.models import CalendarMonth, CalendarYear, db
+from backend.models.models import Teachers, Users, Roles
+from backend.student.class_model import Student_Functions
+from backend.teacher.utils import send_telegram_message
+from .utils import get_students_info, prepare_scores
+from sqlalchemy import or_
+
+teachers_bp = Blueprint('teachers', __name__)
 
 
 def analyze(attendances, teacher, type_rating=None):
@@ -56,7 +53,7 @@ def analyze(attendances, teacher, type_rating=None):
     return teacher_list
 
 
-@app.route(f'{api}/statistics_dates', methods=['POST', 'GET'])
+@teachers_bp.route(f'/statistics_dates', methods=['POST', 'GET'])
 @jwt_required()
 def statistics_dates():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -80,7 +77,7 @@ def statistics_dates():
         })
 
 
-@app.route(f'{api}/teacher_statistics/<location_id>', methods=['POST'])
+@teachers_bp.route(f'/teacher_statistics/<location_id>', methods=['POST'])
 @jwt_required()
 def teacher_statistics(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -94,7 +91,6 @@ def teacher_statistics(location_id):
     month = get_json_field('month') if 'month' in request.get_json() else None
     month = datetime.strptime(month, "%Y-%m") if month else None
     type_rating = get_json_field('type_rating') if 'type_rating' in request.get_json() else None
-    print(type_rating)
     if year != "all" and not month:
         calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
         for teacher in teachers:
@@ -233,7 +229,7 @@ def teacher_statistics(location_id):
         })
 
 
-@app.route(f'{api}/teacher_statistics_deleted_students/<location_id>', methods=['POST'])
+@teachers_bp.route(f'/teacher_statistics_deleted_students/<location_id>', methods=['POST'])
 @jwt_required()
 def teacher_statistics_deleted_students(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -285,7 +281,7 @@ def teacher_statistics_deleted_students(location_id):
     })
 
 
-@app.route(f'{api}/attendance/<int:group_id>', methods=['GET'])
+@teachers_bp.route(f'/attendance/<int:group_id>', methods=['GET'])
 @jwt_required()
 def attendance(group_id):
     # Assuming this is a necessary function call
@@ -309,233 +305,197 @@ def attendance(group_id):
     })
 
 
-@app.route(f'{api}/make_attendance', methods=['POST'])
+@teachers_bp.route(f'/make_attendance', methods=['POST'])
 @jwt_required()
 def make_attendance():
-    current_year = datetime.now().year
-    old_year = datetime.now().year - 1
-    month = str(datetime.now().month)
-    current_day = datetime.now().day
-    if len(month) == 1:
-        month = "0" + str(month)
-    student = request.get_json()['student']
+    data = request.get_json()
+    student = data['student']
     student_id = int(student['id'])
-    reason = ''
-    if 'reason' in student:
-        reason = student['reason']
-    student_get = Students.query.filter(Students.user_id == student_id).first()
+    group_id = int(data['groupId'])
 
-    if student_get.debtor != 4:
-        homework = 0
-        dictionary = 0
-        active = 0
-        for ball in student['scores']:
-            if ball['name'] == "homework":
-                homework = int(ball['activeStars'])
-            elif ball['name'] == "active":
-                active = int(ball['activeStars'])
-            else:
-                dictionary = int(ball['activeStars'])
-        group_id = int(request.get_json()['groupId'])
+    current_year = datetime.now().year
+    old_year = current_year - 1
+    current_month = str(datetime.now().month).zfill(2)
+    current_day = datetime.now().day
 
-        type_attendance = student['typeChecked']
-        if type_attendance == "yes":
-            type_status = True
-        else:
-            type_status = False
-        group = Groups.query.filter(Groups.id == group_id).first()
-        teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
+    reason = student.get('reason', '')
+    student_obj = Students.query.filter_by(user_id=student_id).first()
+    if student_obj.debtor == 4:
+        return jsonify({"error": True, "msg": "Debtor status 4", "requestType": "error"})
 
-        discount = StudentCharity.query.filter(StudentCharity.group_id == group_id,
-                                               StudentCharity.student_id == student_get.id).first()
+    # Scores
+    scores = {score['name']: int(score['activeStars']) for score in student['scores']}
+    homework = scores.get('homework', 0)
+    active = scores.get('active', 0)
+    dictionary = scores.get('dictionary', 0)
 
-        today = datetime.today()
-        hour = datetime.strftime(today, "%Y/%m/%d/%H/%M")
-        hour2 = datetime.strptime(hour, "%Y/%m/%d/%H/%M")
-        day = student['date']['day']
-        month_date = student['date']['month']
+    type_attendance = student['typeChecked'] == "yes"
+    group = Groups.query.get(group_id)
+    teacher = Teachers.query.get(group.teacher_id)
+    subject = Subjects.query.get(group.subject_id)
+    discount = StudentCharity.query.filter_by(group_id=group_id, student_id=student_obj.id).first()
 
-        if month_date == "12" and month == "01":
-            current_year = old_year
-        if not month_date:
-            month_date = month
+    # Dates
+    day = student['date']['day']
+    month_date = student['date'].get('month', current_month)
+    if month_date == "12" and current_month == "01":
+        current_year = old_year
 
-        date_day = str(current_year) + "-" + str(month_date) + "-" + str(day)
-        date_month = str(current_year) + "-" + str(month_date)
-        date_year = str(current_year)
-        date_day = datetime.strptime(date_day, "%Y-%m-%d")
-        date_month = datetime.strptime(date_month, "%Y-%m")
-        date_year = datetime.strptime(date_year, "%Y")
-        calendar_year, calendar_month, calendar_day = find_calendar_date(date_day, date_month, date_year)
+    full_date = f"{current_year}-{month_date}-{day}"
+    date_day = datetime.strptime(full_date, "%Y-%m-%d")
+    date_month = datetime.strptime(f"{current_year}-{month_date}", "%Y-%m")
+    date_year = datetime.strptime(str(current_year), "%Y")
+    calendar_year, calendar_month, calendar_day = find_calendar_date(date_day, date_month, date_year)
 
-        ball_time = hour2 + timedelta(minutes=0)
-        balance_per_day = round(group.price / group.attendance_days)
-        salary_per_day = round(group.teacher_salary / group.attendance_days)
-        discount_per_day = discount.discount / group.attendance_days if discount else 0
-        balance_with_discount = balance_per_day - discount_per_day
-        discount_status = True if discount_per_day else False
+    # Time calculations
+    hour = datetime.today().strftime("%Y/%m/%d/%H/%M")
+    ball_time = datetime.strptime(hour, "%Y/%m/%d/%H/%M")
+    balance_per_day = round(group.price / group.attendance_days)
+    salary_per_day = round(group.teacher_salary / group.attendance_days)
+    discount_per_day = discount.discount / group.attendance_days if discount else 0
+    balance_with_discount = balance_per_day - discount_per_day
+    discount_status = bool(discount_per_day)
+    student_obj.ball_time = ball_time
 
-        student_get.ball_time = ball_time
-        subject = Subjects.query.filter(Subjects.id == group.subject_id).first()
-        attendance_get = Attendance.query.filter(Attendance.student_id == student_get.id,
-                                                 Attendance.calendar_year == calendar_year.id,
-                                                 Attendance.location_id == group.location_id,
-                                                 Attendance.calendar_month == calendar_month.id,
-                                                 Attendance.teacher_id == group.teacher_id,
-                                                 Attendance.group_id == group.id, Attendance.subject_id == subject.id,
-                                                 Attendance.course_id == group.course_type_id).first()
+    # Attendance record
+    attendance = Attendance.query.filter_by(
+        student_id=student_obj.id,
+        calendar_year=calendar_year.id,
+        location_id=group.location_id,
+        calendar_month=calendar_month.id,
+        teacher_id=group.teacher_id,
+        group_id=group.id,
+        subject_id=subject.id,
+        course_id=group.course_type_id
+    ).first()
 
-        if not attendance_get:
-            attendance_get = Attendance(student_id=student_get.id, calendar_year=calendar_year.id,
-                                        location_id=group.location_id,
-                                        calendar_month=calendar_month.id, teacher_id=teacher.id, group_id=group_id,
-                                        course_id=group.course_type_id, subject_id=subject.id)
-            db.session.add(attendance_get)
-            db.session.commit()
-        exist_attendance = db.session.query(AttendanceDays).join(AttendanceDays.attendance).options(
-            contains_eager(AttendanceDays.attendance)).filter(AttendanceDays.student_id == student_get.id,
-                                                              AttendanceDays.calendar_day == calendar_day.id,
-                                                              AttendanceDays.group_id == group_id,
-                                                              Attendance.calendar_month == calendar_month.id,
-                                                              Attendance.calendar_year == calendar_year.id).first()
-        if exist_attendance:
-            return jsonify({
-                "error": True,
-                "msg": "Student bu kunda davomat qilingan",
-                "student_id": student['id'],
-                "requestType": "error",
-
-            })
-        len_attendance = AttendanceDays.query.filter(AttendanceDays.student_id == student_get.id,
-                                                     AttendanceDays.group_id == group_id,
-                                                     AttendanceDays.location_id == group.location_id,
-                                                     AttendanceDays.attendance_id == attendance_get.id,
-                                                     ).count()
-
-        if len_attendance >= group.attendance_days:
-            return jsonify({
-                "error": True,
-                "msg": "Student bu oyda 13 kun dan ko'p davomat qilindi",
-                "student_id": student['id'],
-                "requestType": "error"
-            })
-
-        ball = 5
-        if int(day) < int(current_day):
-            late_days = int(current_day) - int(day)
-            ball -= late_days
-            if ball < 0:
-                ball = 0
-        group_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
-            Group_Room_Week.id).all()
-        week_names = [time.week.eng_name for time in group_time_table]
-
-        target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
-
-        lesson_plans = LessonPlan.query.filter(
-            LessonPlan.group_id == group.id,
-            LessonPlan.date.in_(target_dates),
-            LessonPlan.main_lesson == None,
-            LessonPlan.homework == None
-        ).all()
-        fine = 0
-
-        if len(lesson_plans) > 0 or ball < 5:
-            fine = round(salary_per_day / group.attendance_days)
-        if not type_status:
-            attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student_get.id,
-                                            calendar_day=calendar_day.id, attendance_id=attendance_get.id,
-                                            reason=reason,
-                                            status=0, balance_per_day=balance_per_day,
-                                            balance_with_discount=balance_with_discount,
-                                            salary_per_day=salary_per_day, group_id=group_id,
-                                            location_id=group.location_id,
-                                            discount_per_day=discount_per_day, date=datetime.now(),
-                                            discount=discount_status, teacher_ball=ball,
-                                            fine=fine)
-            db.session.add(attendance_add)
-            db.session.commit()
-        elif homework == 0 and dictionary == 0 and active == 0:
-            attendance_add = AttendanceDays(teacher_id=teacher.id, student_id=student_get.id,
-                                            calendar_day=calendar_day.id, attendance_id=attendance_get.id,
-                                            status=1, balance_per_day=balance_per_day,
-                                            balance_with_discount=balance_with_discount,
-                                            salary_per_day=salary_per_day, group_id=group_id,
-                                            location_id=group.location_id, discount=discount_status,
-                                            discount_per_day=discount_per_day, date=datetime.now(),
-                                            teacher_ball=ball, calling_status=True,
-                                            fine=fine
-                                            )
-            db.session.add(attendance_add)
-            db.session.commit()
-        else:
-
-            average_ball = round((homework + dictionary + active) / subject.ball_number)
-            attendance_add = AttendanceDays(student_id=student_get.id, attendance_id=attendance_get.id,
-                                            dictionary=dictionary,
-                                            calendar_day=calendar_day.id,
-                                            status=2, balance_per_day=balance_per_day, homework=homework,
-                                            average_ball=average_ball, activeness=active, group_id=group_id,
-                                            location_id=group.location_id, teacher_id=teacher.id,
-                                            balance_with_discount=balance_with_discount,
-                                            salary_per_day=salary_per_day, discount=discount_status,
-                                            discount_per_day=discount_per_day, date=datetime.now(), teacher_ball=ball,
-                                            calling_status=True, fine=fine
-                                            )
-            db.session.add(attendance_add)
-            db.session.commit()
-        attendance_days = AttendanceDays.query.filter(AttendanceDays.attendance_id == attendance_get.id,
-                                                      AttendanceDays.teacher_ball != None).all()
-        total_ball = 0
-        for attendance_day in attendance_days:
-            total_ball += attendance_day.teacher_ball
-        result = round(total_ball / len(attendance_days))
-        Attendance.query.filter(Attendance.id == attendance_get.id).update({
-            "ball_percentage": result
-        })
+    if not attendance:
+        attendance = Attendance(
+            student_id=student_obj.id,
+            calendar_year=calendar_year.id,
+            location_id=group.location_id,
+            calendar_month=calendar_month.id,
+            teacher_id=teacher.id,
+            group_id=group_id,
+            course_id=group.course_type_id,
+            subject_id=subject.id
+        )
+        db.session.add(attendance)
         db.session.commit()
-        st_functions = Student_Functions(student_id=student_get.id)
-        st_functions.update_debt()
-        st_functions.update_balance()
 
-        salary_location = salary_debt(student_id=student_get.id, group_id=group_id, attendance_id=attendance_add.id,
-                                      status_attendance=False, type_attendance="add")
-        update_salary(teacher_id=teacher.user_id)
+    # Check existing attendance
+    existing = AttendanceDays.query.join(Attendance).filter(
+        AttendanceDays.student_id == student_obj.id,
+        AttendanceDays.calendar_day == calendar_day.id,
+        AttendanceDays.group_id == group_id,
+        Attendance.calendar_month == calendar_month.id,
+        Attendance.calendar_year == calendar_year.id
+    ).first()
+    if existing:
+        return jsonify(
+            {"error": True, "msg": "Davomat allaqachon mavjud", "student_id": student['id'], "requestType": "error"})
 
-        if student_get.debtor == 2:
-            black_salary = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id,
-                                                           TeacherBlackSalary.student_id == student_get.id,
-                                                           TeacherBlackSalary.calendar_month == calendar_month.id,
-                                                           TeacherBlackSalary.calendar_year == calendar_year.id,
-                                                           TeacherBlackSalary.status == False,
-                                                           TeacherBlackSalary.location_id == student_get.user.location_id,
-                                                           TeacherBlackSalary.salary_id == salary_location.id).first()
-            if not black_salary:
-                black_salary = TeacherBlackSalary(teacher_id=teacher.id, total_salary=salary_per_day,
-                                                  student_id=student_get.id, salary_id=salary_location.id,
-                                                  calendar_month=calendar_month.id,
-                                                  calendar_year=calendar_year.id,
-                                                  location_id=student_get.user.location_id
-                                                  )
-                black_salary.add()
-            else:
-                black_salary.total_salary += salary_per_day
-                db.session.commit()
-        user = Users.query.filter(Users.id == student_id).first()
-        if user.school_user_id:
-            update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
-            # requests.post(f"{classroom_server}/api/update_student_balance/{student_get.user.id}/gennis", json={
-        #     "balance": student_get.user.balance
-        # })
-        return jsonify({
-            "msg": "studentlar davomat qilindi",
-            "success": True,
-            "student_id": student['id'],
-            "requestType": "success"
-        })
+    # Check limit per month
+    attendance_count = AttendanceDays.query.filter_by(
+        student_id=student_obj.id,
+        group_id=group_id,
+        location_id=group.location_id,
+        attendance_id=attendance.id
+    ).count()
+    if attendance_count >= group.attendance_days:
+        return jsonify({"error": True, "msg": "Davomatlar soni limitdan oshdi", "student_id": student['id'],
+                        "requestType": "error"})
+
+    # Ball calculation
+    ball = max(0, 5 - max(0, current_day - int(day)))
+    week_names = [t.week.eng_name for t in Group_Room_Week.query.filter_by(group_id=group_id).all()]
+    target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
+    lesson_plan_today = LessonPlan.query.filter_by(
+        group_id=group.id,
+        teacher_id=teacher.id,
+        date=calendar_day.date
+    ).first()
+    fine = 0
+    fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
+
+    # Add attendance day
+
+    attendance_add = AttendanceDays(
+        teacher_id=teacher.id,
+        student_id=student_obj.id,
+        calendar_day=calendar_day.id,
+        attendance_id=attendance.id,
+        reason=reason if not type_attendance else None,
+        status=0 if not type_attendance else 1 if (homework == 0 and dictionary == 0 and active == 0) else 2,
+        balance_per_day=balance_per_day,
+        balance_with_discount=balance_with_discount,
+        salary_per_day=salary_per_day,
+        group_id=group_id,
+        location_id=group.location_id,
+        discount_per_day=discount_per_day,
+        discount=discount_status,
+        date=datetime.now(),
+        teacher_ball=ball,
+        fine=fine,
+        calling_status=True if type_attendance else False,
+        homework=homework,
+        dictionary=dictionary,
+        activeness=active,
+        average_ball=round((homework + dictionary + active) / subject.ball_number) if subject.ball_number else 0
+    )
+    db.session.add(attendance_add)
+    db.session.commit()
+
+    # Update percentage
+    attendance_days = AttendanceDays.query.filter_by(attendance_id=attendance.id).filter(
+        AttendanceDays.teacher_ball != None).all()
+    total_ball = sum([a.teacher_ball for a in attendance_days])
+    attendance.ball_percentage = round(total_ball / len(attendance_days))
+    db.session.commit()
+
+    # Update balance and debt
+    st_functions = Student_Functions(student_id=student_obj.id)
+    st_functions.update_debt()
+    st_functions.update_balance()
+
+    salary_location = salary_debt(student_id=student_obj.id, group_id=group_id, attendance_id=attendance_add.id,
+                                  status_attendance=False, type_attendance="add")
+    update_salary(teacher_id=teacher.user_id)
+
+    if student_obj.debtor == 2:
+        black_salary = TeacherBlackSalary.query.filter_by(
+            teacher_id=teacher.id,
+            student_id=student_obj.id,
+            calendar_month=calendar_month.id,
+            calendar_year=calendar_year.id,
+            location_id=student_obj.user.location_id,
+            salary_id=salary_location.id,
+            status=False
+        ).first()
+        if not black_salary:
+            black_salary = TeacherBlackSalary(
+                teacher_id=teacher.id,
+                total_salary=salary_per_day,
+                student_id=student_obj.id,
+                salary_id=salary_location.id,
+                calendar_month=calendar_month.id,
+                calendar_year=calendar_year.id,
+                location_id=student_obj.user.location_id
+            )
+            black_salary.add()
+        else:
+            black_salary.total_salary += salary_per_day
+            db.session.commit()
+
+    user = Users.query.get(student_id)
+    send_telegram_message(student_obj.id, attendance_add.id, group_id)
+    if user.school_user_id:
+        update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
+
+    return jsonify({"msg": "Davomat qo'shildi", "success": True, "student_id": student['id'], "requestType": "success"})
 
 
-@app.route(f'{api}/attendance_delete/<int:attendance_id>/<int:student_id>/<int:group_id>/<int:main_attendance>')
+@teachers_bp.route(f'/attendance_delete/<int:attendance_id>/<int:student_id>/<int:group_id>/<int:main_attendance>')
 @jwt_required()
 def attendance_delete(attendance_id, student_id, group_id, main_attendance):
     student = Students.query.filter(Students.user_id == student_id).first()
@@ -572,16 +532,28 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
     })
 
 
-@app.route(f"{api}/get_teachers", methods=["GET"])
+@teachers_bp.route(f"/get_teachers", methods=["GET"])
 @jwt_required()
 def get_teachers():
-    list_teachers = []
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
-    teachers = Teachers.query.order_by('id').all()
+
+    teachers_query = Teachers.query.order_by(Teachers.id)
+    total = teachers_query.count()
+
+    if limit:
+        teachers_query = teachers_query.offset(offset).limit(limit)
+    else:
+        teachers_query = teachers_query.offset(offset)
+
+    teachers = teachers_query.all()
 
     list_teachers = [
         {
             "id": teach.user.id,
+            'teacherID': teach.id,
             "name": teach.user.name.title(),
             "surname": teach.user.surname.title(),
             "username": teach.user.username,
@@ -593,35 +565,75 @@ def get_teachers():
         } for teach in teachers
     ]
     return jsonify({
-        "teachers": list_teachers
+        "teachers": list_teachers,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f"{api}/get_teachers_location/<int:location_id>", methods=["GET"])
+from sqlalchemy import or_
+
+@teachers_bp.route(f"/get_teachers_location/<int:location_id>", methods=["GET"])
 # @jwt_required()
 def get_teachers_location(location_id):
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
+
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
-    teachers = Teachers.query.join(Users).filter(Users.location_id == location_id, Teachers.deleted == None).order_by(
-        Users.location_id).all()
+
+    # Yangi o'qituvchilarni location'ga biriktirish
+    teachers_init = Teachers.query.join(Users).filter(
+        Users.location_id == location_id,
+        Teachers.deleted == None
+    ).order_by(Users.location_id).all()
+
     location = Locations.query.filter(Locations.id == location_id).first()
-    for teach in teachers:
+    for teach in teachers_init:
         if location not in teach.locations:
             teach.locations.append(location)
             db.session.commit()
-    teachers = Teachers.query.join(Teachers.locations).filter(Locations.id == location_id,
-                                                              Teachers.deleted == None).order_by(
-        Teachers.id).all()
+
+    teachers_query = Teachers.query.join(Teachers.locations).filter(
+        Locations.id == location_id,
+        Teachers.deleted == None
+    )
+
+    # Search qo'shish
+    if search:
+        search_pattern = f"%{search}%"
+        teachers_query = teachers_query.join(Teachers.user).filter(
+            or_(
+                Users.name.ilike(search_pattern),
+                Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern)
+            )
+        )
+
+    teachers_query = teachers_query.order_by(Teachers.id)
+
+    total = teachers_query.count()
+
+    if limit:
+        teachers_query = teachers_query.offset(offset).limit(limit)
+    else:
+        teachers_query = teachers_query.offset(offset)
+
+    teachers = teachers_query.all()
+
     for teach in teachers:
         status = False
-        del_group = 0
-        for gr in teach.group:
-            if gr.deleted:
-                del_group += 1
+        del_group = sum(1 for gr in teach.group if gr.deleted)
         if del_group == len(teach.group):
             status = True
         if not teach.group:
             status = True
+
         info = {
             "id": teach.user.id,
             "name": teach.user.name.title(),
@@ -630,7 +642,6 @@ def get_teachers_location(location_id):
             "language": teach.user.language.name,
             "age": teach.user.age,
             "role": role,
-            # "phone": teach.user.phone[0].phone,
             "reg_date": teach.user.day.date.strftime("%Y-%m-%d"),
             "status": status,
             "photo_profile": teach.user.photo_profile,
@@ -639,11 +650,17 @@ def get_teachers_location(location_id):
         list_teachers.append(info)
 
     return jsonify({
-        "teachers": list_teachers
+        "teachers": list_teachers,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
     })
 
 
-@app.route(f'{api}/add_teacher_to_branch/<int:user_id>/<int:location_id>')
+@teachers_bp.route(f'/add_teacher_to_branch/<int:user_id>/<int:location_id>')
 @jwt_required()
 def add_teacher_to_branch(user_id, location_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
@@ -665,19 +682,41 @@ def add_teacher_to_branch(user_id, location_id):
     return jsonify(msg_info)
 
 
-@app.route(f"{api}/get_deletedTeachers_location/<int:location_id>", methods=["GET"])
+
+@teachers_bp.route(f"/get_deletedTeachers_location/<int:location_id>", methods=["GET"])
 @jwt_required()
 def get_deletedTeachers_location(location_id):
-    # Fetch the role information for "teacher" just once, as it's the same for all entries.
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
+
     teacher_role = Roles.query.filter_by(type_role="teacher").first().role
 
-    # Query to fetch deleted teachers at the given location, including necessary joins for user and language details.
-    teachers = Teachers.query.join(Users).filter(
+    teachers_query = Teachers.query.join(Users).filter(
         Users.location_id == location_id,
         Teachers.deleted != None
-    ).all()
+    )
 
-    # Build the list of teachers with their details, including subjects.
+    # search qo‘shish
+    if search:
+        search_pattern = f"%{search}%"
+        teachers_query = teachers_query.filter(
+            or_(
+                Users.name.ilike(search_pattern),
+                Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern)
+            )
+        )
+
+    total = teachers_query.count()
+
+    if limit:
+        teachers_query = teachers_query.offset(offset).limit(limit)
+    else:
+        teachers_query = teachers_query.offset(offset)
+
+    teachers = teachers_query.all()
+
     list_teachers = [{
         "id": teacher.user.id,
         "name": teacher.user.name.title(),
@@ -686,12 +725,21 @@ def get_deletedTeachers_location(location_id):
         "language": teacher.user.language.name,
         "age": teacher.user.age,
         "role": teacher_role,
-        "phone": teacher.user.phone[0].phone,  # Assumes at least one phone number is present
+        "phone": teacher.user.phone[0].phone if teacher.user.phone else None,
         "reg_date": teacher.user.day.date.strftime("%Y-%m-%d"),
         "subjects": [subject.name for subject in teacher.subject]
     } for teacher in teachers]
 
-    return jsonify({"teachers": list_teachers})
+    return jsonify({
+        "teachers": list_teachers,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
+    })
+
 
 
 class Test(db.Model):
@@ -703,13 +751,13 @@ class Test(db.Model):
         return '<User %r>' % self.username
 
 
-@app.route('/test_model', methods=["GET", "POST"])
+@teachers_bp.route('/test_model', methods=["GET", "POST"])
 # @jwt_required()
 def test_model():
     return jsonify({"teachers": "True"})
 
 
-@app.route(f'{api}/get_teacher_balance/<user_id>', methods=["GET", "POST"])
+@teachers_bp.route(f'/get_teacher_balance/<user_id>', methods=["GET", "POST"])
 def get_teacher_balance(user_id):
     user = Users.query.filter(Users.id == user_id).first()
     return jsonify({"balance": user.balance})

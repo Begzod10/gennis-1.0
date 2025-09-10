@@ -1,12 +1,16 @@
-from app import db, app, request, jsonify, func
-from backend.models.models import MainOverhead, CalendarDay, AccountReport, CampStaffSalaries, Dividend, PaymentTypes, \
-    and_, CalendarYear, AccountPayable, Investment
-from backend.functions.utils import api, find_calendar_date, desc, contains_eager, iterate_models
-from flask_jwt_extended import jwt_required
 from datetime import datetime
 
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
 
-@app.route(f'{api}/encashment/', methods=['POST'])
+from backend.functions.utils import find_calendar_date, desc, contains_eager, iterate_models
+from backend.models.models import MainOverhead, CalendarDay, AccountReport, CampStaffSalaries, Dividend, PaymentTypes, \
+    and_, CalendarYear, AccountPayable, Investment, db
+from sqlalchemy import func
+account_encashment_bp = Blueprint('account_encashment_bp', __name__)
+
+
+@account_encashment_bp.route(f'/encashment/', methods=['POST'])
 @jwt_required()
 def encashment():
     ot = request.get_json()['ot']
@@ -59,7 +63,7 @@ def encashment():
         contains_eager(AccountPayable.day)).filter(
         and_(CalendarDay.date >= ot, CalendarDay.date <= do,
              AccountPayable.payment_type_id == payment_type.id,
-             AccountPayable.status == True
+             AccountPayable.finished == True
              )).order_by(
         desc(AccountPayable.id)).all()
     all_account_payables = db.session.query(
@@ -67,13 +71,13 @@ def encashment():
                                                   CalendarDay.id == AccountPayable.day_id).filter(
         and_(CalendarDay.date >= ot, CalendarDay.date <= do,
              AccountPayable.payment_type_id == payment_type.id,
-             AccountPayable.status == True
+             AccountPayable.finished == True
              )).first()[0] if account_payables else 0
     account_receivables = db.session.query(AccountPayable).join(AccountPayable.day).options(
         contains_eager(AccountPayable.day)).filter(
         and_(CalendarDay.date >= ot, CalendarDay.date <= do,
              AccountPayable.payment_type_id == payment_type.id,
-             AccountPayable.status == False
+             AccountPayable.finished == False
              )).order_by(
         desc(AccountPayable.id)).all()
 
@@ -82,7 +86,7 @@ def encashment():
                                                   CalendarDay.id == AccountPayable.day_id).filter(
         and_(CalendarDay.date >= ot, CalendarDay.date <= do,
              AccountPayable.payment_type_id == payment_type.id,
-             AccountPayable.status == False
+             AccountPayable.finished == False
              )).first()[0] if account_receivables else 0
     investments = db.session.query(Investment).join(Investment.day).options(
         contains_eager(Investment.day)).filter(
@@ -118,7 +122,7 @@ def encashment():
     }), 200
 
 
-@app.route(f'{api}/account_report')
+@account_encashment_bp.route(f'/account_report')
 @jwt_required()
 def get_account_report():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -128,7 +132,7 @@ def get_account_report():
     return jsonify({'account_reports': iterate_models(account_reports)}), 200
 
 
-@app.route(f'{api}/account_report_datas/')
+@account_encashment_bp.route(f'/account_report_datas/')
 @jwt_required()
 def get_account_report_datas():
     account_reports = AccountReport.query.order_by(AccountReport.id).all()
@@ -149,7 +153,7 @@ def get_account_report_datas():
     return jsonify({'date': data}), 200
 
 
-@app.route(f'{api}/account_report_filter/', methods=['POST'])
+@account_encashment_bp.route(f'/account_report_filter/', methods=['POST'])
 @jwt_required()
 def get_account_report_filter():
     data = request.get_json()

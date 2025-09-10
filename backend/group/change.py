@@ -1,16 +1,20 @@
-from app import app, db, and_, jsonify, contains_eager, request
 from backend.models.models import Teachers, Group_Room_Week, Students, Groups, Subjects, Locations, Roles, \
-    EducationLanguage, CourseTypes, Rooms, Week
+    EducationLanguage, CourseTypes, Rooms, Week, db
+from sqlalchemy import desc, and_
+from sqlalchemy.orm import contains_eager
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 from pprint import pprint
 from backend.functions.utils import get_json_field, remove_items_create_group, api
+from flask import Blueprint, jsonify, request
+
+group_change_bp = Blueprint('group_change', __name__)
 
 
 # from datetime import datetime
 
 
-@app.route(f'{api}/change_group_info/<int:group_id>', methods=['POST'])
+@group_change_bp.route(f'/change_group_info/<int:group_id>', methods=['POST'])
 @jwt_required()
 def change_group_info(group_id):
     name = get_json_field('name')
@@ -28,8 +32,8 @@ def change_group_info(group_id):
     if level_id == {}:
         level_id = None
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
-    language = EducationLanguage.query.filter(EducationLanguage.name == language).first()
-    course_type = CourseTypes.query.filter(CourseTypes.name == course_type).first()
+    language = EducationLanguage.query.filter(EducationLanguage.id == language).first()
+    course_type = CourseTypes.query.filter(CourseTypes.id == course_type).first()
     group = Groups.query.filter(Groups.id == group_id).first()
     old_teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
 
@@ -56,7 +60,7 @@ def change_group_info(group_id):
     })
 
 
-@app.route(f'{api}/add_teacher_group/<int:teacher_id>/<int:group_id>')
+@group_change_bp.route(f'/add_teacher_group/<int:teacher_id>/<int:group_id>')
 @jwt_required()
 def add_teacher_group(teacher_id, group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -87,7 +91,7 @@ def add_teacher_group(teacher_id, group_id):
     })
 
 
-@app.route(f'{api}/delete_group/<int:group_id>')
+@group_change_bp.route(f'/delete_group/<int:group_id>')
 @jwt_required()
 def delete_group(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -123,7 +127,7 @@ def delete_group(group_id):
     })
 
 
-@app.route(f'{api}/check_time_group/<int:group_id>', methods=['POST'])
+@group_change_bp.route(f'/check_time_group/<int:group_id>', methods=['POST'])
 @jwt_required()
 def check_time_group(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -255,7 +259,7 @@ def check_time_group(group_id):
     })
 
 
-@app.route(f'{api}/change_time_group/<int:group_id>', methods=["POST"])
+@group_change_bp.route(f'/change_time_group/<int:group_id>', methods=["POST"])
 @jwt_required()
 def change_time_group(group_id):
     lessons = get_json_field('lessons')
@@ -300,7 +304,7 @@ def change_time_group(group_id):
     })
 
 
-@app.route(f'{api}/check_teacher_time/<int:group_id>', methods=['GET'])
+@group_change_bp.route(f'/check_teacher_time/<int:group_id>', methods=['GET'])
 @jwt_required()
 def check_teacher_time(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -373,7 +377,7 @@ def check_teacher_time(group_id):
     })
 
 
-@app.route(f'{api}/delete_time_table/<int:time_id>')
+@group_change_bp.route(f'/delete_time_table/<int:time_id>')
 @jwt_required()
 def delete_time_table(time_id):
     time_table = Group_Room_Week.query.filter(Group_Room_Week.id == time_id).first()

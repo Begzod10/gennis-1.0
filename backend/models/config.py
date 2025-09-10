@@ -1,6 +1,12 @@
 import os
-from datetime import datetime, timedelta, timezone
 
+from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
+
+from datetime import timedelta
+
+
+load_dotenv()
 SECRET_KEY = os.urandom(32)
 # Grabs the folder where the script runs.
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -9,14 +15,19 @@ DEBUG = True
 
 DB_USER = os.getenv('FLASK_DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
-DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5432')
-# DB_HOST = os.getenv('DB_HOST', '192.168.68.103:5432')~~
+
+# DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5433')
+DB_HOST = os.getenv('DB_HOST', 'localhost:5432')
+
+
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
-database_path = 'postgresql://{}:{}@{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_NAME)
+DB_PORT = os.getenv('FLASK_DB_PORT', '5432')
+
+database_path = 'postgresql://{}:{}@{}:{}/{}'.format(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
 SQLALCHEMY_DATABASE_URI = database_path
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 SQLALCHEMY_ECO = True
-MAX_CONTENT_LENGTH = 16 * 1000 * 1000
+MAX_CONTENT_LENGTH = 26 * 1000 * 1000
 JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 JWT_SECRET_KEY = "gennis_revolution"
 JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)

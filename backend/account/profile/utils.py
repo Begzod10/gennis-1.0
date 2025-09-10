@@ -2,7 +2,7 @@ from backend.models.models import db, CampStaffSalaries, Dividend, \
     MainOverhead, AccountReport, PaymentTypes, AccountPayable, AccountPayableHistory, Account, or_
 from backend.account.models import Investment
 from backend.functions.utils import find_calendar_date
-from app import func
+from sqlalchemy import func
 
 
 def update_account(payment_type_id):

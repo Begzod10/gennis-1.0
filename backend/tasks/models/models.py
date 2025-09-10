@@ -81,9 +81,24 @@ class TaskStudents(db.Model):
     status = Column(Boolean, default=False)
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
 
+    # __table_args__ = (
+    #     db.UniqueConstraint('task_id', 'student_id', 'tasksstatistics_id', 'calendar_day',
+    #                         name='unique_task_student_per_day'),
+    # )
+
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "student_id": self.student_id,
+            "tasksstatistics_id": self.tasksstatistics_id,
+            "task_id": self.task_id,
+            "status": self.status
+            # "calendar_day": self.calendar_day.date.strftime("%Y-%m-%d")
+        }
 
 
 class BlackStudents(db.Model):

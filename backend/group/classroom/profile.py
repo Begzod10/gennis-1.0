@@ -1,18 +1,21 @@
 import pprint
 
-from app import app, api, contains_eager, db, request
 from flask import jsonify
 from flask_jwt_extended import jwt_required
 from backend.functions.utils import find_calendar_date, get_json_field
 from backend.models.models import AttendanceHistoryStudent, Students, Groups, Roles, Week, Group_Room_Week, Rooms, \
-    GroupTest, LessonPlan, desc
+    GroupTest, LessonPlan, desc, db
+from sqlalchemy.orm import contains_eager
 from datetime import datetime
 from backend.functions.filters import update_lesson_plan, old_current_dates
 from backend.group.class_model import Group_Functions
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
+from flask import Blueprint
+
+group_classroom_profile_bp = Blueprint('group_classroom_profile', __name__)
 
 
-@app.route(f'{api}/group_profile_classroom/<group_id>')
+@group_classroom_profile_bp.route(f'/group_profile_classroom/<group_id>')
 def group_profile_classroom(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
     students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
@@ -42,13 +45,13 @@ def group_profile_classroom(group_id):
     target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
 
     lesson_plans = LessonPlan.query.filter(
-        LessonPlan.group_id == group.id,
+        LessonPlan.group_id == group.id if group else None,
         LessonPlan.date.in_(target_dates),
         LessonPlan.main_lesson == None,
         LessonPlan.homework == None
     ).all()
     filled_lesson_plan = LessonPlan.query.filter(
-        LessonPlan.group_id == group.id,
+        LessonPlan.group_id == group.id if group else None,
         LessonPlan.date.in_(target_dates),
         LessonPlan.main_lesson != None,
         LessonPlan.homework != None).first()

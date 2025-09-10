@@ -1,20 +1,23 @@
 import json
 import os
 from datetime import date
+from pprint import pprint
 
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
+from werkzeug.utils import secure_filename
 
-from app import app, api, jsonify, db, request, secure_filename, classroom_server
+from app import app, db
 from backend.functions.small_info import advantages_photo_folder, news_photo_folder, checkFile, gallery_folder, \
-    home_design, teacher_certificate, link_img
+    home_design, link_img
+from backend.functions.utils import get_json_field
 from backend.models.models import Advantages, CommentLikes, HomeVideo, HomeDesign, Comments, Users, NewsLink, News, \
     Gallery, NewsImg, StudentCertificate, Groups, Teachers, TeacherData, Subjects, Link, Locations
-import requests
-from pprint import pprint
-from backend.functions.utils import get_json_field
+
+home_page_bp = Blueprint('home_page', __name__)
 
 
-@app.route(f'{api}/change_locations/<int:location_id>', methods=['POST'])
+@home_page_bp.route(f'/change_locations/<int:location_id>', methods=['POST'])
 # @jwt_required()
 def change_locations(location_id):
     req = request.get_json()
@@ -40,7 +43,7 @@ def change_locations(location_id):
     })
 
 
-@app.route(f'{api}/advantage_img/<int:advantage_id>', methods=['POST'])
+@home_page_bp.route(f'/advantage_img/<int:advantage_id>', methods=['POST'])
 @jwt_required()
 def advantage_img(advantage_id):
     if 'file' in request.files:
@@ -53,7 +56,7 @@ def advantage_img(advantage_id):
     if photo and checkFile(photo.filename):
         photo_filename = secure_filename(photo.filename)
         photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-        url = "static" + "/" + "advantages" + "/" + photo_filename
+        url = "staticfiles" + "/" + "advantages" + "/" + photo_filename
         advantage = Advantages.query.filter(Advantages.id == advantage_id).first()
         if os.path.exists(f'frontend/build/{advantage.img}'):
             os.remove(f'frontend/build/{advantage.img}')
@@ -74,7 +77,7 @@ def advantage_img(advantage_id):
         })
 
 
-@app.route(f'{api}/change_advantage/<int:advantage_id>', methods=['POST'])
+@home_page_bp.route(f'/change_advantage/<int:advantage_id>', methods=['POST'])
 @jwt_required()
 def change_advantage(advantage_id):
     pprint(request.get_json())
@@ -90,7 +93,7 @@ def change_advantage(advantage_id):
     })
 
 
-@app.route(f'{api}/change_link', methods=['POST'])
+@home_page_bp.route(f'/change_link', methods=['POST'])
 @jwt_required()
 def change_link():
     form = json.dumps(dict(request.form))
@@ -111,7 +114,7 @@ def change_link():
                 os.remove(f'frontend/build/{link.img}')
             photo_filename = secure_filename(img.filename)
             img.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-            url = "static" + "/" + "link_img" + "/" + photo_filename
+            url = "staticfiles" + "/" + "link_img" + "/" + photo_filename
             link.img = url
         db.session.commit()
     else:
@@ -123,7 +126,7 @@ def change_link():
     })
 
 
-@app.route(f'{api}/get_student_in_group/<int:group_id>', methods=['GET'])
+@home_page_bp.route(f'/get_student_in_group/<int:group_id>', methods=['GET'])
 @jwt_required()
 def get_student_in_group(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -140,7 +143,7 @@ def get_student_in_group(group_id):
     })
 
 
-@app.route(f'{api}/get_home_info', methods=['GET'])
+@home_page_bp.route(f'/get_home_info', methods=['GET'])
 def get_home_info():
     # response = requests.get(f"{classroom_server}/api/classroom_subjects", headers={
     #     'Content-Type': 'application/json'
@@ -234,7 +237,7 @@ def get_home_info():
     })
 
 
-@app.route(f'{api}/add_home_design', methods=['POST'])
+@home_page_bp.route(f'/add_home_design', methods=['POST'])
 def add_home_design():
     name = request.form.get('name')
     text = request.form.get('text')
@@ -247,7 +250,7 @@ def add_home_design():
     if photo and checkFile(photo.filename):
         photo_filename = secure_filename(photo.filename)
         photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-        url = "static" + "/" + "home_design" + "/" + photo_filename
+        url = "staticfiles" + "/" + "home_design" + "/" + photo_filename
         design = HomeDesign.query.first()
         if design:
             if os.path.exists(f'frontend/build/{design.img}'):
@@ -278,7 +281,7 @@ def add_home_design():
     })
 
 
-@app.route(f'{api}/add_home_video', methods=['POST'])
+@home_page_bp.route(f'/add_home_video', methods=['POST'])
 def add_home_video():
     req = request.get_json()
     name = req['name']
@@ -317,7 +320,7 @@ def get_comments():
     return comments_list
 
 
-@app.route(f'{api}/add_comment', methods=['POST'])
+@home_page_bp.route(f'/add_comment', methods=['POST'])
 @jwt_required()
 def add_comment():
     comment = request.get_json()['comment']
@@ -331,14 +334,14 @@ def add_comment():
     })
 
 
-@app.route(f'{api}/home_comments')
+@home_page_bp.route(f'/home_comments')
 def home_comments():
     return jsonify({
         "comments": get_comments()
     })
 
 
-@app.route(f'{api}/like_comment/<int:user_id>/<comment_id>')
+@home_page_bp.route(f'/like_comment/<int:user_id>/<comment_id>')
 @jwt_required()
 def like_comment(user_id, comment_id):
     user = Users.query.filter(Users.id == user_id).first()
@@ -357,7 +360,7 @@ def like_comment(user_id, comment_id):
     })
 
 
-@app.route(f'{api}/delete_comment/<int:comment_id>')
+@home_page_bp.route(f'/delete_comment/<int:comment_id>')
 @jwt_required()
 def delete_comment(comment_id):
     likes = CommentLikes.query.filter(CommentLikes.comment_id == comment_id).all()
@@ -373,7 +376,7 @@ def delete_comment(comment_id):
     })
 
 
-@app.route(f'{api}/add_news', methods=['POST'])
+@home_page_bp.route(f'/add_news', methods=['POST'])
 def add_news():
     form = json.dumps(dict(request.form))
     data = json.loads(form)
@@ -404,7 +407,7 @@ def add_news():
         if checkFile(file.filename):
             img_name = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], img_name))
-            url = "static" + "/" + "news" + "/" + img_name
+            url = "staticfiles" + "/" + "news" + "/" + img_name
             img = NewsImg(url=url, new_id=add.id)
             db.session.add(img)
             db.session.commit()
@@ -413,7 +416,7 @@ def add_news():
     })
 
 
-@app.route(f'{api}/change_news/<int:news_id>', methods=['PUT'])
+@home_page_bp.route(f'/change_news/<int:news_id>', methods=['PUT'])
 def change_news(news_id):
     form = json.dumps(dict(request.form))
     data = json.loads(form)
@@ -462,7 +465,7 @@ def change_news(news_id):
         if checkFile(file.filename):
             img_name = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], img_name))
-            url = "static" + "/" + "news" + "/" + img_name
+            url = "staticfiles" + "/" + "news" + "/" + img_name
             exist_img = NewsImg.query.filter(NewsImg.new_id == news_id, NewsImg.url == url).first()
 
             if not exist_img:
@@ -476,7 +479,7 @@ def change_news(news_id):
     })
 
 
-@app.route(f'{api}/home_news')
+@home_page_bp.route(f'/home_news')
 def home_news():
     news = News.query.order_by(News.id).all()
     news_list = []
@@ -501,7 +504,7 @@ def home_news():
     })
 
 
-@app.route(f'{api}/delete_news/<int:news_id>')
+@home_page_bp.route(f'/delete_news/<int:news_id>')
 def delete_news(news_id):
     links = NewsLink.query.filter(NewsLink.news_id == news_id).all()
     for link in links:
@@ -518,7 +521,7 @@ def delete_news(news_id):
     })
 
 
-@app.route(f'{api}/add_gallery/<img_id>', methods=['POST'])
+@home_page_bp.route(f'/add_gallery/<img_id>', methods=['POST'])
 @jwt_required()
 def add_gallery(img_id):
     photo = request.files['file']
@@ -529,7 +532,7 @@ def add_gallery(img_id):
         if photo and checkFile(photo.filename):
             photo_filename = secure_filename(photo.filename)
             photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-            url = "static" + "/" + "gallery" + "/" + photo_filename
+            url = "staticfiles" + "/" + "gallery" + "/" + photo_filename
             if os.path.exists(f'frontend/build{gallery.img}'):
                 os.remove(f'frontend/build{gallery.img}')
             Gallery.query.filter(Gallery.id == img_id).update({
@@ -540,7 +543,7 @@ def add_gallery(img_id):
         if photo and checkFile(photo.filename):
             photo_filename = secure_filename(photo.filename)
             photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-            url = "static" + "/" + "gallery" + "/" + photo_filename
+            url = "staticfiles" + "/" + "gallery" + "/" + photo_filename
             add = Gallery(id=img_id, img=url)
             db.session.add(add)
             db.session.commit()
@@ -571,7 +574,7 @@ def get_gallery():
     return filtered_gallery
 
 
-@app.route(f'{api}/gallery')
+@home_page_bp.route(f'/gallery')
 def gallery():
     return jsonify({
         'gallery': get_gallery()

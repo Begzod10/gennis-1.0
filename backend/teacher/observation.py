@@ -1,18 +1,21 @@
-from app import app, get_jwt_identity, jsonify, jwt_required, db, request, classroom_server
-
 from datetime import datetime
 
-from backend.functions.utils import find_calendar_date, iterate_models, get_json_field, api, filter_month_day
+import requests
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
+from app import classroom_server,db
+from backend.functions.filters import old_current_dates
+from backend.functions.utils import find_calendar_date, iterate_models, get_json_field, filter_month_day
 from backend.models.models import Users, Week, Groups, Group_Room_Week, \
-    CalendarMonth, CalendarYear, LessonPlan, LessonPlanStudents, or_, CalendarDay
+    CalendarMonth, or_, CalendarDay
 from .models import TeacherObservation, ObservationOptions, ObservationInfo, \
     TeacherObservationDay, Teachers
-from pprint import pprint
-from backend.functions.filters import old_current_dates
-import requests
+
+gennis_observation_bp = Blueprint('gennis_observation', __name__)
 
 
-@app.route(f'{api}/observe_info')
+@gennis_observation_bp.route(f'/observe_info')
 @jwt_required()
 def observe_info():
     info = [
@@ -79,8 +82,8 @@ def observe_info():
     })
 
 
-@app.route(f'{api}/groups_to_observe', defaults={"location_id": None}, methods=['POST', 'GET'])
-@app.route(f'{api}/groups_to_observe/<int:location_id>', methods=['POST', 'GET'])
+@gennis_observation_bp.route(f'/groups_to_observe', defaults={"location_id": None}, methods=['POST', 'GET'])
+@gennis_observation_bp.route(f'/groups_to_observe/<int:location_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups_to_observe(location_id):
     identity = get_jwt_identity()
@@ -128,8 +131,8 @@ def groups_to_observe(location_id):
         })
 
 
-# @app.route(f'{api}/teacher_observe/<int:teacher_id>/', defaults={"group_id": None}, methods=['POST', 'GET'])
-@app.route(f'{api}/teacher_observe/<int:group_id>', methods=['POST', 'GET'])
+# @gennis_observation_bp.route(f'/teacher_observe/<int:teacher_id>/', defaults={"group_id": None}, methods=['POST', 'GET'])
+@gennis_observation_bp.route(f'/teacher_observe/<int:group_id>', methods=['POST', 'GET'])
 @jwt_required()
 def teacher_observe(group_id):
     identity = get_jwt_identity()
@@ -188,7 +191,7 @@ def teacher_observe(group_id):
         })
 
 
-@app.route(f'{api}/set_observer/<int:user_id>')
+@gennis_observation_bp.route(f'/set_observer/<int:user_id>')
 @jwt_required()
 def set_observer(user_id):
     user = Users.query.filter_by(id=user_id).first()
@@ -206,8 +209,8 @@ def set_observer(user_id):
     })
 
 
-@app.route(f'{api}/observed_group/<int:group_id>', defaults={"date": None})
-@app.route(f'{api}/observed_group/<int:group_id>/<date>')
+@gennis_observation_bp.route(f'/observed_group/<int:group_id>', defaults={"date": None})
+@gennis_observation_bp.route(f'/observed_group/<int:group_id>/<date>')
 @jwt_required()
 def observed_group(group_id, date):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -254,7 +257,7 @@ def observed_group(group_id, date):
     })
 
 
-@app.route(f'{api}/observed_group_info/<int:group_id>', methods=["POST"])
+@gennis_observation_bp.route(f'/observed_group_info/<int:group_id>', methods=["POST"])
 @jwt_required()
 def observed_group_info(group_id):
     day = get_json_field('day')

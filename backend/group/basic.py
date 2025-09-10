@@ -3,24 +3,28 @@ from datetime import datetime, timedelta
 
 from flask_jwt_extended import jwt_required
 
-from app import app, api, or_, db, contains_eager, extract, jsonify, request, desc
 from backend.account.models import StudentCharity
 from backend.functions.filters import old_current_dates, update_lesson_plan
 from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
 from backend.group.class_model import Group_Functions
 from backend.models.models import Groups, CalendarDay, Students, AttendanceDays, SubjectLevels, \
     AttendanceHistoryStudent, Group_Room_Week, Attendance, CalendarMonth, Week, Rooms, Teachers, Roles, \
-    CertificateLinks, GroupTest
+    CertificateLinks, GroupTest, db
 from backend.teacher.models import LessonPlan, TeacherObservationDay
 from backend.student.class_model import Student_Functions
 
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
+from flask import Blueprint, request, jsonify
+from sqlalchemy import desc, extract, or_
+from sqlalchemy.orm import contains_eager
+
+group_bp = Blueprint('group', __name__)
 
 
-@app.route(f'{api}/groups_by_teacher/<int:teacher_id>', methods=['POST', 'GET'])
+@group_bp.route(f'/groups_by_teacher/<int:teacher_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups_by_teacher(teacher_id):
-    groups = Groups.query.filter_by(Groups.teacher_id == teacher_id).all()
+    groups = Groups.query.filter(Groups.teacher_id == teacher_id).all()
 
     list_group = [{
         "id": gr.id,
@@ -41,7 +45,8 @@ def groups_by_teacher(teacher_id):
     })
 
 
-@app.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
+# @group_bp.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
+@group_bp.route(f'/group_statistics/<int:group_id>', methods=['POST', 'GET'])
 @jwt_required()
 def group_statistics(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -82,7 +87,7 @@ def group_statistics(group_id):
     })
 
 
-@app.route(f'{api}/groups/<location_id>', methods=['POST', 'GET'])
+@group_bp.route(f'/groups/<location_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups(location_id):
     groups = Groups.query.filter(Groups.location_id == location_id,
@@ -107,7 +112,7 @@ def groups(location_id):
     })
 
 
-@app.route(f'{api}/my_groups/<int:user_id>', methods=['POST', 'GET'])
+@group_bp.route(f'/my_groups/<int:user_id>', methods=['POST', 'GET'])
 @jwt_required()
 def my_groups(user_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
@@ -139,7 +144,7 @@ def my_groups(user_id):
     })
 
 
-@app.route(f'{api}/groups_by_id/<int:group_id>', methods=['POST', 'GET'])
+@group_bp.route(f'/groups_by_id/<int:group_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups_by_id(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -167,7 +172,7 @@ def groups_by_id(group_id):
     })
 
 
-@app.route(f'{api}/group_profile/<int:group_id>')
+@group_bp.route(f'/group_profile/<int:group_id>')
 @jwt_required()
 def group_profile(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -190,7 +195,8 @@ def group_profile(group_id):
         },
         "eduLang": {
             "name": "O'qitish tili",
-            "value": group.language.name
+            "value": group.language.name,
+            "id": group.language.id
         },
         "studentsLength": {
             "name": "Studentlar soni",
@@ -198,11 +204,12 @@ def group_profile(group_id):
         },
         "groupPrice": {
             "name": "Guruh narxi",
-            "value": group.price
+            "value": group.price,
         },
         "groupCourseType": {
             "name": "Kurs turi",
-            "value": group.course_type.name
+            "value": group.course_type.name,
+            "id": group.course_type.id
         },
         "groupLevel": {
             "name": "Level",
@@ -344,7 +351,7 @@ def group_profile(group_id):
     })
 
 
-@app.route(f'{api}/group_time_table/<int:group_id>')
+@group_bp.route(f'/group_time_table/<int:group_id>')
 @jwt_required()
 def group_time_table(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
@@ -385,7 +392,7 @@ def group_time_table(group_id):
     })
 
 
-@app.route(f'{api}/attendances/<int:group_id>', methods=['GET', "POST"])
+@group_bp.route(f'/attendances/<int:group_id>', methods=['GET', "POST"])
 @jwt_required()
 def attendances(group_id):
     update_lesson_plan(group_id)
@@ -436,7 +443,7 @@ def attendances(group_id):
         })
 
 
-@app.route(f'{api}/attendances_android/<int:group_id>', methods=['GET', "POST"])
+@group_bp.route(f'/attendances_android/<int:group_id>', methods=['GET', "POST"])
 @jwt_required()
 def attendances_android(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -477,7 +484,7 @@ def attendances_android(group_id):
     })
 
 
-@app.route(f'{api}/get_attendance_day/<int:group_id>/<day>')
+@group_bp.route(f'/get_attendance_day/<int:group_id>/<day>')
 @jwt_required()
 def get_attendance_day(group_id, day):
     day_attendances = db.session.query(AttendanceDays).join(AttendanceDays.day).options(
@@ -491,7 +498,7 @@ def get_attendance_day(group_id, day):
     })
 
 
-@app.route(f'{api}/group_dates2/<int:group_id>')
+@group_bp.route(f'/group_dates2/<int:group_id>')
 @jwt_required()
 def group_dates(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -546,7 +553,7 @@ def group_dates(group_id):
     })
 
 
-@app.route(f'{api}/student_attendances/<int:student_id>/<int:group_id>/<month>')
+@group_bp.route(f'/student_attendances/<int:student_id>/<int:group_id>/<month>')
 @jwt_required()
 def student_attendances(student_id, group_id, month):
     selected_month = datetime.strptime(month, "%Y-%m")
@@ -622,7 +629,7 @@ def student_attendances(student_id, group_id, month):
         })
 
 
-@app.route(f'{api}/combined_attendances/<int:student_id>', methods=["POST", "GET"])
+@group_bp.route(f'/combined_attendances/<int:student_id>', methods=["POST", "GET"])
 @jwt_required()
 def combined_attendances(student_id):
     student = Students.query.filter(Students.user_id == student_id).first()
@@ -645,7 +652,7 @@ def combined_attendances(student_id):
         })
 
 
-@app.route(f'{api}/student_group_dates2/<int:student_id>')
+@group_bp.route(f'/student_group_dates2/<int:student_id>')
 @jwt_required()
 def student_group_dates2(student_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -684,8 +691,3 @@ def student_group_dates2(student_id):
             "current_month": calendar_month.date.strftime("%m"),
         }
     })
-
-
-from .classroom.attendance import *
-from .classroom.profile import *
-from .classroom.test import *

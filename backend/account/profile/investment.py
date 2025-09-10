@@ -1,16 +1,19 @@
 import datetime
-import pprint
 
-from app import app, db
+from flask import Blueprint
 from flask import request, jsonify
-from backend.models.models import Investment, AccountingPeriod, CalendarMonth, PaymentTypes, Locations
-from backend.functions.utils import find_calendar_date, api, refreshdatas, get_json_field, iterate_models
-from sqlalchemy import desc
 from flask_jwt_extended import jwt_required
+from sqlalchemy import desc
+
+from app import db
+from backend.functions.utils import find_calendar_date, refreshdatas, get_json_field, iterate_models
+from backend.models.models import Investment, AccountingPeriod, CalendarMonth, PaymentTypes, Locations
 from .utils import update_account
 
+account_investment = Blueprint('account_investment', __name__)
 
-@app.route(f'{api}/investment/<location_id>/', methods=['POST'])
+
+@account_investment.route(f'/investment/<location_id>/', methods=['POST'])
 @jwt_required()
 def add_investment(location_id):
     refreshdatas()
@@ -57,7 +60,7 @@ def add_investment(location_id):
     return jsonify({'investment': new_investment.convert_json()}), 201
 
 
-@app.route(f'{api}/get_investments/<deleted>/<archive>/', methods=['GET'])
+@account_investment.route(f'/get_investments/<deleted>/<archive>/', methods=['GET'])
 @jwt_required()
 def get_investments(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -75,7 +78,7 @@ def get_investments(deleted, archive):
     return jsonify({"investments": investments_list})
 
 
-@app.route(f'{api}/update_payment_type/<int:id>/<payment_type_id>/', methods=['POST'])
+@account_investment.route(f'/update_payment_type/<int:id>/<payment_type_id>/', methods=['POST'])
 @jwt_required()
 def update_payment_type(id, payment_type_id):
     # Fetch the investment record by ID
@@ -91,7 +94,7 @@ def update_payment_type(id, payment_type_id):
     return jsonify({"message": "Payment type updated successfully", "investment": investment.convert_json()}), 200
 
 
-@app.route(f'{api}/delete_investment/<int:id>/', methods=['DELETE'])
+@account_investment.route(f'/delete_investment/<int:id>/', methods=['DELETE'])
 @jwt_required()
 def delete_investment(id):
     # Fetch the investment record by ID

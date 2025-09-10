@@ -1,15 +1,21 @@
-from app import app, request, api, secure_filename, db, jsonify, checkFile
-from backend.models.models import Users, Groups, StudentCertificate, Teachers, TeacherData
 import json
-from datetime import date
-from backend.functions.small_info import certificate
 import os
+from datetime import date
+
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from pprint import pprint
+from werkzeug.utils import secure_filename
+
+from app import app, db
 from backend.functions.filters import iterate_models
+from backend.functions.small_info import certificate
+from backend.functions.small_info import checkFile
+from backend.models.models import Users, StudentCertificate, Teachers, TeacherData
+
+teacher_home_page_bp = Blueprint('teacher_home_page', __name__)
 
 
-@app.route(f'{api}/add_student_certificate', methods=['POST'])
+@teacher_home_page_bp.route(f'/add_student_certificate', methods=['POST'])
 @jwt_required()
 def add_student_certificate():
     form = json.dumps(dict(request.form))
@@ -47,7 +53,7 @@ def add_student_certificate():
         })
 
 
-@app.route(f'{api}/change_student_certificate/<int:certificate_id>', methods=['POST'])
+@teacher_home_page_bp.route(f'/change_student_certificate/<int:certificate_id>', methods=['POST'])
 @jwt_required()
 def change_student_certificate(certificate_id):
     form = json.dumps(dict(request.form))
@@ -80,7 +86,7 @@ def change_student_certificate(certificate_id):
     })
 
 
-@app.route(f'{api}/delete_student_certificate/<certificate_id>', methods=['DELETE'])
+@teacher_home_page_bp.route(f'/delete_student_certificate/<certificate_id>', methods=['DELETE'])
 @jwt_required()
 def delete_student_certificate(certificate_id):
     StudentCertificate.query.filter(StudentCertificate.id == certificate_id).delete()
@@ -92,7 +98,7 @@ def delete_student_certificate(certificate_id):
     })
 
 
-@app.route(f'{api}/get_teacher_data/<int:teacher_id>', methods=['GET'])
+@teacher_home_page_bp.route(f'/get_teacher_data/<int:teacher_id>', methods=['GET'])
 def get_teacher_data(teacher_id):
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
     data = TeacherData.query.filter(TeacherData.teacher_id == teacher.id).first()
@@ -122,7 +128,7 @@ def get_teacher_data(teacher_id):
         })
 
 
-@app.route(f'{api}/change_teacher_data', methods=['POST'])
+@teacher_home_page_bp.route(f'/change_teacher_data', methods=['POST'])
 @jwt_required()
 def change_teacher_data():
     identity = get_jwt_identity()

@@ -142,6 +142,7 @@ class CalendarMonth(db.Model):
     stuff_salary = relationship('StaffSalary', backref="month", order_by="StaffSalary.id")
     staff_given_salary = relationship("StaffSalaries", backref="month", order_by="StaffSalaries.id")
     overhead_data = relationship('Overhead', backref="month", order_by="Overhead.id")
+    capital_data = relationship("CapitalExpenditure", backref="month", order_by="CapitalExpenditure.id")
     # accounting = relationship("AccountingInfo", backref="month", order_by="AccountingInfo.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="month", order_by="DeletedStudentPayments.id")
     deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="month",
@@ -243,6 +244,7 @@ class CalendarDay(db.Model):
     capital_data = relationship('CapitalExpenditure', backref="day", order_by="CapitalExpenditure.id")
     deleted_capital_data = relationship("DeletedCapitalExpenditure", backref="day",
                                         order_by="DeletedCapitalExpenditure.id")
+    deleted_overhead_data = relationship("DeletedOverhead", backref="day", order_by="DeletedOverhead.id")
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     deleted_payments = relationship("DeletedStudentPayments", backref="day", order_by="DeletedStudentPayments.id")
     deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="day",
@@ -285,6 +287,10 @@ class CalendarDay(db.Model):
 
     school_teacher_salary_day = relationship("SchoolUserSalaryDay", backref="day",
                                              order_by="SchoolUserSalaryDay.id")
+    students_created = db.relationship("Students", foreign_keys="Students.created_day_id", backref="created_day",
+                                       lazy=True)
+    students_joined = db.relationship("Students", foreign_keys="Students.joined_day_id", backref="joined_day",
+                                      lazy=True)
 
     def convert_json(self, entire=False):
         return {
@@ -454,6 +460,7 @@ class Users(db.Model):
     deleted = Column(Boolean, default=False)
     parent = relationship("Parent", uselist=False, backref="user", order_by="Parent.id")
     address = Column(String)
+    telegram_id = Column(String)
 
     def convert_json(self, entire=False):
         if not entire:
@@ -540,6 +547,8 @@ class Users(db.Model):
                     if not group.deleted and group.status:
                         group_info = clone_group_info(group)
                         info['teacher']['group'].append(group_info)
+            elif self.parent:
+                info['parent'] = self.parent.convert_json(entire=True)
             return info
         else:
             return {
@@ -615,11 +624,11 @@ class CourseTypes(db.Model):
     old_id = Column(Integer)
 
 
-db.Table('student_subject',
-         db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
-         db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))
-         )
-
+student_subject = db.Table(
+    'student_subject',
+    db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))
+)
 db.Table('teacher_subject',
          db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
          db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))

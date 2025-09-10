@@ -1,10 +1,12 @@
-from backend.models.models import Capital, CapitalTerm, AccountingPeriod, CalendarMonth
+from sqlalchemy import and_, or_, extract, desc
+from sqlalchemy.orm import contains_eager
+
+from backend.functions.utils import find_calendar_date
+from backend.models.models import Capital, CapitalTerm, AccountingPeriod, CalendarMonth, db
+from backend.models.models import func
 from backend.student.models import Students
 from backend.teacher.models import Teachers
 from .models import TeacherSalary
-from backend.functions.utils import find_calendar_date
-from app import db, desc, contains_eager, session
-from backend.models.models import func
 
 
 def update_capital(location_id):

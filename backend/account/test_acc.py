@@ -1,19 +1,14 @@
-from flask import session
-from sqlalchemy import func
-
-from app import app, db, desc, contains_eager, request, jsonify
-from backend.group.models import Attendance, AttendanceDays
-
-from backend.student.models import Students
+from flask import Blueprint, jsonify
 
 from backend.account.utils import student_collection_api, teacher_collection_api
-from backend.functions.utils import api, find_calendar_date, get_json_field, update_staff_salary_id, \
-    update_teacher_salary_id, update_salary
-from pprint import pprint
-from sqlalchemy.orm import sessionmaker
+from backend.functions.utils import find_calendar_date
+from backend.group.models import Attendance, AttendanceDays
+from backend.student.models import Students
+
+account_test_bp = Blueprint('account_test_bp', __name__)
 
 
-@app.route('/collection', methods=["POST", "GET"])
+@account_test_bp.route('/collection', methods=["POST", "GET"])
 def collection():
     return jsonify(
         {
@@ -23,7 +18,7 @@ def collection():
     )
 
 
-@app.route('/calculate_student_debts/<int:student_id>', methods=["POST", "GET"])
+@account_test_bp.route('/calculate_student_debts/<int:student_id>', methods=["POST", "GET"])
 def calculate_student_debts(student_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     attendance = Attendance.query.filter(Attendance.student_id == student_id,

@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from app import app, request, jsonify, db, contains_eager
-from backend.group.test import api
+from app import app
 
-from backend.models.models import GroupTest, CalendarYear, CalendarMonth, StudentTest, Groups, Students
+from backend.group.test import api
+from sqlalchemy.orm import contains_eager
+from backend.models.models import GroupTest, CalendarYear, CalendarMonth, StudentTest, Groups, Students, db
 
 from backend.functions.small_info import user_photo_folder, checkFile
 
@@ -16,9 +17,12 @@ import os
 import json
 from werkzeug.utils import secure_filename
 import pprint
+from flask import Blueprint
+
+group_classroom_test_bp = Blueprint('group_classroom_test', __name__)
 
 
-@app.route(f'{api}/create_test_classroom/<int:group_id>', methods=["POST", "PUT", "DELETE"])
+@group_classroom_test_bp.route(f'/create_test_classroom/<int:group_id>', methods=["POST", "PUT", "DELETE"])
 def create_test_classroom(group_id):
     # File upload
     url = ""
@@ -103,7 +107,7 @@ def create_test_classroom(group_id):
         return jsonify({"success": True, "msg": "Test deleted"})
 
 
-@app.route(f'{api}/filter_datas_in_group_classroom/<int:group_id>', methods=["POST", "GET"])
+@group_classroom_test_bp.route(f'/filter_datas_in_group_classroom/<int:group_id>', methods=["POST", "GET"])
 def filter_datas_in_group_classroom(group_id):
     month_list = []
     if request.method == "GET":
@@ -142,7 +146,7 @@ def filter_datas_in_group_classroom(group_id):
         })
 
 
-@app.route(f'{api}/filter_test_group_classroom/<int:group_id>', methods=['POST'])
+@group_classroom_test_bp.route(f'/filter_test_group_classroom/<int:group_id>', methods=['POST'])
 def filter_test_group_classroom(group_id):
     year = get_json_field('year')
     month = get_json_field('month')
@@ -160,7 +164,7 @@ def filter_test_group_classroom(group_id):
                     "students": iterate_models(students)})
 
 
-@app.route(f'{api}/submit_test_group_classroom/<int:group_id>', methods=["POST"])
+@group_classroom_test_bp.route(f'/submit_test_group_classroom/<int:group_id>', methods=["POST"])
 def submit_test_group_classroom(group_id):
     group = Groups.query.filter(Groups.id == group_id).first()
     if request.method == "POST":

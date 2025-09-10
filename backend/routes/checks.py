@@ -1,12 +1,16 @@
-from app import app, request, jsonify, django_server
-from backend.models.models import *
+from flask import request, jsonify
+from flask_jwt_extended import jwt_required
+from werkzeug.security import check_password_hash
+
+from sqlalchemy import or_, and_
 from backend.functions.utils import api
-from flask_jwt_extended import *
-from werkzeug.security import generate_password_hash, check_password_hash
-import requests
+from backend.models.models import Users, Subjects, Students
+from flask import Blueprint
+
+basics_checks = Blueprint('basics_checks', __name__)
 
 
-@app.route(f'{api}/check_username', methods=['POST'])
+@basics_checks.route(f'/check_username', methods=['POST'])
 def check_username():
     """
     check exist data in Users  table
@@ -27,7 +31,7 @@ def check_username():
     return jsonify(body)
 
 
-@app.route(f'{api}/check_username_turon', methods=['POST'])
+@basics_checks.route(f'/check_username_turon', methods=['POST'])
 def check_username_turon():
     """
     check exist data in Users  table
@@ -36,13 +40,13 @@ def check_username_turon():
 
     body = {}
     username = request.get_json()['username']
-    print(username)
+
     find_username_users = Users.query.filter_by(username=username).first()
     body['found'] = True if find_username_users else False
     return jsonify(body)
 
 
-@app.route(f'{api}/check_exist_username/<int:user_id>', methods=['POST'])
+@basics_checks.route(f'/check_exist_username/<int:user_id>', methods=['POST'])
 def check_exist_username(user_id):
     """
     check exist data in Users table by user_id
@@ -65,7 +69,7 @@ def check_exist_username(user_id):
     })
 
 
-@app.route(f'{api}/check_subject/<int:user_id>', methods=['POST'])
+@basics_checks.route(f'/check_subject/<int:user_id>', methods=['POST'])
 @jwt_required()
 def check_subject(user_id):
     """
@@ -88,7 +92,7 @@ def check_subject(user_id):
     })
 
 
-@app.route(f'{api}/check_password', methods=['POST'])
+@basics_checks.route(f'/check_password', methods=['POST'])
 @jwt_required()
 def check_password():
     """

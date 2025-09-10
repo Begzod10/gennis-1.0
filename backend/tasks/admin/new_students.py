@@ -1,18 +1,20 @@
 from datetime import datetime
 
+from flask import request, jsonify
 from flask_jwt_extended import jwt_required
-from sqlalchemy import func
 
-from app import app, request, jsonify, db
+from app import app, db
 from backend.functions.utils import api, find_calendar_date, iterate_models
-from backend.models.models import Students, StudentCallingInfo, Users, CalendarDay, TaskDailyStatistics
-from backend.models.models import desc
-from backend.student.functions import change_statistics
+from backend.models.models import Students, StudentCallingInfo, CalendarDay, TaskDailyStatistics
 from backend.tasks.models.models import Tasks, TasksStatistics
 from backend.tasks.utils import update_all_ratings, filter_new_students
 
+from flask import Blueprint
 
-@app.route(f'{api}/task_new_students/<int:location_id>/<date>', methods=["POST", "GET"])
+task_new_students_bp = Blueprint('task_new_students', __name__)
+
+
+@task_new_students_bp.route(f'/task_new_students/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def task_new_students(location_id, date):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -40,7 +42,7 @@ def task_new_students(location_id, date):
     })
 
 
-@app.route(f'{api}/completed_new_students/<int:location_id>/<date>', methods=["POST", "GET"])
+@task_new_students_bp.route(f'/completed_new_students/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def completed_new_students(location_id, date):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -80,7 +82,7 @@ def completed_new_students(location_id, date):
     })
 
 
-@app.route(f'{api}/call_to_new_students', methods=["POST"])
+@task_new_students_bp.route(f'/call_to_new_students', methods=["POST"])
 def call_to_new_students():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     student_info = request.get_json()

@@ -1,18 +1,23 @@
-from app import app, db
+import datetime
+
+from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
-import datetime
-from backend.functions.utils import api, find_calendar_date, iterate_models
-from backend.models.models import Dividend, AccountingPeriod, CalendarDay, CalendarMonth, CalendarYear
-from .utils import update_account, payable_sum_calculate
-from app import desc as dc
+
+from app import db
+from sqlalchemy import desc
+from backend.functions.utils import find_calendar_date, iterate_models
+from backend.models.models import Dividend, AccountingPeriod, CalendarMonth
+from .utils import update_account
+
+account_dividend_bp = Blueprint('account_dividend_bp', __name__)
 
 
-@app.route(f'{api}/take_dividend', methods=['POST'])
+@account_dividend_bp.route(f'/take_dividend', methods=['POST'])
 @jwt_required()
 def take_dividend():
     data = request.get_json()
-    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(dc(CalendarMonth.id)).first().id
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     day = datetime.datetime.strptime(data['date'], '%Y-%m-%d')
     month = datetime.datetime.strptime(day.strftime('%Y-%m'), '%Y-%m')
     year = datetime.datetime.strptime(day.strftime('%Y'), '%Y')
@@ -44,7 +49,7 @@ def take_dividend():
     return jsonify({'dividend': new_dividend.convert_json()}), 201
 
 
-@app.route(f'{api}/crud_dividend/<int:pk>', methods=['POST'])
+@account_dividend_bp.route(f'/crud_dividend/<int:pk>', methods=['POST'])
 @jwt_required()
 def crud_dividend(pk):
     data = request.get_json()
@@ -57,7 +62,7 @@ def crud_dividend(pk):
         {"payment_type": {'name': dividend.payment_type.name, 'id': dividend.payment_type.id, }}), 201
 
 
-@app.route(f'{api}/delete_dividend/<int:pk>', methods=['POST'])
+@account_dividend_bp.route(f'/delete_dividend/<int:pk>', methods=['POST'])
 @jwt_required()
 def delete_dividend(pk):
     data = request.get_json()
@@ -70,7 +75,7 @@ def delete_dividend(pk):
     return jsonify({'message': 'Dividend deleted successfully'}), 201
 
 
-@app.route(f'{api}/get_dividend/<deleted>/<archive>/', methods=['GET'])
+@account_dividend_bp.route(f'/get_dividend/<deleted>/<archive>/', methods=['GET'])
 @jwt_required()
 def get_dividend(deleted, archive):
     calendar_year, calendar_month, calendar_day = find_calendar_date()

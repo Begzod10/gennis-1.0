@@ -1,5 +1,9 @@
-from app import *
-from backend.models.models import *
+from backend.models.models import TeacherBlackSalary, Subjects, Teachers, Attendance, AttendanceDays, Groups, \
+    AttendanceHistoryStudent, CalendarDay, db, AttendanceHistoryTeacher, CampStaffSalary, TeacherSalary, Students, \
+    Staff, StaffSalary, CampStaff
+from sqlalchemy import extract, or_
+from sqlalchemy.orm import contains_eager
+from backend.functions.utils import find_calendar_date
 
 
 def salary_debt(student_id, group_id, attendance_id, status_attendance,

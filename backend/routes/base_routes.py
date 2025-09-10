@@ -1,64 +1,34 @@
+import hashlib
 from datetime import datetime
 from datetime import timedelta
-from pprint import pprint
 
-import requests
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, create_refresh_token, \
     unset_jwt_cookies
+from sqlalchemy import desc, or_
+from sqlalchemy import text
+from sqlalchemy.orm import contains_eager
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import app, api, db, jsonify, contains_eager, request, or_, desc
 from backend.functions.filters import new_students_filters, teacher_filter, staff_filter, collection, \
     accounting_payments, group_filter, \
-    deleted_students_filter, debt_students, deleted_reg_students_filter
+    deleted_students_filter, debt_students, deleted_reg_students_filter, capital_tools
+from backend.functions.filters import old_current_dates
+from backend.functions.functions import update_user_time_table
 from backend.functions.utils import find_calendar_date, get_json_field, check_exist_id
 from backend.functions.utils import refresh_age, iterate_models, refreshdatas, hour2, update_salary
 from backend.models.models import CourseTypes, Students, Users, Staff, \
-    PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, AccountingInfo, Groups, \
+    PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, Groups, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
     CalendarYear, TeacherData, StudentTest, GroupTest, AttendanceDays, CalendarDay, CalendarMonth, \
-    CertificateLinks
+    GroupReason, Rooms, Parent, db
 from backend.student.class_model import Student_Functions
-from backend.functions.functions import update_user_time_table
 from backend.student.register_for_tes.populate import create_school
 
-
-@app.errorhandler(404)
-def not_found(e):
-    return app.send_static_file('index.html')
+base_bp = Blueprint('base', __name__)
 
 
-@app.errorhandler(413)
-def img_larger(e):
-    return jsonify({
-        "success": False,
-        "msg": "rasm hajmi kotta"
-    })
-
-
-@app.route('/', methods=['POST', 'GET'])
-def index():
-    refreshdatas()
-
-    # list = ['Co-working zone', 'Friendly atmosphere', 'Football games in 3 branches', 'Different interesting events',
-    #         'Cybersport']
-    # for name in list:
-    #     advantage = Advantages.query.filter(Advantages.name == name).first()
-    #     if not advantage:
-    #         add = Advantages(name=name)
-    #         db.session.add(add)
-    #         db.session.commit()
-    # link_names = ['Youtube', 'Telegram', 'Instagram', 'Facebook']
-    # for link_name in link_names:
-    #     link = Link.query.filter(Link.name == link_name).first()
-    #     if not link:
-    #         new = Link(name=link_name)
-    #         db.session.add(new)
-    #         db.session.commit()
-    return app.send_static_file("index.html")
-
-
-@app.route(f'{api}/check_user_id/<user_id>/<username>')
+@base_bp.route(f'/check_user_id/<user_id>/<username>')
 def calendar(user_id, username):
     user_id = check_exist_id(user_id)
     Users.query.filter(Users.username == username).update({'user_id': user_id})
@@ -69,7 +39,7 @@ def calendar(user_id, username):
     })
 
 
-@app.route(f'{api}/locations')
+@base_bp.route(f'/locations')
 def locations():
     locations_list = Locations.query.order_by(Locations.id).all()
     years = CalendarYear.query.order_by(CalendarYear.id).all()
@@ -79,8 +49,8 @@ def locations():
     })
 
 
-@app.route(f"{api}/filters/<name>/<int:location_id>/", defaults={"type_filter": None}, methods=["GET"])
-@app.route(f"{api}/filters/<name>/<int:location_id>/<type_filter>", methods=["GET"])
+@base_bp.route(f"/filters/<name>/<int:location_id>/", defaults={"type_filter": None}, methods=["GET"])
+@base_bp.route(f"/filters/<name>/<int:location_id>/<type_filter>", methods=["GET"])
 @jwt_required()
 def filters(name, location_id, type_filter):
     """
@@ -101,6 +71,8 @@ def filters(name, location_id, type_filter):
         filter_block = group_filter(location_id)
     if name == "accounting_payment":
         filter_block = accounting_payments(type_filter)
+    if name == "capital_tools":
+        filter_block = capital_tools(type_filter)
     if name == "collection":
         filter_block = collection()
     if name == "debt_students":
@@ -115,7 +87,78 @@ def filters(name, location_id, type_filter):
     })
 
 
-@app.route(f"{api}/refresh", methods=["POST"])
+@base_bp.route(f'/block_information2', defaults={"location_id": None})
+@base_bp.route(f'/block_information2/<int:location_id>')
+# @jwt_required()
+def block_information2(location_id):
+    """
+
+    :param location_id: Locations primary key
+    :return: data list by location id
+    """
+
+    locations = Locations.query.order_by(Locations.id).all()
+    locations_list = [{'id': location.id, "name": location.name} for location in locations]
+
+    # subject
+    subjects = Subjects.query.order_by(Subjects.id).all()
+    subject_list = [{'id': sub.id, "name": sub.name} for sub in subjects]
+
+    # course types
+    course_types = CourseTypes.query.order_by(CourseTypes.id).all()
+    course_types_list = [{'id': sub.id, "name": sub.name} for sub in course_types]
+
+    # education language
+    education_languages = EducationLanguage.query.all()
+    education_languages_list = [{
+        'id': sub.id,
+        "name": sub.name
+    } for sub in education_languages]
+
+    #   payment types
+    payment_types = PaymentTypes.query.all()
+    payment_types_list = [{
+        'id': sub.id,
+        "name": sub.name
+    } for sub in payment_types]
+    rooms = Rooms.query.filter(Rooms.location_id == location_id).order_by(Rooms.id).all()
+    room_list = [{
+        "id": room.id,
+        "name": room.name,
+        "seats": room.seats_number,
+        "electronic": room.electronic_board
+    } for room in rooms]
+
+    days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
+    day_list = [{
+        "id": day.id,
+        "name": day.name
+    } for day in days]
+    calendar_years = CalendarYear.query.filter(
+        CalendarYear.date >= datetime.strptime("2021-01-01", "%Y-%m-%d")).order_by(
+        CalendarYear.id).all()
+    calendar_months = CalendarMonth.query.distinct(CalendarMonth.date).order_by(desc(CalendarMonth.date)).all()
+    group_reasons = GroupReason.query.order_by(GroupReason.id).all()
+
+    data = {
+        "locations": locations_list,
+        "subjects": subject_list,
+        "course_types": course_types_list,
+        "langs": education_languages_list,
+        "payment_types": payment_types_list,
+        "rooms": room_list,
+        "days": day_list,
+        "years": iterate_models(calendar_years),
+        "months": iterate_models(calendar_months),
+        "group_reasons": iterate_models(group_reasons),
+        "data_days": old_current_dates(observation=True)
+    }
+    return jsonify({
+        "data": data
+    })
+
+
+@base_bp.route(f"/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
     """
@@ -147,53 +190,105 @@ def refresh():
     })
 
 
-# @app.route(f'{api}/login', methods=['POST', 'GET'])
-# def login():
-#     if request.method == "POST":
-#
-#         username = get_json_field('username')
-#         password = get_json_field('password')
-#         username_sign = Users.query.filter_by(username=username).first()
-#
-#         if username_sign and check_password_hash(username_sign.password, password):
-#             access_token = create_access_token(identity=username)
-#             # if username_sign.role_id == 5 or username_sign.role_id == 4:
-#             #     return jsonify({
-#             #         'class': True,
-#             #         "access_token": access_token,
-#             #     })
-#             role = Roles.query.filter(Roles.id == username_sign.role_id).first()
-#             refresh_age(username_sign.id)
-#             return jsonify({
-#                 "data": {
-#                     "username": username_sign.username,
-#                     "surname": username_sign.surname.title(),
-#                     "name": username_sign.name.title(),
-#                     "id": username_sign.id,
-#                     "access_token": access_token,
-#                     "role": role.role,
-#                     "observer": username_sign.observer,
-#                     "refresh_token": create_refresh_token(identity=username),
-#                     "location_id": username_sign.location_id
-#                 },
-#                 "success": True
-#             })
-#
-#         else:
-#             return jsonify({
-#                 "success": False,
-#                 "msg": "Username yoki parol noturg'i"
-#             })
+def verify_and_upgrade_password(conn, user, input_password):
+    stored_hash = user.password
+
+    if stored_hash.startswith("pbkdf2:"):
+        # Normal case
+        return check_password_hash(stored_hash, input_password)
+
+    else:
+        # Legacy SHA256 case
+        if hashlib.sha256(input_password.encode()).hexdigest() == stored_hash:
+            # ✅ Correct password → upgrade to pbkdf2
+            new_hash = generate_password_hash(input_password, method="pbkdf2:sha256")
+            conn.execute(
+                text("UPDATE users SET password = :p WHERE id = :uid"),
+                {"p": new_hash, "uid": user.id}
+            )
+            return True
+        return False
 
 
-@app.route(f"{api}/logout", methods=["POST"])
+@base_bp.route('/login', methods=['POST', 'GET'])
+def login():
+    """
+    login function
+    create token
+    :return: logged User datas
+    """
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+
+    if request.method == "POST":
+        username = get_json_field('username')
+        password = get_json_field('password')
+
+        username_sign = Users.query.filter(Users.username == username).filter(
+            or_(Users.deleted == False, Users.deleted == None)
+        ).first()
+
+        if username_sign and check_password_hash(username_sign.password, password):
+            role = Roles.query.filter(Roles.id == username_sign.role_id).first()
+            access_token = create_access_token(identity=username_sign.user_id)
+            refresh_age(username_sign.id)
+            class_status = False
+            location = Locations.query.filter(Locations.id == username_sign.location_id).first()
+            parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
+
+            return jsonify({
+                'class': class_status,
+                "type_platform": "gennis",
+                "access_token": access_token,
+                "user": username_sign.convert_json(),
+                "refresh_token": create_refresh_token(identity=username_sign.user_id),
+                "data": {
+                    "username": username_sign.username,
+                    "surname": username_sign.surname.title(),
+                    "name": username_sign.name.title(),
+                    "id": username_sign.id,
+                    "role": role.role,
+                    "location_id": username_sign.location_id,
+                    "access_token": access_token,
+                    "refresh_token": create_refresh_token(identity=username_sign.user_id),
+                },
+                "success": True,
+                "type_user": role.type_role,
+                "parent": parent.convert_json() if parent else {},
+                "location": location.convert_json()
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "msg": "Username yoki parol noturg'i"
+            })
+
+
+@base_bp.route(f'/get_user')
+@jwt_required()
+def get_user():
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity)
+
+    user = Users.query.filter_by(user_id=identity).first()
+    subjects = Subjects.query.order_by(Subjects.id).all()
+
+    return jsonify({
+        "data": user.convert_json(),
+        "access_token": access_token,
+        "refresh_token": create_refresh_token(identity=user.user_id),
+        "subject_list": iterate_models(subjects),
+        # "users": iterate_models(users, entire=True)
+    })
+
+
+@base_bp.route(f"/logout", methods=["POST"])
 def logout():
     response = jsonify({"msg": "logout successful"})
     unset_jwt_cookies(response)
     return response
 
 
-@app.route(f'{api}/register', methods=['POST', 'GET'])
+@base_bp.route(f'/register', methods=['POST', 'GET'])
 def register():
     refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -204,7 +299,9 @@ def register():
         username = json_request['username']
         username_check = Users.query.filter_by(username=username).filter(
             or_(Users.deleted == False, Users.deleted == None)).first()
-
+        selectedSubjects = json_request['selectedSubjects']
+        if not selectedSubjects:
+            return jsonify({"message": "Please select at least one subject"})
         morning_shift = None
         night_shift = None
         time = json_request['shift']
@@ -319,7 +416,7 @@ def register():
         })
 
 
-@app.route(f'{api}/register_teacher', methods=['POST', 'GET'])
+@base_bp.route(f'/register_teacher', methods=['POST', 'GET'])
 def register_teacher():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
@@ -386,7 +483,7 @@ def register_teacher():
         })
 
 
-@app.route(f'{api}/register_staff', methods=['POST'])
+@base_bp.route(f'/register_staff', methods=['POST'])
 def register_staff():
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     get_json = request.get_json()
@@ -454,7 +551,7 @@ def register_staff():
     })
 
 
-@app.route(f'{api}/my_profile/<int:user_id>')
+@base_bp.route(f'/my_profile/<int:user_id>')
 @jwt_required()
 def my_profile(user_id):
     links = []
@@ -651,7 +748,7 @@ def my_profile(user_id):
     })
 
 
-@app.route(f'{api}/get_price_course/', methods=['POST'])
+@base_bp.route(f'/get_price_course/', methods=['POST'])
 @jwt_required()
 def get_price_course():
     body = {}
@@ -661,7 +758,7 @@ def get_price_course():
     return jsonify(body)
 
 
-@app.route(f'{api}/profile/<int:user_id>')
+@base_bp.route(f'/profile/<int:user_id>')
 @jwt_required()
 def profile(user_id):
     refreshdatas()
@@ -674,6 +771,8 @@ def profile(user_id):
     old_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime("2025-01", "%Y-%m")).first()
     refresh_age(user_get.id)
     att_count = 0
+    # user_get.deleted = True
+    # db.session.commit()
     if teacher_get:
         groups = Groups.query.filter(Groups.teacher_id == teacher_get.id,
                                      Groups.status == True).order_by(Groups.id).all()
@@ -1047,6 +1146,7 @@ def profile(user_id):
             "photo_profile": user_get.photo_profile,
             "observer": user_get.observer,
             "att_count": att_count,
+            "deleted": user_get.deleted,
             "activeToChange": {
                 "username": True,
                 "name": True,
@@ -1147,7 +1247,16 @@ def profile(user_id):
     })
 
 
-@app.route(f'{api}/user_time_table/<int:user_id>/<int:location_id>')
+@base_bp.route(f'/change/delete/status/<user_id>/')
+def change_delete_status(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    if user:
+        user.deleted = None
+        db.session.commit()
+    return jsonify({"msg": "Deleted status changed"})
+
+
+@base_bp.route(f'/user_time_table/<int:user_id>/<int:location_id>')
 @jwt_required()
 def user_time_table(user_id, location_id):
     student = Students.query.filter(Students.user_id == user_id).first()
@@ -1232,7 +1341,7 @@ def user_time_table(user_id, location_id):
     })
 
 
-@app.route(f'{api}/user_time_table_classroom/<int:user_id>/<location_id>')
+@base_bp.route(f'/user_time_table_classroom/<int:user_id>/<location_id>')
 def user_time_table_classroom(user_id, location_id):
     student = Students.query.filter(Students.user_id == user_id).first()
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
@@ -1316,7 +1425,7 @@ def user_time_table_classroom(user_id, location_id):
     })
 
 
-@app.route(f'{api}/extend_att_date/<int:student_id>', methods=['POST'])
+@base_bp.route(f'/extend_att_date/<int:student_id>', methods=['POST'])
 @jwt_required()
 def extend_att_date(student_id):
     student = Students.query.filter(Students.user_id == student_id).first()
@@ -1337,271 +1446,3 @@ def extend_att_date(student_id):
         "msg": "Davomat limit kuni belgilandi"
 
     })
-
-
-@app.route(f'{api}/request_get')
-def request_get():
-    payment_type = PaymentTypes.query.filter(PaymentTypes.name == "cash").first()
-
-    accounting_info = AccountingInfo.query.filter(AccountingInfo.location_id == 3,
-                                                  AccountingInfo.payment_type_id == payment_type.id).all()
-
-    response = requests.get("http://176.96.243.157/request_get")
-
-    # subject_list = response.json()['subject_list']
-    # for sub in subject_list:
-    #     subject = Subjects.query.filter(Subjects.name == sub['name']).first()
-    #     if not subject:
-    #         if sub['name'] == "Ingliz tili" or sub['name'] == "Rus tili" or sub[
-    #             'name'] == "Ingliz tili+mental arifmetika" or sub['name'] == "Rus tili+mental arifmetika":
-    #             ball_number = 3
-    #         else:
-    #             ball_number = 2
-    #         subject = Subjects(name=sub['name'], ball_number=ball_number)
-    #         db.session.add(subject)
-    #         db.session.commit()
-    #
-    # education_language = response.json()['education_language']
-    # for language in education_language:
-    #     if language == "Узбекский":
-    #         lan = "Uz"
-    #     else:
-    #         lan = "Rus"
-    #     get_language = EducationLanguage.query.filter(EducationLanguage.name == lan).first()
-    #     if not get_language:
-    #         get_language = EducationLanguage(name=lan)
-    #         db.session.add(get_language)
-    #         db.session.commit()
-    #
-    # course_types = response.json()['course_types']
-    # for course in course_types:
-    #     get_course = CourseTypes.query.filter(CourseTypes.name == course).first()
-    #     if not get_course:
-    #         get_course = CourseTypes(name=course)
-    #         db.session.add(get_course)
-    #         db.session.commit()
-    #
-    # jobs = response.json()['job_list']
-    # for job in jobs:
-    #
-    #     get_job = Professions.query.filter(Professions.name == job).first()
-    #     if not get_job:
-    #         get_job = Professions(name=job)
-    #         db.session.add(get_job)
-    #         db.session.commit()
-
-    # student_list = response.json()['student_list']
-    # #
-    # for student in student_list:
-    #     id = uuid.uuid1()
-    #     user_id = id.hex[0:15]
-    #     role = Roles.query.filter(Roles.student == True).first()
-    #     if student['education_language'] == "Узбекский":
-    #         language = "Uz"
-    #     else:
-    #         language = "Rus"
-    #     language = EducationLanguage.query.filter(EducationLanguage.name == language).first()
-    #     location = Locations.query.filter(Locations.id == student['locations']).first()
-    #     if not student['xojakent_admin'] and not student['gazalkent_admin'] and not student['chirchiq_admin'] and not \
-    #             student['director']:
-    #         user = Users.query.filter(Users.name == student['name'], Users.surname == student['surname'],
-    #                                   Users.education_language == language.id, Users.username == student['username'],
-    #                                   Users.born_day == student['born_day'], Users.born_month == student['born_month'],
-    #                                   Users.born_year == student['year_born'], Users.age == student['age'],
-    #                                   Users.calendar_day == calendar_day.id).first()
-    #         if not user:
-    #             add = Users(name=student['name'], surname=student['surname'], password=student['password'],
-    #                         education_language=language.id,
-    #                         location_id=location.id, user_id=user_id, username=student['username'],
-    #                         born_day=student['born_day'], role_id=role.id,
-    #                         born_month=student['born_month'], comment=student['comment'], calendar_day=calendar_day.id,
-    #                         calendar_month=calendar_month.id, calendar_year=calendar_year.id,
-    #                         born_year=student['year_born'], age=student['age'], father_name=student['otasining_ismi'],
-    #                         director=student['director'])
-    #             db.session.add(add)
-    #             db.session.commit()
-    #             subject1 = Subjects.query.filter_by(name=student['subject_1']).first()
-    #             subject2 = Subjects.query.filter_by(name=student['subject_2']).first()
-    #             subject3 = Subjects.query.filter_by(name=student['subject_3']).first()
-    #             student_get = Students(user_id=add.id, old_id=student['id'])
-    #             db.session.add(student_get)
-    #             db.session.commit()
-    #             if subject1:
-    #                 student_get.subject.append(subject1)
-    #                 db.session.commit()
-    #             if subject2:
-    #                 student_get.subject.append(subject2)
-    #                 db.session.commit()
-    #             if subject3:
-    #                 student_get.subject.append(subject3)
-    #                 db.session.commit()
-    #             add_phone = PhoneList(phone=student['phone'], personal=True, user_id=add.id)
-    #             db.session.add(add_phone)
-    #             db.session.commit()
-    #             add_parent_phone = PhoneList(phone=student['parent_phone'], parent=True, user_id=add.id)
-    #             db.session.add(add_parent_phone)
-    #             db.session.commit()
-    #             if student['money'] > 0:
-    #                 student_get = Students.query.filter(Students.old_id == student['id']).first()
-    #
-    #                 Students.query.filter(Students.id == student_get.id).update({
-    #                     "old_debt": student['money'],
-    #                     "old_money": None
-    #                 })
-    #                 db.session.commit()
-    #                 st_functions = Student_Functions(student_id=student_get.id)
-    #                 st_functions.update_debt()
-    #                 st_functions.update_extra_payment()
-    #                 st_functions.update_balance()
-    #             else:
-    #                 student_get = Students.query.filter(Students.old_id == student['id']).first()
-    #                 Students.query.filter(Students.id == student_get.id).update({
-    #                     "old_money": student['money'],
-    #                     "old_debt": None
-    #                 })
-    #                 db.session.commit()
-    #                 st_functions = Student_Functions(student_id=student_get.id)
-    #                 st_functions.update_debt()
-    #                 st_functions.update_extra_payment()
-    #                 st_functions.update_balance()
-    # language = EducationLanguage.query.first()
-    # if student['director']:
-    #     role = Roles.query.filter(Roles.director == True).first()
-    #     user = Users.query.filter(Users.name == student['name'], Users.surname == student['surname'],
-    #                               Users.education_language == language.id, Users.username == student['username'],
-    #                               Users.born_day == student['born_day'], Users.born_month == student['born_month'],
-    #                               Users.born_year == student['year_born'], Users.age == student['age'],
-    #                               Users.calendar_day == calendar_day.id).first()
-    #     if not user:
-    #         add = Users(name=student['name'], surname=student['surname'], password=student['password'],
-    #                     education_language=language.id,
-    #                     location_id=student['locations'], user_id=user_id, username=student['username'],
-    #                     born_day=student['born_day'], role_id=role.id,
-    #                     born_month=student['born_month'], comment=student['comment'], calendar_day=calendar_day.id,
-    #                     calendar_month=calendar_month.id, calendar_year=calendar_year.id,
-    #                     born_year=student['year_born'], age=student['age'], father_name=student['otasining_ismi'],
-    #                     director=student['director'])
-    #         db.session.add(add)
-    #
-    #         db.session.commit()
-
-    #
-    # teacher_list = response.json()['teacher_list']
-    # for teacher in teacher_list:
-    #
-    #     id = uuid.uuid1()
-    #     user_id = id.hex[0:15]
-    #     role = Roles.query.filter(Roles.teacher == True).first()
-    #     if teacher['education_language'] == "Узбекский":
-    #         language = "Uz"
-    #     else:
-    #         language = "Rus"
-    #     language = EducationLanguage.query.filter(EducationLanguage.name == language).first()
-    #     location = Locations.query.filter(Locations.id == teacher['locations']).first()
-    #     add = Users(name=teacher['name'], surname=teacher['surname'], password=teacher['password'],
-    #                 education_language=language.id, role_id=role.id,
-    #                 location_id=location.id, user_id=user_id, username=teacher['username'],
-    #                 born_day=teacher['day_born'],
-    #                 born_month=teacher['month_born'], calendar_day=calendar_day.id,
-    #                 calendar_month=calendar_month.id, calendar_year=calendar_year.id,
-    #                 born_year=teacher['year_born'], age=teacher['age'], father_name=teacher['otasining_ismi'],
-    #                 balance=0)
-    #     db.session.add(add)
-    #     db.session.commit()
-    #     subject1 = Subjects.query.filter_by(name=teacher['subject']).first()
-    #     teacher_get = Teachers(user_id=add.id, old_id=teacher['id'])
-    #     db.session.add(teacher_get)
-    #     db.session.commit()
-    #     if subject1:
-    #         teacher_get.subject.append(subject1)
-    #         db.session.commit()
-    #     add_phone = PhoneList(phone=teacher['phone'], personal=True, user_id=add.id)
-    #     db.session.add(add_phone)
-    #     db.session.commit()
-    #
-    # group_list = response.json()['group_list']
-    # for group in group_list:
-    #     group_exist = Groups.query.filter(Groups.old_id == group['id']).first()
-    #     if not group_exist:
-    #         if group['education_language'] == "Узбекский":
-    #             language = "Uz"
-    #         else:
-    #             language = "Rus"
-    #         language = EducationLanguage.query.filter(EducationLanguage.name == language).first()
-    #         subject_get = Subjects.query.filter(Subjects.name == group['subject']).first()
-    #         location_get = Locations.query.filter(Locations.id == group['location']).first()
-    #         teacher_get = Teachers.query.filter(Teachers.old_id == group['teacher_id']).first()
-    #         course_type_get = CourseTypes.query.filter(CourseTypes.name == group['type_of_course']).first()
-    #
-    #         if not teacher_get:
-    #             add = Groups(name=group['name'], course_type_id=course_type_get.id, subject_id=subject_get.id,
-    #                          teacher_salary=group['teacher_salary'], location_id=location_get.id,
-    #                          calendar_day=calendar_day.id, status=True,
-    #                          calendar_month=calendar_month.id, calendar_year=calendar_year.id, attendance_days=13,
-    #                          price=group['cost'], old_id=group['id'],
-    #                          education_language=language.id)
-    #             db.session.add(add)
-    #         else:
-    #             add = Groups(name=group['name'], course_type_id=course_type_get.id, subject_id=subject_get.id,
-    #                          teacher_salary=group['teacher_salary'], location_id=location_get.id,
-    #                          calendar_day=calendar_day.id, teacher_id=teacher_get.id,
-    #                          calendar_month=calendar_month.id, calendar_year=calendar_year.id, attendance_days=13,
-    #                          price=group['cost'], old_id=group['id'], status=True,
-    #                          education_language=language.id)
-    #             db.session.add(add)
-    #             teacher_get.group.append(add)
-    #         db.session.commit()
-    #
-    #         for student in group['students']:
-    #
-    #             student = Students.query.filter(Students.old_id == student).first()
-    #             if student:
-    #                 student.group.append(add)
-    #                 st_functions = Student_Functions(student_id=student.id)
-    #                 st_functions.update_debt()
-    #                 st_functions.update_extra_payment()
-    #                 st_functions.update_balance()
-    #                 if teacher_get:
-    #                     group_history = StudentHistoryGroups(teacher_id=teacher_get.id, student_id=student.id,
-    #                                                          group_id=add.id,
-    #                                                          joined_day=calendar_day.date)
-    #                     db.session.add(group_history)
-    #                     db.session.commit()
-    #                 else:
-    #                     group_history = StudentHistoryGroups(student_id=student.id,
-    #                                                          group_id=add.id,
-    #                                                          joined_day=calendar_day.date)
-    #                     db.session.add(group_history)
-    #                     db.session.commit()
-    #
-    # staff_list = response.json()['staff_list']
-    # for staff in staff_list:
-    #     id = uuid.uuid1()
-    #     user_id = id.hex[0:15]
-    #     location = Locations.query.filter(Locations.id == staff['location']).first()
-    #     language = EducationLanguage.query.first()
-    #     if staff['job'] == "Administrator":
-    #
-    #         role = Roles.query.filter(Roles.admin == True).first()
-    #     elif staff['job'] == "IT manager":
-    #         role = Roles.query.filter(Roles.programmer == True).first()
-    #     else:
-    #         role = Roles.query.filter(Roles.user == True).first()
-    #     hash = generate_password_hash("12345678", method='sha256')
-    #     add = Users(name=staff['name'], surname=staff['surname'], password=hash,
-    #                 education_language=language.id, role_id=role.id,
-    #                 location_id=location.id, user_id=user_id, username=staff['username'],
-    #                 born_day=staff['born_day'],
-    #                 born_month=staff['born_month'], calendar_day=calendar_day.id,
-    #                 calendar_month=calendar_month.id, calendar_year=calendar_year.id,
-    #                 born_year=staff['year_born'], age=staff['age'], father_name=staff['father_name'],
-    #                 )
-    #     db.session.add(add)
-    #     db.session.commit()
-    #
-    #     profession = Professions.query.filter(Professions.name == staff['job']).first()
-    #     add = Staff(user_id=add.id, profession_id=profession.id, salary=staff['salary'])
-    #     db.session.add(add)
-    #     db.session.commit()
-
-    return "Boldi"
