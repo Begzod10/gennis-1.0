@@ -17,6 +17,30 @@ from backend.student.class_model import Student_Functions
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
 
 
+@app.route(f'{api}/groups_by_teacher/<int:teacher_id>', methods=['POST', 'GET'])
+@jwt_required()
+def groups_by_teacher(teacher_id):
+    groups = Groups.query.filter_by(Groups.teacher_id == teacher_id).all()
+
+    list_group = [{
+        "id": gr.id,
+        "name": gr.name.title(),
+        "teacherID": gr.teacher_id,
+        "subjects": gr.subject.name.title(),
+        "payment": gr.price,
+        "typeOfCourse": gr.course_type.name,
+        "studentsLength": len(gr.student),
+        "status": "True" if gr.status else "False",
+        "teacherName": Teachers.query.filter(Teachers.id == gr.teacher_id).first().user.name.title(),
+        "teacherSurname": Teachers.query.filter(Teachers.id == gr.teacher_id).first().user.surname.title(),
+        'languages': gr.language.name
+    } for gr in groups]
+
+    return jsonify({
+        "info": list_group
+    })
+
+
 @app.route(f'{api}/group_statistics/<int:group_id>', methods=['POST', 'GET'])
 @jwt_required()
 def group_statistics(group_id):
@@ -299,11 +323,8 @@ def group_profile(group_id):
         LessonPlan.homework == None
     ).all()
 
-
-
     for lesson_plan in lesson_plans:
         errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
-
 
     return jsonify({
         "locationId": group.location_id,
