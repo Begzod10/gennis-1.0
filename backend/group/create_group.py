@@ -401,6 +401,8 @@ def create_group():
         Users.id.in_([user_id for user_id in student_id_list])).order_by('id').all()
 
     for st in students_checked:
+        st.created_day_id = calendar_day.id
+        db.session.commit()
         for sub in st.subject:
             if sub.name == subject_get.name:
                 st.subject.remove(subject_get)
@@ -450,6 +452,8 @@ def add_group_students2(group_id):
             db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
         for st in students_checked:
+            st.joined_day_id = calendar_day.id
+            db.session.commit()
             for time in time_table:
                 st.time_table.append(time)
                 db.session.commit()

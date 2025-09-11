@@ -367,7 +367,7 @@ def register():
 
         db.session.commit()
         if director == False and not role.type_role == "programmer":
-            student = Students(user_id=add.id, ball_time=ball_time)
+            student = Students(user_id=add.id, ball_time=ball_time, created_day_id=calendar_day.id)
             db.session.add(student)
             db.session.commit()
 
