@@ -663,6 +663,8 @@ def get_teachers_location(location_id):
 def get_teachers_group(location_id):
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
+
+    # Yangi o'qituvchilarni location'ga biriktirish
     teachers_init = Teachers.query.join(Users).filter(
         Users.location_id == location_id,
         Teachers.deleted == None
@@ -702,9 +704,6 @@ def get_teachers_group(location_id):
             "subjects": [subject.name for subject in teach.subject]
         }
         list_teachers.append(info)
-    return jsonify({
-        "teachers": list_teachers,
-    })
 
 
 @teachers_bp.route(f'/add_teacher_to_branch/<int:user_id>/<int:location_id>')
