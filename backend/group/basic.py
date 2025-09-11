@@ -24,7 +24,7 @@ group_bp = Blueprint('group', __name__)
 @group_bp.route(f'/groups_by_teacher/<int:teacher_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups_by_teacher(teacher_id):
-    groups = Groups.query.filter(Groups.teacher_id == teacher_id).all()
+    groups = Groups.query.filter(Groups.teacher_id == teacher_id, Groups.deleted == False).all()
 
     list_group = [{
         "id": gr.id,
