@@ -118,6 +118,8 @@ class StudentPayments(db.Model):
         from backend.models.models import CalendarDay
         info = {
             "id": self.id,
+            'name': self.student.user.name,
+            'surname': self.student.user.surname,
             "type_name": "To'lov",
             "student_id": self.student_id,
             "location_id": self.location_id,
@@ -433,6 +435,8 @@ class TeacherSalaries(db.Model):
             "payment_type": self.payment_type.name,
             "reason": self.reason,
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
+            "name": self.teacher.user.name if self.teacher and self.teacher.user else None,
+            "surname": self.teacher.user.surname if self.teacher and self.teacher.user else None,
         }
 
 
@@ -479,7 +483,8 @@ class StaffSalaries(db.Model):
             "amount": self.payment_sum,
             "type_name": "Staff salaries",
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
-
+            "name": self.staff.user.name if self.staff and self.staff.user else None,
+            "surname": self.staff.user.surname if self.staff and self.staff.user else None,
         }
 
 
@@ -521,6 +526,7 @@ class Overhead(db.Model):
         return {
             "id": self.id,
             "amount": self.item_sum,
+            "item_name": self.item_name,
             "type_name": "Overhead",
             "date": CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
 
@@ -734,7 +740,6 @@ class TeacherSalary(db.Model):
     old_id = Column(Integer)
     extra = Column(Integer)
     total_fine = Column(Integer, default=0)
-
 
     def convert_json(self, entire=False):
         total = db.session.query(
