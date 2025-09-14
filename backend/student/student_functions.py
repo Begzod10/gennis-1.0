@@ -16,7 +16,7 @@ from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
     Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentHistoryGroups, Groups, \
-    Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db
+    Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db,EducationLanguage
 
 student_functions = Blueprint('student_functions', __name__)
 
@@ -92,6 +92,8 @@ def studyingStudents(id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
 
     students_query = (
         Students.query
@@ -114,6 +116,20 @@ def studyingStudents(id):
                 Users.surname.ilike(search_pattern),
                 Users.username.ilike(search_pattern)
             )
+        )
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                students_query = students_query.filter(Users.age.between(start_age, end_age))
+        else:
+            students_query = students_query.filter(Users.age == int(age))
+    if language:
+        students_query = (
+            students_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
         )
 
     students_query = students_query.order_by(Students.user_id)
@@ -170,6 +186,8 @@ def deletedStudents(id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    teacher_id = request.args.get("teacher_id", default=None, type=int)
+    group_id = request.args.get("group_id", default=None, type=int)
 
     base_students = (db.session.query(Students.id).join(Students.user).filter(Students.deleted_from_group != None,
                                                                               Students.group == None,
@@ -188,6 +206,10 @@ def deletedStudents(id):
         students_query = (students_query.join(DeletedStudents.student).join(Students.user).filter(
             or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                 Users.username.ilike(search_pattern))))
+    if teacher_id:
+        students_query = students_query.filter(DeletedStudents.teacher_id == teacher_id)
+    if group_id:
+        students_query = students_query.filter(DeletedStudents.group_id == group_id)
 
     students_query = students_query.order_by(desc(CalendarDay.date))
 
@@ -232,6 +254,8 @@ def newStudents(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
 
     base_query = (Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
         Students.user).filter(Users.location_id == int(location_id)).distinct(Students.id))
@@ -240,6 +264,21 @@ def newStudents(location_id):
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                                            Users.username.ilike(search_pattern)))
+
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                base_query = base_query.filter(Users.age.between(start_age, end_age))
+        else:
+            base_query = base_query.filter(Users.age == int(age))
+    if language:
+        base_query = (
+            base_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
 
     base_query = base_query.order_by(desc(Students.id))
 
@@ -282,6 +321,8 @@ def newStudentsDeleted(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
 
     base_query = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
                                                    Students.subject != None, Students.deleted_from_register != None)
@@ -290,6 +331,20 @@ def newStudentsDeleted(location_id):
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                                            Users.username.ilike(search_pattern)))
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                base_query = base_query.filter(Users.age.between(start_age, end_age))
+        else:
+            base_query = base_query.filter(Users.age == int(age))
+    if language:
+        base_query = (
+            base_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
 
     base_query = base_query.order_by(desc(Students.id))
 
