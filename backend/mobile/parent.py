@@ -66,9 +66,9 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
         db.extract('month', CalendarDay.date) == int(month)
     ).order_by(CalendarDay.date).all()
 
-    group = Groups.query.filter(Groups.id == int(group_id)).first
+    get_group = Groups.query.filter(Groups.id == int(group_id)).first
     info = {
-        "group": group.subject.name,
+        "group": get_group.subject.name,
         "attendances": [],
     }
     for day in calendar_days:
@@ -85,7 +85,7 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
             attendance_day = AttendanceDays.query.filter_by(
                 student_id=student.id,
                 calendar_day=day.id,
-                group_id=group.id
+                group_id=get_group.id
             ).first()
             if attendance_day:
                 attendance_info['status'] = True if attendance_day.status in [1, 2] else False
