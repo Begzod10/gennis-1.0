@@ -55,9 +55,9 @@ def get_student_group_list(id):
     return jsonify({"group_list": group_list})
 
 
-@parent_mobile_bp.route(f"/get_student_attendance_days_list/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
-def get_student_attendance_days_list(username, group_id, year, month):
-    user = Users.query.filter_by(id=id).first()
+@parent_mobile_bp.route(f"/get_student_attendance_days_list/<int:platform_id>/<group_id>/<year>/<month>", methods=['GET'])
+def get_student_attendance_days_list(platform_id, group_id, year, month):
+    user = Users.query.filter_by(id=platform_id).first()
     student = Students.query.filter_by(user_id=user.id).first()
     today = datetime.today().date()
 
