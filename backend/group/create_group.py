@@ -907,7 +907,13 @@ def delete_student():
                               calendar_day=calendar_day.id, reason_id=group_reason.id)
         db.session.add(add)
         db.session.commit()
-        student.group.remove(group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == group.id,
+                student_group.c.student_id == student.id
+            )
+        )
+        db.session.commit()
         db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
         for time in time_table:
@@ -952,7 +958,13 @@ def delete_student():
         student.subject.append(subject)
         db.session.commit()
 
-        student.group.remove(group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == group.id,
+                student_group.c.student_id == student.id
+            )
+        )
+        db.session.commit()
         db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
         for time in time_table:
