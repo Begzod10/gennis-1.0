@@ -21,7 +21,6 @@ def get_statistics():
     location_id = request.args.get("location_id", type=int)
     from_date_str = request.args.get("from_date")
     to_date_str = request.args.get("to_date")
-    payment_type_id = request.args.get("payment_type_id", type=int)
     if not (location_id and from_date_str and to_date_str):
         return jsonify({"error": "location_id, from_date, to_date required"}), 400
 
@@ -45,10 +44,17 @@ def get_statistics():
             calendar_field.in_(calendar_day_ids)
         ]
 
-        # Agar frontenddan payment_type_id kelsa, filterga qo‘shamiz
-        payment_type_id = request.args.get("payment_type_id", type=int)
-        if payment_type_id and payment_type_field is not None:
-            filters.append(payment_type_field == payment_type_id)
+        payment_type_name = request.args.get("payment_type_name")
+        if payment_type_name and payment_type_field is not None:
+            payment_type = PaymentTypes.query.filter_by(name=payment_type_name).first()
+            if payment_type:
+                filters.append(payment_type_field == payment_type.id)
+            else:
+                return {
+                    "count": 0,
+                    "sum": 0,
+                    "items": []
+                }, 0
 
         total_sum = db.session.query(func.coalesce(func.sum(sum_field), 0)).filter(
             *filters
