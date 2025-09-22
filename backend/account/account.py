@@ -21,7 +21,7 @@ def get_statistics():
     location_id = request.args.get("location_id", type=int)
     from_date_str = request.args.get("from_date")
     to_date_str = request.args.get("to_date")
-
+    payment_type_id = request.args.get("payment_type_id", type=int)
     if not (location_id and from_date_str and to_date_str):
         return jsonify({"error": "location_id, from_date, to_date required"}), 400
 
@@ -39,23 +39,26 @@ def get_statistics():
 
     calendar_day_ids = [c.id for c in calendar_days]
 
-    def get_stats(model, location_field, sum_field, calendar_field):
-        total_sum = db.session.query(func.coalesce(func.sum(sum_field), 0)).filter(
+    def get_stats(model, location_field, sum_field, calendar_field, payment_type_field=None):
+        filters = [
             location_field == location_id,
             calendar_field.in_(calendar_day_ids)
+        ]
+
+        # Agar frontenddan payment_type_id kelsa, filterga qo‘shamiz
+        payment_type_id = request.args.get("payment_type_id", type=int)
+        if payment_type_id and payment_type_field is not None:
+            filters.append(payment_type_field == payment_type_id)
+
+        total_sum = db.session.query(func.coalesce(func.sum(sum_field), 0)).filter(
+            *filters
         ).scalar()
 
         return {
-            "count": db.session.query(func.count(model.id)).filter(
-                location_field == location_id,
-                calendar_field.in_(calendar_day_ids)
-            ).scalar(),
+            "count": db.session.query(func.count(model.id)).filter(*filters).scalar(),
             "sum": total_sum,
             "items": [
-                m.convert_json() for m in model.query.filter(
-                    location_field == location_id,
-                    calendar_field.in_(calendar_day_ids)
-                ).all()
+                m.convert_json() for m in model.query.filter(*filters).all()
             ]
         }, total_sum
 
@@ -73,22 +76,26 @@ def get_statistics():
 
     payments, payments_sum = get_stats(
         StudentPayments, StudentPayments.location_id,
-        StudentPayments.payment_sum, StudentPayments.calendar_day
+        StudentPayments.payment_sum, StudentPayments.calendar_day,
+        StudentPayments.payment_type_id
     )
 
     teacher_salaries, teacher_salaries_sum = get_stats(
         TeacherSalaries, TeacherSalaries.location_id,
-        TeacherSalaries.payment_sum, TeacherSalaries.calendar_day
+        TeacherSalaries.payment_sum, TeacherSalaries.calendar_day,
+        TeacherSalaries.payment_type_id
     )
 
     staff_salaries, staff_salaries_sum = get_stats(
         StaffSalaries, StaffSalaries.location_id,
-        StaffSalaries.payment_sum, StaffSalaries.calendar_day
+        StaffSalaries.payment_sum, StaffSalaries.calendar_day,
+        StaffSalaries.payment_type_id
     )
 
     overheads, overheads_sum = get_stats(
         Overhead, Overhead.location_id,
-        Overhead.item_sum, Overhead.calendar_day
+        Overhead.item_sum, Overhead.calendar_day,
+        Overhead.payment_type_id
     )
 
     new_students = get_simple_stats(Students, Students.created_day_id)
