@@ -107,9 +107,26 @@ def remove_students_from_parent(id):
     user = Users.query.get_or_404(id)
     parent = Parent.query.filter(Parent.user_id == user.id).first()
     data = request.json
-    student_id = data.get('student_id', [])
+    student_id = data.get('student_id')
 
     student = Students.query.filter(Students.id == student_id).first()
+    if student in parent.student:
+        parent.student.remove(student)
+
+    db.session.commit()
+    return jsonify(parent.convert_json()), 200
+
+
+@crud_parent_bp.route('/remove_students_cl/<int:id>', methods=['POST'])
+def remove_students_from_parent_cl(id):
+    user = Users.query.get_or_404(id)
+    parent = Parent.query.filter(Parent.user_id == user.id).first()
+    data = request.json
+    student_id = data.get('student_id')
+    student_user = Users.query.get_or_404(student_id)
+
+    student = Students.query.filter(Students.user_id == student_user.id).first()
+
     if student in parent.student:
         parent.student.remove(student)
 
