@@ -581,6 +581,8 @@ def get_teachers_location(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
+    subject = request.args.get("subject", default=None, type=str)
 
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
@@ -601,6 +603,14 @@ def get_teachers_location(location_id):
         Locations.id == location_id,
         Teachers.deleted == None
     )
+    if language:
+        teachers_query = teachers_query.join(Teachers.user).join(Users.language).filter(
+            Users.language.has(name=language)
+        )
+    if subject:
+        teachers_query = teachers_query.join(Teachers.subject).filter(
+            Subjects.name == subject
+        )
 
     # Search qo'shish
     if search:
