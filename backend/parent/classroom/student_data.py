@@ -184,7 +184,6 @@ def get_student_attendance_days_list(platform_id, group_id, year, month):
                     group_id=gr.id
                 ).first()
                 if attendance_day:
-
                     attendance_info = {
                         "group": gr.subject.name,
                         "time": f"{timetable.start_time.strftime('%H:%M')} / {timetable.end_time.strftime('%H:%M')}" if timetable else "Noma'lum",

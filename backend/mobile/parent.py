@@ -55,9 +55,9 @@ def get_student_group_list(id):
     return jsonify({"group_list": group_list})
 
 
-@parent_mobile_bp.route(f"/get_student_attendance_days_list/<int:id>/<group_id>/<year>/<month>", methods=['GET'])
-def get_student_attendance_days_list(username, group_id, year, month):
-    user = Users.query.filter_by(id=id).first()
+@parent_mobile_bp.route(f"/get_student_attendance_days_list/<int:platform_id>/<group_id>/<year>/<month>", methods=['GET'])
+def get_student_attendance_days_list(platform_id, group_id, year, month):
+    user = Users.query.filter_by(id=platform_id).first()
     student = Students.query.filter_by(user_id=user.id).first()
     today = datetime.today().date()
 
@@ -66,9 +66,9 @@ def get_student_attendance_days_list(username, group_id, year, month):
         db.extract('month', CalendarDay.date) == int(month)
     ).order_by(CalendarDay.date).all()
 
-    group = Groups.query.filter(Groups.id == int(group_id)).first
+    get_group = Groups.query.filter(Groups.id == int(group_id)).first()
     info = {
-        "group": group.subject.name,
+        "group": get_group.subject.name,
         "attendances": [],
     }
     for day in calendar_days:
@@ -85,7 +85,7 @@ def get_student_attendance_days_list(username, group_id, year, month):
             attendance_day = AttendanceDays.query.filter_by(
                 student_id=student.id,
                 calendar_day=day.id,
-                group_id=group.id
+                group_id=get_group.id
             ).first()
             if attendance_day:
                 attendance_info['status'] = True if attendance_day.status in [1, 2] else False

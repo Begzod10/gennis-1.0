@@ -138,26 +138,26 @@ def flask_admin_static(filename):
     return send_from_directory('static', filename)
 
 
-@app.route("/api/payload", methods=["POST"])
-def payload():
-    # (Optional) verify signature
-    if GITHUB_SECRET:
-        signature = request.headers.get("X-Hub-Signature-256")
-        body = request.get_data()
-        expected = 'sha256=' + hmac.new(GITHUB_SECRET, body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, signature):
-            return "Invalid signature", 403
-
-    # Run deploy script
-    subprocess.Popen(["/home/gennis/deploy_bot.sh"])
-    repo_path = "/home/gennis/gennis_bot"
-    pull_result = subprocess.run(
-        ["git", "pull"],
-        cwd=repo_path,
-        capture_output=True,
-        text=True
-    )
-    return "Updated", 200
+# @app.route("/api/payload", methods=["POST"])
+# def payload():
+#     # (Optional) verify signature
+#     if GITHUB_SECRET:
+#         signature = request.headers.get("X-Hub-Signature-256")
+#         body = request.get_data()
+#         expected = 'sha256=' + hmac.new(GITHUB_SECRET, body, hashlib.sha256).hexdigest()
+#         if not hmac.compare_digest(expected, signature):
+#             return "Invalid signature", 403
+#
+#     # Run deploy script
+#     subprocess.Popen(["/home/gennis/deploy_bot.sh"])
+#     repo_path = "/home/gennis/gennis_bot"
+#     pull_result = subprocess.run(
+#         ["git", "pull"],
+#         cwd=repo_path,
+#         capture_output=True,
+#         text=True
+#     )
+#     return "Updated", 200
 
 
 if __name__ == '__main__':

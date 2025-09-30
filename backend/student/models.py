@@ -126,6 +126,7 @@ class Students(db.Model):
         # phone = self.user.phone[0].phone if self.user.phone[0].phone != 0 else self.user.phone[1].phone
         return {
             "id": self.user.id,
+            'student': self.id,
             "name": self.user.name.title(),
             "surname": self.user.surname.title(),
             "username": self.user.username,
