@@ -1,5 +1,5 @@
 from backend.models.models import Teachers, Group_Room_Week, Students, Groups, Subjects, Locations, Roles, \
-    EducationLanguage, CourseTypes, Rooms, Week, db
+    EducationLanguage, CourseTypes, Rooms, Week, db, time_table_student,time_table_teacher
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import contains_eager
 from flask_jwt_extended import jwt_required
@@ -7,6 +7,7 @@ from datetime import datetime
 from pprint import pprint
 from backend.functions.utils import get_json_field, remove_items_create_group, api
 from flask import Blueprint, jsonify, request
+from sqlalchemy import delete
 
 group_change_bp = Blueprint('group_change', __name__)
 
@@ -112,12 +113,10 @@ def delete_group(group_id):
                 st.time_table.remove(time)
                 db.session.commit()
     for time in time_table:
-        print('vaqt', time)
         if time in teacher.time_table:
             print('vaqt', time)
             teacher.time_table.remove(time)
             db.session.commit()
-    print(teacher.time_table)
     for time in time_table:
         Group_Room_Week.query.filter(Group_Room_Week.id == time.id).delete()
         db.session.commit()
@@ -272,11 +271,23 @@ def change_time_group(group_id):
     for student in students:
         for time_get in group_time_table_get:
             if time_get in student.time_table:
+                db.session.execute(
+                    delete(time_table_student).where(
+                        time_table_student.c.group_room_week == time_get.id,
+                        time_table_student.c.student_id == student.id
+                    )
+                )
+                db.session.commit()
                 student.time_table.remove(time_get)
                 db.session.commit()
     for time_get in group_time_table_get:
         if time_get in teacher.time_table:
-            teacher.time_table.remove(time_get)
+            db.session.execute(
+                delete(time_table_teacher).where(
+                    time_table_teacher.c.group_room_week == time_get.id,
+                    time_table_teacher.c.teacher_id == teacher.id
+                )
+            )
             db.session.commit()
     for time_get in group_time_table_get:
         db.session.delete(time_get)

@@ -965,7 +965,6 @@ def delete_student():
             )
         )
         db.session.commit()
-        db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
         for time in time_table:
             if time in student.time_table:

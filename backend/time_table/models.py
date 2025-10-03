@@ -23,15 +23,15 @@ class Group_Room_Week(db.Model):
         }
 
 
-db.Table('time_table_student',
-         db.Column("student_id", db.Integer, db.ForeignKey('students.id')),
-         db.Column('group_room_week', db.Integer, db.ForeignKey('group_room_week.id'))
-         )
+time_table_student = db.Table('time_table_student',
+                              db.Column("student_id", db.Integer, db.ForeignKey('students.id')),
+                              db.Column('group_room_week', db.Integer, db.ForeignKey('group_room_week.id'))
+                              )
 
-db.Table('time_table_teacher',
-         db.Column("teacher_id", db.Integer, db.ForeignKey('teachers.id')),
-         db.Column('group_room_week', db.Integer, db.ForeignKey('group_room_week.id'))
-         )
+time_table_teacher = db.Table('time_table_teacher',
+                              db.Column("teacher_id", db.Integer, db.ForeignKey('teachers.id')),
+                              db.Column('group_room_week', db.Integer, db.ForeignKey('group_room_week.id'))
+                              )
 
 
 class Week(db.Model):
