@@ -1,9 +1,11 @@
 import pprint
-
-from backend.models.models import Column, Integer, ForeignKey, String, relationship, DateTime, db, desc, contains_eager
+import enum
+from backend.models.models import Column, Integer, ForeignKey, String, relationship, DateTime, Enum, db, desc, \
+    contains_eager, Text
 from backend.student.models import Students
 from backend.group.models import Groups
 from backend.models.utils import clone_group_info
+from datetime import datetime
 
 
 class Teachers(db.Model):
@@ -281,5 +283,30 @@ class TeacherGroupStatistics(db.Model):
         }
 
     def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class TeacherRequests(db.Model):
+    __tablename__ = "teacher_requests"
+
+    id = Column(Integer, primary_key=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+
+    text = Column(Text, nullable=False)
+    comment = Column(Text)
+    status = Column(String, nullable=True)
+
+    address = Column(String)
+    price = Column(Integer)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    teacher = relationship("Teachers", backref="teacher_requests")
+    location = relationship("Locations", backref="teacher_requests")
+
+    def add_commit(self):
         db.session.add(self)
         db.session.commit()
