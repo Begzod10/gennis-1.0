@@ -188,10 +188,20 @@ def deletedStudents(id):
     search = request.args.get("search", default=None, type=str)
     teacher_id = request.args.get("teacher_id", default=None, type=int)
     group_id = request.args.get("group_id", default=None, type=int)
+    from_date = request.args.get('from',default=None, type=str)
+    to_date = request.args.get('to', default=None, type=str)
 
-    base_students = (db.session.query(Students.id).join(Students.user).filter(Students.deleted_from_group != None,
-                                                                              Students.group == None,
-                                                                              Users.location_id == id).distinct().subquery())
+    base_students = (
+        db.session.query(Students.id)
+        .join(Users, Students.user_id == Users.id)
+        .filter(
+            Students.deleted_from_group != None,
+            Students.group == None,
+            Users.location_id == id
+        )
+        .distinct()
+        .subquery()
+    )
 
     students_query = DeletedStudents.query.join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id).filter(
         DeletedStudents.student_id.in_(db.session.query(base_students.c.id)))
@@ -212,6 +222,15 @@ def deletedStudents(id):
         students_query = students_query.filter(DeletedStudents.group_id == group_id)
 
     students_query = students_query.order_by(desc(CalendarDay.date))
+    if from_date and to_date:
+        try:
+            from_date_obj = datetime.strptime(from_date, "%Y-%m-%d")
+            to_date_obj = datetime.strptime(to_date, "%Y-%m-%d")
+            students_query = students_query.filter(
+                CalendarDay.date.between(from_date_obj, to_date_obj)
+            )
+        except ValueError:
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
 
     total = students_query.count()
 

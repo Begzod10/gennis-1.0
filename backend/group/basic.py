@@ -9,7 +9,7 @@ from backend.functions.utils import find_calendar_date, get_json_field, iterate_
 from backend.group.class_model import Group_Functions
 from backend.models.models import Groups, CalendarDay, Students, AttendanceDays, SubjectLevels, \
     AttendanceHistoryStudent, Group_Room_Week, Attendance, CalendarMonth, Week, Rooms, Teachers, Roles, \
-    CertificateLinks, GroupTest, db
+    CertificateLinks, GroupTest, db, Subjects
 from backend.teacher.models import LessonPlan, TeacherObservationDay
 from backend.student.class_model import Student_Functions
 
@@ -17,7 +17,7 @@ from backend.functions.functions import update_user_time_table, get_dates_for_we
 from flask import Blueprint, request, jsonify
 from sqlalchemy import desc, extract, or_
 from sqlalchemy.orm import contains_eager
-
+from backend.models.models import EducationLanguage,Users
 group_bp = Blueprint('group', __name__)
 
 
@@ -90,9 +90,38 @@ def group_statistics(group_id):
 @group_bp.route(f'/groups/<location_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups(location_id):
-    groups = Groups.query.filter(Groups.location_id == location_id,
-                                 Groups.teacher_id != None).filter(
-        or_(Groups.deleted == None, Groups.deleted == False)).order_by('id').all()
+    typeOfCourse = request.args.get('typeOfCourse',default=None,type=str)
+    teacher=request.args.get('teacher',default=None,type=str)
+    language=request.args.get('language',default=None,type=str)
+    subjects=request.args.get('subject',default=None,type=str)
+    status =request.args.get('status',default=None,type=str)
+    query = Groups.query.filter(
+        Groups.location_id == location_id,
+        Groups.teacher_id != None,
+        or_(Groups.deleted == None, Groups.deleted == False)
+    )
+
+    if typeOfCourse:
+        query = query.filter(Groups.course_type.has(name=typeOfCourse))
+    if teacher:
+        query = query.filter(
+            or_(
+                Groups.teacher.any(Teachers.user.has(name=teacher)),
+                Groups.teacher.any(Teachers.user.has(surname=teacher))
+            )
+        )
+    if language:
+        query = (
+            query.join(Groups.language)
+            .filter(EducationLanguage.name.ilike(language))
+        )
+    if subjects:
+        query = query.join(Groups.subject).filter(Subjects.name.ilike(subjects))
+    if status:
+        query = query.filter(Groups.status == (status.lower() == "true"))
+
+    groups = query.order_by(Groups.id).all()
+
     list_group = [{
         "id": gr.id,
         "name": gr.name.title(),

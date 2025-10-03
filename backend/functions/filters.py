@@ -618,6 +618,13 @@ def deleted_students_filter(location_id):
             "activeFilters": [],
             "filtersList": group_list
         },
+        "range_date": {
+            "id": 4,
+            "title": "Oraliq sana",
+            "type": "date",
+            "activeFilters": [],
+            #     "filtersList": day_list
+        }
 
     }
     return filters

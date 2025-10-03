@@ -11,7 +11,7 @@ from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
 from backend.functions.utils import iterate_models
-from backend.models.models import Staff, Users
+from backend.models.models import Staff, Users,EducationLanguage,Professions
 from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
     StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db
@@ -711,6 +711,10 @@ def employees(location_id, status):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    job = request.args.get("job", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
+    print(job,language)
+
 
     user_id = get_jwt_identity()
     staff_salary_update()
@@ -723,6 +727,19 @@ def employees(location_id, status):
     else:
         staffs_query = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
             Users.location_id == location_id, Staff.deleted == True).order_by(Users.id)
+    if job:
+        staffs_query = (
+            staffs_query
+            .join(Staff.profession)
+            .filter(Professions.name == job)
+        )
+    if language:
+        staffs_query = (
+            staffs_query
+            .join(Users.language)
+                .filter(EducationLanguage.name.ilike(language ))
+        )
+
 
     if search:
         search_pattern = f"%{search}%"
@@ -737,6 +754,7 @@ def employees(location_id, status):
         staffs_query = staffs_query.offset(offset)
 
     staffs = staffs_query.all()
+    print(staffs)
 
     list_staff = [{"id": staff.user.id, "name": staff.user.name.title(), "surname": staff.user.surname.title(),
                    "username": staff.user.username, "language": staff.user.language.name, "age": staff.user.age,
