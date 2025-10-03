@@ -278,8 +278,6 @@ def change_time_group(group_id):
                     )
                 )
                 db.session.commit()
-                student.time_table.remove(time_get)
-                db.session.commit()
     for time_get in group_time_table_get:
         if time_get in teacher.time_table:
             db.session.execute(
