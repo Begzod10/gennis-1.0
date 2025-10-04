@@ -186,10 +186,11 @@ def deletedStudents(id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
-    teacher_id = request.args.get("teacher_id", default=None, type=int)
-    group_id = request.args.get("group_id", default=None, type=int)
+    teacher_id = request.args.get("teacher", default=None, type=int)
+    group_id = request.args.get("group", default=None, type=int)
     from_date = request.args.get('from',default=None, type=str)
     to_date = request.args.get('to', default=None, type=str)
+    subject_id = request.args.get("subject", default=None, type=int)
 
     base_students = (
         db.session.query(Students.id)
@@ -231,6 +232,8 @@ def deletedStudents(id):
             )
         except ValueError:
             return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+    if subject_id:
+        students_query = students_query.join(DeletedStudents.group).filter(Groups.subject_id == subject_id)
 
     total = students_query.count()
 
@@ -241,10 +244,19 @@ def deletedStudents(id):
 
     students_list = students_query.all()
 
+
     role = Roles.query.filter(Roles.type_role == "student").first()
 
     list_students = []
     for st in students_list:
+        student_history_groups = StudentHistoryGroups.query.filter(
+            StudentHistoryGroups.student_id == st.student.id
+        ).order_by(desc(StudentHistoryGroups.id)).all()
+        group_subject = []
+        for student_history_group in student_history_groups:
+            if student_history_group.group and student_history_group.group.teacher_id == st.teacher_id:
+                group_subject.append(student_history_group.group.subject.name)
+                break
         try:
             list_students.append({"id": st.student.user.id, "name": st.student.user.name.title(),
                                   "surname": st.student.user.surname.title(), "username": st.student.user.username,
@@ -257,7 +269,8 @@ def deletedStudents(id):
                                   "moneyType": ["green", "yellow", "red", "navy", "black"][
                                       st.student.debtor] if st.student.debtor else 0,
                                   "phone": st.student.user.phone[0].phone if st.student.user.phone else None,
-                                  "reason": st.reason, "group": st.group.id if st.group else None})
+                                  "reason": st.reason, "group": st.group.id if st.group else None,
+                                  "subjects": group_subject})
         except Exception:
             continue
 
