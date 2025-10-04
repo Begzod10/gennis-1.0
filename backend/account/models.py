@@ -482,6 +482,7 @@ class StaffSalaries(db.Model):
             "id": self.id,
             "amount": self.payment_sum,
             "type_name": "Staff salaries",
+            "payment_type": self.payment_type.name,
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
             "name": self.staff.user.name if self.staff and self.staff.user else None,
             "surname": self.staff.user.surname if self.staff and self.staff.user else None,
