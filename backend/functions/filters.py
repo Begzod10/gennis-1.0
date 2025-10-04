@@ -633,23 +633,16 @@ def deleted_students_filter(location_id):
             "activeFilters": [],
             "filtersList": teachers_list
         },
-        "group": {
-            "id": 3,
-            "title": "Guruh bo'yicha",
-            "name": "Guruh",
-            "type": "select",
-            "activeFilters": [],
-            "filtersList": group_list
-        },
+
         "range_date": {
-            "id": 4,
+            "id": 3,
             "title": "Oraliq sana",
             "type": "date",
             "activeFilters": [],
             #     "filtersList": day_list
         },
         "subjects": {
-            "id": 5,
+            "id": 4,
             "title": "Fan bo'yicha",
             "type": "select",
             "filtersList": subjects,
