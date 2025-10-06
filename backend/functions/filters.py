@@ -11,9 +11,9 @@ from backend.models.models import Locations, AccountingPeriod, Teachers, Calenda
     CalendarYear, PaymentTypes, CourseTypes, Subjects, Students, LessonPlan, Users, Week, DeletedStudents, Professions, \
     Group_Room_Week, RegisterDeletedStudents, Groups, Rooms, GroupReason, db
 from sqlalchemy import and_, or_, extract, desc
-
+from backend.models.models import StudentHistoryGroups
 from sqlalchemy.orm import contains_eager
-
+from sqlalchemy import func
 student_functions_bp = Blueprint('student_functions_bp', __name__)
 
 
@@ -591,6 +591,29 @@ def deleted_students_filter(location_id):
 
     day_dict = {gr['value']: gr for gr in groups}
     group_list = list(day_dict.values())
+    subquery = (
+        db.session.query(
+            func.max(StudentHistoryGroups.id).label("max_id")
+        )
+        .join(StudentHistoryGroups.group)
+        .group_by(Groups.subject_id)
+        .subquery()
+    )
+
+    student_history_groups = (
+        StudentHistoryGroups.query
+        .join(subquery, StudentHistoryGroups.id == subquery.c.max_id)
+        .all()
+    )
+
+    subjects=[]
+    for student in student_history_groups:
+        if student.group:
+            if student.group.subject:
+                subjects.append({
+                    "value":student.group.subject.id,
+                    "name":student.group.subject.name
+                })
 
     filters = {
 
@@ -610,22 +633,21 @@ def deleted_students_filter(location_id):
             "activeFilters": [],
             "filtersList": teachers_list
         },
-        "group": {
-            "id": 3,
-            "title": "Guruh bo'yicha",
-            "name": "Guruh",
-            "type": "select",
-            "activeFilters": [],
-            "filtersList": group_list
-        },
+
         "range_date": {
-            "id": 4,
+            "id": 3,
             "title": "Oraliq sana",
             "type": "date",
             "activeFilters": [],
             #     "filtersList": day_list
-        }
+        },
+        "subjects": {
+            "id": 4,
+            "title": "Fan bo'yicha",
+            "type": "select",
+            "filtersList": subjects,
 
+        }
     }
     return filters
 
