@@ -194,7 +194,6 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance,
         total_salary += salary.salary_per_day
         total_fine += salary.fine if salary.fine else 0
         db.session.commit()
-    print("total_salary", total_salary)
     salary_location = TeacherSalary.query.filter(TeacherSalary.location_id == group.location_id,
                                                  TeacherSalary.teacher_id == teacher.id,
                                                  TeacherSalary.calendar_year == attendance.calendar_year,

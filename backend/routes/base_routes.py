@@ -33,7 +33,6 @@ def calendar(user_id, username):
     user_id = check_exist_id(user_id)
     Users.query.filter(Users.username == username).update({'user_id': user_id})
     db.session.commit()
-    print(user_id)
     return jsonify({
         "user_id": user_id,
     })
@@ -168,6 +167,10 @@ def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
     username_sign = Users.query.filter_by(user_id=identity).first()
+    if username_sign.username == "zavxos":
+        role = Roles.query.filter(Roles.type_role == "zavxos").first()
+        username_sign.role_id = role.id
+        db.session.commit()
     create_school()
     role = Roles.query.filter(Roles.id == username_sign.role_id).first() if username_sign else {}
     if username_sign and username_sign.teacher:
