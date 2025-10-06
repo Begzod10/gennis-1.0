@@ -6,7 +6,9 @@ from backend.models.models import AccountingPeriod, Professions, PaymentTypes, L
     CalendarMonth, TeacherSalary, Week, Roles, TeacherSalaries, AccountingInfo, Subjects, StaffSalary, Users, Teachers, \
     desc, or_, contains_eager, StaffSalaries, UserBooks, GroupReason, Students, Group_Room_Week
 from app import app
-from backend.models.settings import *
+from backend.models.settings import sum_money
+from backend.models.models import db
+from backend.functions.utils import refreshdatas
 
 api = "/api"
 

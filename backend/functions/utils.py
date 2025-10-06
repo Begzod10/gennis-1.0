@@ -255,6 +255,17 @@ def update_all_datas():
         main_admin = Roles(type_role="main_admin", role="22ada11daw")
         main_admin.add()
 
+    zavxos = Professions.query.filter(Professions.name == "Zavxos").first()
+
+    if not zavxos:
+        zavxos = Professions(name="Zavxos")
+        zavxos.add()
+
+    zavxos = Roles.query.filter(Roles.type_role == "zavxos", Roles.role == "z2vs2221").first()
+    if not zavxos:
+        zavxos = Roles(type_role="zavxos", role="z2vs2221")
+        zavxos.add()
+
     # editor = Professions.query.filter(Professions.name == "Editor").first()
     # if not editor:
     #     editor = Professions(name="Editor")
