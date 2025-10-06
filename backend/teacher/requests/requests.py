@@ -14,6 +14,9 @@ def get_teacher_requests():
     teacher_id = request.args.get("teacher_id")
     location_id = request.args.get("location_id")
     status = request.args.get("status")
+
+    deleted = request.args.get("deleted")
+
     if status:
         query = query.filter_by(status=status)
     if teacher_id:
@@ -21,6 +24,12 @@ def get_teacher_requests():
         if not teacher:
             return jsonify({"error": "Teacher not found"}), 404
         query = query.filter_by(teacher_id=teacher.id)
+
+    if deleted is not None:
+        if deleted.lower() in ["true", "1", "yes"]:
+            query = query.filter_by(deleted=True)
+        elif deleted.lower() in ["false", "0", "no"]:
+            query = query.filter_by(deleted=False)
 
     if location_id:
         query = query.filter_by(location_id=location_id)

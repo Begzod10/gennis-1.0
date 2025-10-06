@@ -1,7 +1,7 @@
 import pprint
 import enum
 from backend.models.models import Column, Integer, ForeignKey, String, relationship, DateTime, Enum, db, desc, \
-    contains_eager, Text
+    contains_eager, Text, Boolean
 from backend.student.models import Students
 from backend.group.models import Groups
 from backend.models.utils import clone_group_info
@@ -306,6 +306,7 @@ class TeacherRequests(db.Model):
 
     teacher = relationship("Teachers", backref="teacher_requests")
     location = relationship("Locations", backref="teacher_requests")
+    deleted = Column(Boolean, default=False)
 
     def add_commit(self):
         db.session.add(self)
