@@ -47,7 +47,7 @@ def bot_student_test_results(student_id):
 def student_to_user(student_id):
     student = Students.query.filter(Students.id == student_id).first()
     request =requests.get(f'https://classroom.gennis.uz/api/pisa/student/pisa/results/{student.user.id}')
-    return jsonify({'test':student.user.id})
+    return jsonify(request.json())
 @student_bp.route(f'attendance/dates/<int:student_id>')
 def student_attendance_dates(student_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
