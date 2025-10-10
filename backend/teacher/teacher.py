@@ -4,7 +4,7 @@ from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from backend.functions.debt_salary_update import salary_debt
 from backend.functions.filters import old_current_dates
 from backend.functions.functions import get_dates_for_weekdays
@@ -13,13 +13,13 @@ from backend.functions.utils import find_calendar_date, update_salary, iterate_m
 from backend.group.class_model import Group_Functions
 from backend.models.models import Attendance, Students, AttendanceDays, Groups, Locations, Subjects, \
     StudentCharity, TeacherBlackSalary, GroupReason, TeacherObservationDay, TeacherGroupStatistics, \
-    Group_Room_Week, LessonPlan
+    Group_Room_Week, LessonPlan, CalendarDay
 from backend.models.models import CalendarMonth, CalendarYear, db
 from backend.models.models import Teachers, Users, Roles
 from backend.student.class_model import Student_Functions
 from backend.teacher.utils import send_telegram_message
 from .utils import get_students_info, prepare_scores
-from sqlalchemy import or_
+from sqlalchemy import or_, extract, func
 
 teachers_bp = Blueprint('teachers', __name__)
 
@@ -816,3 +816,103 @@ def test_model():
 def get_teacher_balance(user_id):
     user = Users.query.filter(Users.id == user_id).first()
     return jsonify({"balance": user.balance})
+
+
+@teachers_bp.route('/location/<int:location_id>/daily-stats', methods=['GET'])
+def branch_daily_stats(location_id):
+    year = int(request.args.get('year'))
+    month = int(request.args.get('month'))
+    day = int(request.args.get('day'))
+
+    target_date = datetime(year, month, day)
+
+    calendar_year = CalendarYear.query.filter(
+        extract('year', CalendarYear.date) == year
+    ).first()
+
+    if not calendar_year:
+        return jsonify({"error": "Bu yilda davomat topilmadi"}), 200
+
+    calendar_month = CalendarMonth.query.filter(
+        CalendarMonth.year_id == calendar_year.id,
+        extract('month', CalendarMonth.date) == month
+    ).first()
+
+    if not calendar_month:
+        return jsonify({"error": "Bu oy davomat topilmadi"}), 200
+
+    calendar_day = CalendarDay.query.filter(
+        CalendarDay.month_id == calendar_month.id,
+        func.date(CalendarDay.date) == target_date.date()
+    ).first()
+
+    if not calendar_day:
+        return jsonify({"error": "Bu kunda davomat topilmadi"}), 200
+
+    query = Groups.query.filter_by(location_id=location_id, deleted=False)
+
+    groups = (
+        query.options(joinedload(Groups.student))
+        .order_by(Groups.id)
+        .all()
+    )
+
+    branch_present = branch_absent = branch_total = 0
+    group_list = []
+
+    for group in groups:
+        students = group.student
+        student_ids = [st.id for st in students]
+
+        records = AttendanceDays.query.filter(
+            AttendanceDays.group_id == group.id,
+            AttendanceDays.location_id == location_id,
+            AttendanceDays.calendar_day == calendar_day.id
+        ).all()
+
+        rec_map = {r.student_id: r.status for r in records}
+
+        student_data = []
+        present = absent = 0
+
+        for st in students:
+            status_val = rec_map.get(st.id)
+            if status_val == 1:
+                present += 1
+                branch_present += 1
+            elif status_val == 0:
+                absent += 1
+                branch_absent += 1
+
+            student_data.append({
+                "id": st.id,
+                "name": st.user.name if st.user else None,
+                "surname": st.user.surname if st.user else None,
+                "status": bool(status_val) if status_val is not None else None,
+                "reason": next((r.reason for r in records if r.student_id == st.id), None)
+            })
+
+        total_students = len(students)
+        branch_total += total_students
+
+        group_list.append({
+            "group_id": group.id,
+            "group_name": group.name,
+            "students": student_data,
+            "summary": {
+                "present": present,
+                "absent": absent,
+                "total": total_students
+            }
+        })
+
+    return jsonify({
+        "location_id": location_id,
+        "date": str(target_date.date()),
+        "groups": group_list,
+        "overall_summary": {
+            "present": branch_present,
+            "absent": branch_absent,
+            "total": branch_total
+        }
+    }), 200
