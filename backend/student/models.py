@@ -133,6 +133,7 @@ class Students(db.Model):
             "language": self.user.language.name,
             "age": self.user.age,
             "reg_date": self.user.day.date.strftime("%Y-%m-%d"),
+            "joined_date": self.joined_day.date.strftime("%Y-%m-%d") if self.joined_day else None,
             "comment": self.user.comment,
             "role": self.user.role_info.type_role,
             "photo_profile": self.user.photo_profile,
