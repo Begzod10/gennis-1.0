@@ -345,6 +345,7 @@ def create_group_time(location_id):
             Users.id.in_([user_id for user_id in student_id_list])).order_by('id').all()
 
         for st in students_checked:
+            st.joined_day_id = calendar_day.id
             for sub in st.subject:
                 if sub.name == subject.name:
                     st.subject.remove(subject)
@@ -401,6 +402,7 @@ def create_group():
         Users.id.in_([user_id for user_id in student_id_list])).order_by('id').all()
 
     for st in students_checked:
+        print(calendar_day.id)
         st.created_day_id = calendar_day.id
         db.session.commit()
         for sub in st.subject:
@@ -409,6 +411,7 @@ def create_group():
         st.group.append(add)
         group_history = StudentHistoryGroups(teacher_id=teacher_get.id, student_id=st.id, group_id=add.id,
                                              joined_day=calendar_day.date)
+
         db.session.add(group_history)
         db.session.commit()
     db.session.commit()
