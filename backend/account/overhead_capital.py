@@ -347,7 +347,8 @@ def add_overhead(location_id):
     db.session.commit()
     return jsonify({
         "success": True,
-        "msg": "Qo'shimcha xarajat qo'shildi"
+        "msg": "Qo'shimcha xarajat qo'shildi",
+        "data":add.convert_json()
     })
 
 
@@ -438,7 +439,8 @@ def add_capital(location_id):
         db.session.commit()
         return jsonify({
             "success": True,
-            "msg": "Qo'shimcha xarajat qo'shildi"
+            "msg": "Qo'shimcha xarajat qo'shildi",
+            "data":add.convert_json()
         })
 
 
