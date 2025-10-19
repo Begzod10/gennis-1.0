@@ -71,12 +71,12 @@ def get_statistics():
     def get_simple_stats(model, filter_field):
         return {
             "count": db.session.query(func.count(model.id)).filter(
-                filter_field.in_(calendar_day_ids), model.location_id == location_id
-            ).scalar(),
+                filter_field.in_(calendar_day_ids)
+            ).join(model.user).filter(Users.location_id == location_id).scalar(),
             "items": [
                 m.convert_json() for m in model.query.filter(
-                    filter_field.in_(calendar_day_ids), model.location_id == location_id
-                ).all()
+                    filter_field.in_(calendar_day_ids)
+                ).join(model.user).filter(Users.location_id == location_id).all()
             ]
         }
 
@@ -463,6 +463,7 @@ def account_info_book_payments():
             "location": location
         }
     })
+
 
 @account_bp.route('/account_info/teacher_salary/', methods=["GET"])
 @jwt_required()
