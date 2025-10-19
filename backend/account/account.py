@@ -104,9 +104,9 @@ def get_statistics():
         Overhead.payment_type_id
     )
 
-    new_students = get_simple_stats(Students, Students.created_day_id, location_id)
+    new_students = get_simple_stats(Students, Students.created_day_id)
 
-    joined_students = get_simple_stats(Students, Students.joined_day_id, location_id)
+    joined_students = get_simple_stats(Students, Students.joined_day_id)
 
     new_groups = {
         "count": db.session.query(func.count(Groups.id)).filter(
