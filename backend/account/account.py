@@ -71,11 +71,11 @@ def get_statistics():
     def get_simple_stats(model, filter_field):
         return {
             "count": db.session.query(func.count(model.id)).filter(
-                filter_field.in_(calendar_day_ids)
+                filter_field.in_(calendar_day_ids), model.location_id == location_id
             ).scalar(),
             "items": [
                 m.convert_json() for m in model.query.filter(
-                    filter_field.in_(calendar_day_ids)
+                    filter_field.in_(calendar_day_ids), model.location_id == location_id
                 ).all()
             ]
         }
@@ -104,9 +104,9 @@ def get_statistics():
         Overhead.payment_type_id
     )
 
-    new_students = get_simple_stats(Students, Students.created_day_id)
+    new_students = get_simple_stats(Students, Students.created_day_id, location_id)
 
-    joined_students = get_simple_stats(Students, Students.joined_day_id)
+    joined_students = get_simple_stats(Students, Students.joined_day_id, location_id)
 
     new_groups = {
         "count": db.session.query(func.count(Groups.id)).filter(
