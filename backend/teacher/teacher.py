@@ -849,7 +849,7 @@ def branch_daily_stats(location_id):
     if not calendar_day:
         return jsonify({"error": "Bu kunda davomat topilmadi"}), 200
 
-    query = Groups.query.filter_by(location_id=location_id, deleted=False)
+    query = Groups.query.filter_by(location_id=location_id, deleted=False, status=True)
 
     groups = (
         query.options(joinedload(Groups.student))
