@@ -68,16 +68,30 @@ def get_statistics():
             ]
         }, total_sum
 
-    def get_simple_stats(model, filter_field):
+    def get_simple_stats(model, filter_field, join_user=False):
+        query = db.session.query(model).filter(filter_field.in_(calendar_day_ids))
+
+        if join_user:
+            query = query.join(Users, model.user_id == Users.id).filter(Users.location_id == location_id)
+        else:
+            query = query.filter(True)
+
+        items = query.all()
+
         return {
-            "count": db.session.query(func.count(model.id)).filter(
-                filter_field.in_(calendar_day_ids)
-            ).join(model.user).filter(Users.location_id == location_id).scalar(),
-            "items": [
-                m.convert_json() for m in model.query.filter(
-                    filter_field.in_(calendar_day_ids)
-                ).join(model.user).filter(Users.location_id == location_id).all()
-            ]
+
+            # "count": db.session.query(func.count(model.id)).filter(
+            #     filter_field.in_(calendar_day_ids)
+            # ).join(model.user).filter(Users.location_id == location_id).scalar(),
+            # "items": [
+            #     m.convert_json() for m in model.query.filter(
+            #         filter_field.in_(calendar_day_ids)
+            #     ).join(model.user).filter(Users.location_id == location_id).all()
+            # ]
+
+            "count": len(items),
+            "items": [m.convert_json() for m in items]
+
         }
 
     payments, payments_sum = get_stats(
@@ -104,9 +118,8 @@ def get_statistics():
         Overhead.payment_type_id
     )
 
-    new_students = get_simple_stats(Students, Students.created_day_id)
-
-    joined_students = get_simple_stats(Students, Students.joined_day_id)
+    new_students = get_simple_stats(Students, Students.created_day_id, join_user=True)
+    joined_students = get_simple_stats(Students, Students.joined_day_id, join_user=True)
 
     new_groups = {
         "count": db.session.query(func.count(Groups.id)).filter(
