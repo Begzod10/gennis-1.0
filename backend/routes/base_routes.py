@@ -951,6 +951,7 @@ def profile(user_id):
             "contract_url": student_get.contract_pdf_url,
             "location_id": user_get.location_id,
             "balance": user_get.balance,
+            "address": user_get.address,
             "info": {
                 "name": {
                     "name": "Ism",
