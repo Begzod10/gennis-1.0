@@ -21,6 +21,8 @@ from backend.teacher.utils import send_telegram_message
 from .utils import get_students_info, prepare_scores
 from sqlalchemy import or_, extract, func
 
+from ..time_table.models import Week
+
 teachers_bp = Blueprint('teachers', __name__)
 
 
@@ -770,18 +772,44 @@ def branch_daily_stats(location_id):
 
     target_date = datetime(year, month, day)
 
+    weekday_index = target_date.weekday()
+
+    week = Week.query.filter_by(order=weekday_index + 1, location_id=location_id).first()
+    if not week:
+        return jsonify({"error": "Bu kunga mos hafta kuni topilmadi"}), 200
+
+    group_ids = [
+        grw.group_id for grw in Group_Room_Week.query.filter_by(
+            week_id=week.id, location_id=location_id
+        ).all()
+    ]
+
+    if not group_ids:
+        return jsonify({"error": "Bu kunda hech qaysi guruhda dars yo‘q"}), 200
+
+    query = Groups.query.filter(
+        Groups.id.in_(group_ids),
+        Groups.location_id == location_id,
+        Groups.deleted == False
+    )
+
+    groups = (
+        query.options(joinedload(Groups.student))
+        .order_by(Groups.id)
+        .all()
+    )
+
+
     calendar_year = CalendarYear.query.filter(
         extract('year', CalendarYear.date) == year
     ).first()
-
     if not calendar_year:
         return jsonify({"error": "Bu yilda davomat topilmadi"}), 200
 
     calendar_month = CalendarMonth.query.filter(
-        CalendarMonth.year_id == calendar_year.id,
+        CalendarMonth.year_id == 2,
         extract('month', CalendarMonth.date) == month
     ).first()
-
     if not calendar_month:
         return jsonify({"error": "Bu oy davomat topilmadi"}), 200
 
@@ -789,17 +817,9 @@ def branch_daily_stats(location_id):
         CalendarDay.month_id == calendar_month.id,
         func.date(CalendarDay.date) == target_date.date()
     ).first()
-
     if not calendar_day:
         return jsonify({"error": "Bu kunda davomat topilmadi"}), 200
 
-    query = Groups.query.filter_by(location_id=location_id, deleted=False)
-
-    groups = (
-        query.options(joinedload(Groups.student))
-        .order_by(Groups.id)
-        .all()
-    )
 
     branch_present = branch_absent = branch_total = 0
     group_list = []
@@ -853,6 +873,7 @@ def branch_daily_stats(location_id):
     return jsonify({
         "location_id": location_id,
         "date": str(target_date.date()),
+        "week_day": week.name,
         "groups": group_list,
         "overall_summary": {
             "present": branch_present,
@@ -860,3 +881,4 @@ def branch_daily_stats(location_id):
             "total": branch_total
         }
     }), 200
+
