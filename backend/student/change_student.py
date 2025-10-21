@@ -72,7 +72,8 @@ def change_student_info(user_id):
                     "father_name": json['fatherName'],
                     "born_day": json['birthDay'],
                     "born_month": json['birthMonth'],
-                    "born_year": json['birthYear']
+                    "born_year": json['birthYear'],
+                    "address": json['address'] if json['address'] else None,
                 })
                 db.session.commit()
                 age = datetime.now().year - user.born_year
@@ -141,7 +142,8 @@ def change_student_info(user_id):
                     "born_day": json['birthDay'],
                     "born_month": json['birthMonth'],
                     "born_year": json['birthYear'],
-                    "comment": json['comment']
+                    "comment": json['comment'],
+                    "address": json['address'] if "address" in json else "",
                 })
                 db.session.commit()
                 age = datetime.now().year - user.born_year
