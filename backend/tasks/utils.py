@@ -255,9 +255,9 @@ def update_debt_progress(location_id):
         calendar_year=calendar_year.id,
         task_id=task.id
     ).first()
-    if location_id == 3:
-        db.session.delete(task_statistics)
-        db.session.commit()
+    # if location_id == 3:
+    #     db.session.delete(task_statistics)
+    #     db.session.commit()
     if task_statistics:
         in_progress_tasks = TaskStudents.query.filter(
             TaskStudents.task_id == task.id,
