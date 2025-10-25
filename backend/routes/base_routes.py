@@ -738,6 +738,11 @@ def my_profile(user_id):
                 "order": 10,
                 "display": "none"
             },
+            "address": {
+                "name": "Manzili",
+                "value": user.address,
+                "order": 13
+            },
             "combined_payment": combined_payment,
             'balance': balance_info,
             "phone": phone_list,
@@ -943,7 +948,8 @@ def profile(user_id):
                 "subject": True,
                 "comment": True,
                 "language": True,
-                "shift": True
+                "shift": True,
+                "address": True
             },
             "username": user_get.username,
             "type_role": type_role,
@@ -951,6 +957,7 @@ def profile(user_id):
             "contract_url": student_get.contract_pdf_url,
             "location_id": user_get.location_id,
             "balance": user_get.balance,
+            "address": user_get.address,
             "info": {
                 "name": {
                     "name": "Ism",
@@ -1161,7 +1168,8 @@ def profile(user_id):
                 "comment": True,
                 "language": True,
                 "color": True,
-                "subject": True
+                "subject": True,
+                "address": True
             },
             "username": user_get.username,
             "type_role": type_role,
