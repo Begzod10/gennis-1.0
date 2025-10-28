@@ -4,19 +4,20 @@ from datetime import datetime
 
 # import pandas as pd
 import docx
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from werkzeug.utils import secure_filename
 from sqlalchemy import or_
-
+from io import BytesIO
 from app import app
 from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
     Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentHistoryGroups, Groups, \
     Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db,EducationLanguage
+from openpyxl import Workbook
 
 student_functions = Blueprint('student_functions', __name__)
 
@@ -175,6 +176,63 @@ def studyingStudents(id):
             "has_more": (offset + (limit or total)) < total
         }
     })
+@student_functions.route(f'/studyingStudents/<int:id>/excel', methods=['GET'])
+# @jwt_required()
+def studyingStudentExcel(id):
+    students_query = (
+        Students.query
+        .options(joinedload(Students.user).joinedload(Users.phone))
+        .join(Students.user)
+        .join(Students.group)
+        .filter(
+            Students.group != None,
+            Groups.status == True,
+            Users.location_id == id
+        )
+        .distinct(Students.id)
+        .order_by(Students.id)
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Students"
+
+    # Header qatori
+    ws.append(["ID", "Name", "Surname", "Username", "Personal Phone", "Parent Phone"])
+
+    for st in students_query.all():
+        user = st.user
+        if not user:
+            continue
+
+        personal_phone = ""
+        parent_phone = ""
+
+        for ph in user.phone:
+            if ph.personal:
+                personal_phone = ph.phone
+            if ph.parent:
+                parent_phone = ph.phone
+
+        ws.append([
+            user.id,
+            user.name or "",
+            user.surname or "",
+            user.username or "",
+            personal_phone,
+            parent_phone
+        ])
+
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    return send_file(
+        file_stream,
+        as_attachment=True,
+        download_name=f"studying_students_{id}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 @student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
