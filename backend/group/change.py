@@ -1,5 +1,5 @@
 from backend.models.models import Teachers, Group_Room_Week, Students, Groups, Subjects, Locations, Roles, \
-    EducationLanguage, CourseTypes, Rooms, Week, db, time_table_student,time_table_teacher
+    EducationLanguage, CourseTypes, Rooms, Week, db, time_table_student,time_table_teacher, student_group
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import contains_eager
 from flask_jwt_extended import jwt_required
@@ -104,7 +104,12 @@ def delete_group(group_id):
         Groups.id == group.id).all()
     time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
     for st in stduents:
-        st.group.remove(group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == group.id,
+                student_group.c.student_id == st.id
+            )
+        )
         db.session.commit()
         st.subject.append(subject)
         db.session.commit()
