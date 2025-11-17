@@ -63,7 +63,7 @@ def bot_teacher_salary_details(teacher_id, salary_id):
 
     info = {
         "teacher_id": teacher.id,
-        "total_salary": teacher_salary.total_salary + teacher_salary.extra if teacher_salary.extra else teacher_salary.total_salary,
+        "total_salary": teacher_salary.total_salary,
         "taken_money": teacher_salary.taken_money,
         "debt": teacher_salary.debt,
         "remaining_salary": teacher_salary.remaining_salary,
