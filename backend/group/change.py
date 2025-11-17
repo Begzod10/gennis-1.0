@@ -119,7 +119,6 @@ def delete_group(group_id):
                 db.session.commit()
     for time in time_table:
         if time in teacher.time_table:
-            print('vaqt', time)
             teacher.time_table.remove(time)
             db.session.commit()
     for time in time_table:

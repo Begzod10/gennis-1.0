@@ -11,7 +11,7 @@ from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
 from backend.functions.utils import iterate_models
-from backend.models.models import Staff, Users,EducationLanguage,Professions
+from backend.models.models import Staff, Users, EducationLanguage, Professions
 from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
     StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db
@@ -105,6 +105,9 @@ def block_salary(user_id, location_id, year_id):
                 total_fine = 0 if not salary.total_fine else salary.total_fine
 
                 if salary.extra:
+                    salary.total_salary = salary.total_salary + salary.extra
+                    salary.extra = 0
+                    db.session.commit()
                     residue = (salary.total_salary + salary.extra) - (
                             taken_money + black_salary + total_fine + book_payments - debt)
                 else:
@@ -167,6 +170,9 @@ def block_salary_classroom(user_id, location_id, year_id):
                 total_fine = 0 if not salary.total_fine else salary.total_fine
 
                 if salary.extra:
+                    salary.total_salary = salary.total_salary + salary.extra
+                    salary.extra = 0
+                    db.session.commit()
                     residue = (salary.total_salary + salary.extra) - (
                             taken_money + black_salary + total_fine + book_payments - debt)
                 else:
@@ -236,6 +242,9 @@ def teacher_salary(user_id, location_id):
                 total_fine = 0 if not salary.total_fine else salary.total_fine
 
                 if salary.extra:
+                    salary.total_salary = salary.total_salary + salary.extra
+                    salary.extra = 0
+                    db.session.commit()
                     residue = (salary.total_salary + salary.extra) - (
                             taken_money + black_salary + total_fine + book_payments - debt)
                 else:
@@ -328,6 +337,9 @@ def teacher_salary_inside(salary_id, user_id):
         total_fine = 0 if not salary.total_fine else salary.total_fine
 
         if salary.extra:
+            salary.total_salary = salary.total_salary + salary.extra
+            salary.extra = 0
+            db.session.commit()
             residue = (salary.total_salary + salary.extra) - (
                     taken_money + black_salary + total_fine + book_payments - debt)
         else:
@@ -713,8 +725,7 @@ def employees(location_id, status):
     search = request.args.get("search", default=None, type=str)
     job = request.args.get("job", default=None, type=str)
     language = request.args.get("language", default=None, type=str)
-    print(job,language)
-
+    print(job, language)
 
     user_id = get_jwt_identity()
     staff_salary_update()
@@ -737,9 +748,8 @@ def employees(location_id, status):
         staffs_query = (
             staffs_query
             .join(Users.language)
-                .filter(EducationLanguage.name.ilike(language ))
+            .filter(EducationLanguage.name.ilike(language))
         )
-
 
     if search:
         search_pattern = f"%{search}%"
