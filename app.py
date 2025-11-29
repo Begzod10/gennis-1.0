@@ -70,6 +70,10 @@ from backend.routes.views import register_router_views
 from backend.mobile.views import register_parent_mobile_views
 from backend.for_programmers.views import register_programmers_views
 
+# account home screen
+
+from backend.account.overall_datas.views import register_overall_datas_routes
+
 register_time_table_views(api, app)
 register_router_views(api, app)
 register_parent_views(api, app)
@@ -86,6 +90,7 @@ register_for_tes_views(api, app)
 register_school_views(api, app)
 register_parent_mobile_views(api, app)
 register_programmers_views(api, app)
+register_overall_datas_routes(api, app)
 
 
 # register_classroom_views(api, app)
