@@ -68,9 +68,9 @@ def home_screen_debtors():
                 "month": month_date_obj.strftime("%Y-%m"),
                 "groups": []
             }
-        total_debt += attendance.total_debt
-        remaining_debt += attendance.remaining_debt
-        payment += attendance.payment
+        total_debt += attendance.total_debt if attendance.total_debt else 0
+        remaining_debt += attendance.remaining_debt if attendance.remaining_debt else 0
+        payment += attendance.payment if attendance.payment else 0
         students_dict[student.id]['groups'].append({
             'group_name': group.name,
             "subject_name": subject.name,
