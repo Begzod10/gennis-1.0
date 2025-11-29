@@ -57,6 +57,9 @@ def home_screen_debtors():
 
     # Group by student
     students_dict = {}
+    total_debt = 0
+    remaining_debt = 0
+    payment = 0
     for attendance, student, user, group, subject in attendance_records:
         if student.id not in students_dict:
             students_dict[student.id] = {
@@ -65,7 +68,9 @@ def home_screen_debtors():
                 "month": month_date_obj.strftime("%Y-%m"),
                 "groups": []
             }
-
+        total_debt += attendance.total_debt
+        remaining_debt += attendance.remaining_debt
+        payment += attendance.payment
         students_dict[student.id]['groups'].append({
             'group_name': group.name,
             "subject_name": subject.name,
@@ -76,4 +81,10 @@ def home_screen_debtors():
 
     attendance_history_list = list(students_dict.values())
 
-    return jsonify(attendance_history_list)
+    return jsonify({
+        "student_list": attendance_history_list,
+        "total_debt": total_debt,
+        "remaining_debt": remaining_debt,
+        "payment": payment
+
+    })
