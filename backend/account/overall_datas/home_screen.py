@@ -10,7 +10,7 @@ from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import desc
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from sqlalchemy.orm import contains_eager
 from datetime import datetime
 from sqlalchemy import extract
@@ -205,35 +205,36 @@ def home_screen_salaries():
         salary_dict = {}
         total_salary = 0
         total_taken_money = 0
+
         salary_records = (
             db.session.query(
                 StaffSalary,
                 Staff,
                 Users,
                 CalendarMonth,
-                CalendarYear,
-                DeletedStaff,
-                CalendarDay  # Add this to get deletion date
+                CalendarYear
             )
             .join(Staff, StaffSalary.staff_id == Staff.id)
             .join(Users, Staff.user_id == Users.id)
             .join(CalendarMonth, StaffSalary.calendar_month == CalendarMonth.id)
             .join(CalendarYear, CalendarMonth.year_id == CalendarYear.id)
-            .outerjoin(DeletedStaff, Staff.user_id == DeletedStaff.user_id)
-            .outerjoin(CalendarDay, DeletedStaff.calendar_day == CalendarDay.id)  # Join to get deletion date
             .filter(
                 StaffSalary.calendar_month == month_id,
                 StaffSalary.calendar_year == year_id,
                 Users.location_id == location_id,
                 or_(
-                    DeletedStaff.id == None,  # Staff not deleted
-                    CalendarDay.date >= month_date_obj  # Or deleted on/after the requested month
+                    Staff.deleted == False,  # Staff not deleted
+                    and_(
+                        Staff.deleted == True,
+                        func.date_trunc('month', Staff.deleted_date) >= month_date_obj
+                        # Deleted on/after the requested month
+                    )
                 )
             )
         )
 
-        # Update your loop to handle the extra CalendarDay
-        for salary, staff, user, calendar_month, calendar_year, deleted_staff, deletion_day in salary_records:
+        # Loop through results
+        for salary, staff, user, calendar_month, calendar_year in salary_records:
             staff_name = f"{user.name} {user.surname}"
             staff_salary = salary.total_salary
 
@@ -242,8 +243,9 @@ def home_screen_salaries():
                     'id': staff.id,
                     'staff_name': staff_name,
                     "month": month_date_obj.strftime("%Y-%m"),
-                    "is_deleted": deleted_staff is not None,
-                    "deleted_date": deletion_day.date.strftime("%Y-%m") if deletion_day else None,
+                    "is_deleted": staff.deleted,
+                    "deleted_date": staff.deleted_date.strftime("%Y-%m") if staff.deleted_date else None,
+                    "deleted_comment": staff.deleted_comment,
                     "staff_salary": staff_salary,
                     "taken_money": salary.taken_money if salary.taken_money else 0,
                     "remaining_salary": staff_salary - (salary.taken_money if salary.taken_money else 0)

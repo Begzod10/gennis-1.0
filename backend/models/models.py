@@ -605,6 +605,7 @@ class Staff(db.Model):
     old_id = Column(Integer)
     deleted = Column(Boolean, default=False)
     deleted_comment = Column(String)
+    deleted_date = Column(DateTime)
 
 
 class DeletedStaff(db.Model):

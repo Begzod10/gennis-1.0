@@ -688,7 +688,6 @@ def employees(location_id, status):
     search = request.args.get("search", default=None, type=str)
     job = request.args.get("job", default=None, type=str)
     language = request.args.get("language", default=None, type=str)
-    print(job, language)
 
     user_id = get_jwt_identity()
     staff_salary_update()
@@ -727,7 +726,6 @@ def employees(location_id, status):
         staffs_query = staffs_query.offset(offset)
 
     staffs = staffs_query.all()
-    print(staffs)
 
     list_staff = [{"id": staff.user.id, "name": staff.user.name.title(), "surname": staff.user.surname.title(),
                    "username": staff.user.username, "language": staff.user.language.name, "age": staff.user.age,
@@ -744,6 +742,7 @@ def employees(location_id, status):
 @jwt_required()
 def delete_staff(user_id):
     Staff.query.filter(Staff.user_id == user_id).update(
-        {"deleted": True, "deleted_comment": request.get_json()['otherReason']})
+        {"deleted": True, "deleted_comment": request.get_json()['otherReason'],
+         "deleted_date": f"{datetime.datetime.now()};"})
     db.session.commit()
     return jsonify({"msg": "O'chirildi", "status": True})
