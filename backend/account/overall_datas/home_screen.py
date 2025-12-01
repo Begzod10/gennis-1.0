@@ -150,13 +150,25 @@ def home_screen_salaries():
 
         salary_dict = {}
         total_salary = 0
-        taken_money = 0
-
+        total_taken_money = 0
+        total_black_salary = 0
+        total_debt = 0
+        total_fine = 0
+        total_remaining_salary = 0
         # Fix: Unpack in the same order as the query
         for salary, teacher, user, calendar_month, calendar_year, deleted_teacher in salary_records:
             teacher_name = f"{user.name} {user.surname}"
             teacher_salary = salary.total_salary
-
+            teacher_black_salaries = TeacherBlackSalary.query.filter(
+                TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
+                TeacherBlackSalary.location_id == location_id, TeacherBlackSalary.status == False).all()
+            black_salary = 0
+            for black in teacher_black_salaries:
+                black_salary += black.total_salary
+            debt = salary.debt if salary.debt else 0
+            taken_money = salary.taken_money if salary.taken_money else 0
+            fine = salary.total_fine if salary.total_fine else 0
+            remaining_salary = teacher_salary - (taken_money + black_salary + fine - debt)
             if teacher.id not in salary_dict:
                 salary_dict[teacher.id] = {
                     'id': teacher.id,
@@ -165,20 +177,29 @@ def home_screen_salaries():
                     "is_deleted": deleted_teacher is not None,
                     "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_teacher else None,
                     "teacher_salary": teacher_salary,
-                    "taken_money": salary.taken_money if salary.taken_money else 0,
-                    "remaining_salary": teacher_salary - (salary.taken_money if salary.taken_money else teacher_salary)
+                    "taken_money": taken_money,
+                    "remaining_salary": remaining_salary,
+                    "black_salary": black_salary,
+                    "debt": debt,
+                    "fine": fine
                 }
-
+            total_remaining_salary += remaining_salary
+            total_fine += fine
+            total_debt += debt
+            total_black_salary += black_salary
             total_salary += teacher_salary
-            taken_money += salary.taken_money if salary.taken_money else 0
+            total_taken_money += salary.taken_money if salary.taken_money else 0
 
         salary_list = list(salary_dict.values())
 
         return jsonify({
             "salary_list": salary_list,
             "total_salary": total_salary,
-            "taken_money": taken_money,
-            "remaining_salary": total_salary - taken_money
+            "taken_money": total_taken_money,
+            "remaining_salary": total_remaining_salary,
+            "black_salary": total_black_salary,
+            "debt": total_debt,
+            "fine": total_fine
         })
     else:
         salary_records = (
@@ -208,7 +229,7 @@ def home_screen_salaries():
 
         salary_dict = {}
         total_salary = 0
-        taken_money = 0
+        total_taken_money = 0
 
         # Fix: Unpack in the same order as the query
         for salary, staff, user, calendar_month, calendar_year, deleted_staff in salary_records:
@@ -228,13 +249,13 @@ def home_screen_salaries():
                 }
 
             total_salary += staff_salary
-            taken_money += salary.taken_money if salary.taken_money else 0
+            total_taken_money += salary.taken_money if salary.taken_money else 0
 
         salary_list = list(salary_dict.values())
 
         return jsonify({
             "salary_list": salary_list,
             "total_salary": total_salary,
-            "taken_money": taken_money,
-            "remaining_salary": total_salary - taken_money
+            "taken_money": total_taken_money,
+            "remaining_salary": total_salary - total_taken_money
         })
