@@ -163,7 +163,9 @@ def home_screen_salaries():
                     "month": month_date_obj.strftime("%Y-%m"),
                     "is_deleted": deleted_teacher is not None,
                     "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_teacher else None,
-                    "teacher_salary": teacher_salary
+                    "teacher_salary": teacher_salary,
+                    "taken_money": salary.taken_money if salary.taken_money else 0,
+                    "remaining_salary": teacher_salary - (salary.taken_money if salary.taken_money else 0)
                 }
 
             total_salary += teacher_salary
