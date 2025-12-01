@@ -170,7 +170,6 @@ def home_screen_salaries():
 
             total_salary += teacher_salary
             taken_money += salary.taken_money if salary.taken_money else 0
-            salary_dict[teacher.id]['teacher_salary'] = teacher_salary
 
         salary_list = list(salary_dict.values())
 
@@ -229,7 +228,6 @@ def home_screen_salaries():
 
             total_salary += staff_salary
             taken_money += salary.taken_money if salary.taken_money else 0
-            salary_dict[staff.id]['staff_salary'] = staff_salary
 
         salary_list = list(salary_dict.values())
 
