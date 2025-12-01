@@ -140,6 +140,7 @@ def home_screen_salaries():
                 TeacherSalary.calendar_month == month_id,
                 TeacherSalary.calendar_year == year_id,
                 Users.location_id == location_id,
+                TeacherSalary.location_id == location_id,
                 or_(
                     DeletedTeachers.id == None,
                     CalendarMonth.date >= month_date_obj
