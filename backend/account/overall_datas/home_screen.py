@@ -4,7 +4,7 @@ from backend.models.models import Staff, Users, EducationLanguage, Professions
 from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
     StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
-    DeletedStudents, CalendarDay
+    DeletedStudents, CalendarDay, DeletedTeachers
 
 from flask import Blueprint
 from flask import request, jsonify
@@ -65,11 +65,9 @@ def home_screen_debtors():
         .order_by(Students.id)
         .all()
     )
-
     # Group by student
     students_dict = {}
     total_debt = 0
-    remaining_debt = 0
     payment = 0
     total_discount = 0
 
@@ -86,7 +84,6 @@ def home_screen_debtors():
             }
 
         total_debt += attendance.total_debt if attendance.total_debt else 0
-        remaining_debt += attendance.remaining_debt if attendance.remaining_debt else 0
         payment += attendance.payment if attendance.payment else 0
         total_discount += attendance.total_discount if attendance.total_discount else 0
         students_dict[student.id]['groups'].append({
@@ -103,6 +100,81 @@ def home_screen_debtors():
     return jsonify({
         "student_list": attendance_history_list,
         "total_debt": total_debt,
-        "remaining_debt": remaining_debt,
+        "remaining_debt": total_debt - payment,
         "payment": payment
     })
+
+
+@home_screen_bp.route('/salaries/', methods=['GET'])
+def home_screen_salaries():
+    location_id = request.args.get('location_id')
+    month = request.args.get('month')
+    year = request.args.get('year')
+    type_salary = request.args.get('type_salary')
+    month_date = year + '-' + month
+    year_obj = datetime.strptime(year, '%Y')
+    month_date_obj = datetime.strptime(month_date, '%Y-%m')
+
+    year_id = CalendarYear.query.filter(CalendarYear.date == year_obj).first().id
+    month_id = CalendarMonth.query.filter(
+        CalendarMonth.date == month_date_obj,
+        CalendarMonth.year_id == year_id
+    ).first().id
+
+    if type_salary == "teacher":
+        salary_records = (
+            db.session.query(
+                TeacherSalary,
+                Teachers,
+                Users,
+                CalendarMonth,
+                CalendarYear,
+                DeletedTeachers
+            )
+            .join(Teachers, TeacherSalary.teacher_id == Teachers.id)  # Fixed join order
+            .join(Users, Teachers.user_id == Users.id)
+            .join(CalendarMonth, TeacherSalary.calendar_month == CalendarMonth.id)
+            .join(CalendarYear, CalendarMonth.year_id == CalendarYear.id)
+            .outerjoin(DeletedTeachers, Teachers.id == DeletedTeachers.teacher_id)  # Changed to outerjoin
+            .filter(
+                TeacherSalary.calendar_month == month_id,
+                TeacherSalary.calendar_year == year_id,
+                Users.location_id == location_id,
+                or_(
+                    DeletedTeachers.id == None,
+                    CalendarMonth.date >= month_date_obj
+                )
+            )
+        )
+
+        salary_dict = {}
+        total_salary = 0
+        taken_money = 0
+
+        # Fix: Unpack in the same order as the query
+        for salary, teacher, user, calendar_month, calendar_year, deleted_teacher in salary_records:
+            teacher_name = f"{user.name} {user.surname}"
+            teacher_salary = salary.total_salary
+
+            if teacher.id not in salary_dict:
+                salary_dict[teacher.id] = {
+                    'id': teacher.id,
+                    'teacher_name': teacher_name,
+                    "month": month_date_obj.strftime("%Y-%m"),
+                    "is_deleted": deleted_teacher is not None,
+                    "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_teacher else None,
+                    "teacher_salary": teacher_salary
+                }
+
+            total_salary += teacher_salary
+            taken_money += salary.taken_money if salary.taken_money else 0
+            salary_dict[teacher.id]['teacher_salary'] = teacher_salary
+
+        salary_list = list(salary_dict.values())
+
+        return jsonify({
+            "salary_list": salary_list,
+            "total_salary": total_salary,
+            "taken_money": taken_money,
+            "remaining_salary": total_salary - taken_money
+        })
