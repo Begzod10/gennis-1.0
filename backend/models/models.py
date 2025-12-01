@@ -291,6 +291,7 @@ class CalendarDay(db.Model):
                                        lazy=True)
     students_joined = db.relationship("Students", foreign_keys="Students.joined_day_id", backref="joined_day",
                                       lazy=True)
+    deleted_staff = relationship("DeletedStaff", backref="day", order_by="DeletedStaff.id")
 
     def convert_json(self, entire=False):
         return {
