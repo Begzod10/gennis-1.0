@@ -243,7 +243,7 @@ def home_screen_salaries():
                     'staff_name': staff_name,
                     "month": month_date_obj.strftime("%Y-%m"),
                     "is_deleted": deleted_staff is not None,
-                    "deleted_date": deletion_day.day.date.strftime("%Y-%m") if deletion_day else None,
+                    "deleted_date": deletion_day.date.strftime("%Y-%m") if deletion_day else None,
                     "staff_salary": staff_salary,
                     "taken_money": salary.taken_money if salary.taken_money else 0,
                     "remaining_salary": staff_salary - (salary.taken_money if salary.taken_money else 0)
