@@ -215,7 +215,7 @@ def home_screen_salaries():
             .join(Users, Staff.user_id == Users.id)
             .join(CalendarMonth, StaffSalary.calendar_month == CalendarMonth.id)
             .join(CalendarYear, CalendarMonth.year_id == CalendarYear.id)
-            .outerjoin(DeletedStaff, Staff.id == DeletedStaff.staff_id)  # Changed to outerjoin
+            .outerjoin(DeletedStaff, DeletedStaff.user_id == DeletedStaff.user_id)  # Changed to outerjoin
             .filter(
                 StaffSalary.calendar_month == month_id,
                 StaffSalary.calendar_year == year_id,
