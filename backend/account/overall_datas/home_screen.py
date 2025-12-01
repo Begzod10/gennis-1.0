@@ -1,10 +1,10 @@
 import pprint
 
-from backend.models.models import Staff, Users, EducationLanguage, Professions
-from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
+from backend.models.models import Staff, Users, EducationLanguage, Professions, \
+    Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
     StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
-    DeletedStudents, CalendarDay, DeletedTeachers
+    DeletedStudents, CalendarDay, DeletedTeachers, DeletedStaff
 
 from flask import Blueprint
 from flask import request, jsonify
@@ -165,12 +165,71 @@ def home_screen_salaries():
                     "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_teacher else None,
                     "teacher_salary": teacher_salary,
                     "taken_money": salary.taken_money if salary.taken_money else 0,
-                    "remaining_salary": teacher_salary - (salary.taken_money if salary.taken_money else 0)
+                    "remaining_salary": teacher_salary - (salary.taken_money if salary.taken_money else teacher_salary)
                 }
 
             total_salary += teacher_salary
             taken_money += salary.taken_money if salary.taken_money else 0
             salary_dict[teacher.id]['teacher_salary'] = teacher_salary
+
+        salary_list = list(salary_dict.values())
+
+        return jsonify({
+            "salary_list": salary_list,
+            "total_salary": total_salary,
+            "taken_money": taken_money,
+            "remaining_salary": total_salary - taken_money
+        })
+    else:
+        salary_records = (
+            db.session.query(
+                StaffSalary,
+                Staff,
+                Users,
+                CalendarMonth,
+                CalendarYear,
+                DeletedStaff
+            )
+            .join(Staff, StaffSalary.staff_id == Staff.id)  # Fixed join order
+            .join(Users, Staff.user_id == Users.id)
+            .join(CalendarMonth, StaffSalary.calendar_month == CalendarMonth.id)
+            .join(CalendarYear, CalendarMonth.year_id == CalendarYear.id)
+            .outerjoin(DeletedStaff, Staff.id == DeletedStaff.staff_id)  # Changed to outerjoin
+            .filter(
+                StaffSalary.calendar_month == month_id,
+                StaffSalary.calendar_year == year_id,
+                Users.location_id == location_id,
+                or_(
+                    DeletedStaff.id == None,
+                    CalendarMonth.date >= month_date_obj
+                )
+            )
+        )
+
+        salary_dict = {}
+        total_salary = 0
+        taken_money = 0
+
+        # Fix: Unpack in the same order as the query
+        for salary, staff, user, calendar_month, calendar_year, deleted_staff in salary_records:
+            staff_name = f"{user.name} {user.surname}"
+            staff_salary = salary.total_salary
+
+            if staff.id not in salary_dict:
+                salary_dict[staff.id] = {
+                    'id': staff.id,
+                    'staff_name': staff_name,
+                    "month": month_date_obj.strftime("%Y-%m"),
+                    "is_deleted": deleted_staff is not None,
+                    "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_staff else None,
+                    "staff_salary": staff_salary,
+                    "taken_money": salary.taken_money if salary.taken_money else 0,
+                    "remaining_salary": staff_salary - (salary.taken_money if salary.taken_money else staff_salary)
+                }
+
+            total_salary += staff_salary
+            taken_money += salary.taken_money if salary.taken_money else 0
+            salary_dict[staff.id]['staff_salary'] = staff_salary
 
         salary_list = list(salary_dict.values())
 
