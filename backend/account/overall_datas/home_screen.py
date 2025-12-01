@@ -202,6 +202,9 @@ def home_screen_salaries():
             "fine": total_fine
         })
     else:
+        salary_dict = {}
+        total_salary = 0
+        total_taken_money = 0
         salary_records = (
             db.session.query(
                 StaffSalary,
@@ -209,30 +212,28 @@ def home_screen_salaries():
                 Users,
                 CalendarMonth,
                 CalendarYear,
-                DeletedStaff
+                DeletedStaff,
+                CalendarDay  # Add this to get deletion date
             )
-            .join(Staff, StaffSalary.staff_id == Staff.id)  # Fixed join order
+            .join(Staff, StaffSalary.staff_id == Staff.id)
             .join(Users, Staff.user_id == Users.id)
             .join(CalendarMonth, StaffSalary.calendar_month == CalendarMonth.id)
             .join(CalendarYear, CalendarMonth.year_id == CalendarYear.id)
-            .outerjoin(DeletedStaff, DeletedStaff.user_id == DeletedStaff.user_id)  # Changed to outerjoin
+            .outerjoin(DeletedStaff, Staff.user_id == DeletedStaff.user_id)
+            .outerjoin(CalendarDay, DeletedStaff.calendar_day == CalendarDay.id)  # Join to get deletion date
             .filter(
                 StaffSalary.calendar_month == month_id,
                 StaffSalary.calendar_year == year_id,
                 Users.location_id == location_id,
                 or_(
-                    DeletedStaff.id == None,
-                    CalendarMonth.date >= month_date_obj
+                    DeletedStaff.id == None,  # Staff not deleted
+                    CalendarDay.date >= month_date_obj  # Or deleted on/after the requested month
                 )
             )
         )
 
-        salary_dict = {}
-        total_salary = 0
-        total_taken_money = 0
-
-        # Fix: Unpack in the same order as the query
-        for salary, staff, user, calendar_month, calendar_year, deleted_staff in salary_records:
+        # Update your loop to handle the extra CalendarDay
+        for salary, staff, user, calendar_month, calendar_year, deleted_staff, deletion_day in salary_records:
             staff_name = f"{user.name} {user.surname}"
             staff_salary = salary.total_salary
 
@@ -242,10 +243,10 @@ def home_screen_salaries():
                     'staff_name': staff_name,
                     "month": month_date_obj.strftime("%Y-%m"),
                     "is_deleted": deleted_staff is not None,
-                    "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_staff else None,
+                    "deleted_date": deletion_day.date.strftime("%Y-%m") if deletion_day else None,
                     "staff_salary": staff_salary,
                     "taken_money": salary.taken_money if salary.taken_money else 0,
-                    "remaining_salary": staff_salary - (salary.taken_money if salary.taken_money else staff_salary)
+                    "remaining_salary": staff_salary - (salary.taken_money if salary.taken_money else 0)
                 }
 
             total_salary += staff_salary
