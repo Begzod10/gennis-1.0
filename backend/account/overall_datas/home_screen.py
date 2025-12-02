@@ -4,7 +4,7 @@ from backend.models.models import Staff, Users, EducationLanguage, Professions, 
     Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
     StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
-    DeletedStudents, CalendarDay, DeletedTeachers, DeletedStaff
+    DeletedStudents, CalendarDay, DeletedTeachers, DeletedStaff, Overhead
 
 from flask import Blueprint
 from flask import request, jsonify
@@ -100,7 +100,7 @@ def home_screen_debtors():
     return jsonify({
         "student_list": attendance_history_list,
         "total_debt": total_debt,
-        "remaining_debt": total_debt - payment,
+        "remaining_debt": total_debt + payment,
         "payment": payment
     })
 
@@ -262,3 +262,19 @@ def home_screen_salaries():
             "taken_money": total_taken_money,
             "remaining_salary": total_salary - total_taken_money
         })
+
+
+@home_screen_bp.route(f'/overhead/')
+def overhead():
+    location_id = request.args.get('location_id')
+    month = request.args.get('month')
+    year = request.args.get('year')
+    month_date = year + '-' + month
+    year_obj = datetime.strptime(year, '%Y')
+    month_date_obj = datetime.strptime(month_date, '%Y-%m')
+
+    year_id = CalendarYear.query.filter(CalendarYear.date == year_obj).first().id
+    month_id = CalendarMonth.query.filter(
+        CalendarMonth.date == month_date_obj,
+        CalendarMonth.year_id == year_id
+    ).first().id

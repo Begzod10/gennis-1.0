@@ -533,10 +533,10 @@ class Overhead(db.Model):
             "type_name": "Overhead",
             "type": "Overhead",
             "date": CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
-            "day":self.calendar_day,
+            "day": self.calendar_day,
             "month": self.calendar_month,
             "year": self.calendar_year,
-            "typePayment":self.payment_type.name,
+            "typePayment": self.payment_type.name,
             "reason": "",
 
         }
@@ -673,17 +673,18 @@ class CapitalExpenditure(db.Model):
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     by_who = Column(Integer, ForeignKey("users.id"))
     old_id = Column(Integer)
+
     def convert_json(self, entire=False):
         return {
             "id": self.id,
 
             "date": self.day.date.strftime("%Y-%m-%d"),
-            "day":self.calendar_day,
+            "day": self.calendar_day,
             "month": self.calendar_month,
             "name": self.item_name,
             "price": self.item_sum,
-            "typePayment":self.payment_type.name,
-            "year":self.calendar_year,
+            "typePayment": self.payment_type.name,
+            "year": self.calendar_year,
 
         }
 
