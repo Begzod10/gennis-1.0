@@ -609,7 +609,7 @@ class Staff(db.Model):
     deleted = Column(Boolean, default=False)
     deleted_comment = Column(String)
     deleted_date = Column(DateTime)
-    test = Column(String)
+
 
 
 class DeletedStaff(db.Model):

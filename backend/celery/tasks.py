@@ -1,6 +1,6 @@
 # tasks/salary.py
 import sys
-from celery_app import celery
+from backend.celery.celery_app import celery
 from backend.functions.debt_salary_update import salary_debt, find_calendar_date
 from backend.student.class_model import Student_Functions
 from backend.functions.utils import update_salary
