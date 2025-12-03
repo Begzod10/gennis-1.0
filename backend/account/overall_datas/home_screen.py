@@ -1,19 +1,16 @@
-import pprint
-
-from backend.models.models import Staff, Users, EducationLanguage, Professions, \
-    Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
-    StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
-    CalendarYear, Locations, TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
-    DeletedStudents, CalendarDay, DeletedTeachers, DeletedStaff, Overhead
+from flask import Blueprint
+from flask import request, jsonify
+from sqlalchemy import or_, and_, func
+from datetime import datetime
+from datetime import datetime
 
 from flask import Blueprint
 from flask import request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from sqlalchemy import desc
 from sqlalchemy import or_, and_, func
-from sqlalchemy.orm import contains_eager
-from datetime import datetime
-from sqlalchemy import extract
+
+from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSalary, CalendarMonth, CalendarYear, \
+    TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
+    DeletedStudents, CalendarDay, DeletedTeachers, Overhead
 
 home_screen_bp = Blueprint('home_screen_bp', __name__)
 
@@ -272,9 +269,49 @@ def overhead():
     month_date = year + '-' + month
     year_obj = datetime.strptime(year, '%Y')
     month_date_obj = datetime.strptime(month_date, '%Y-%m')
-
+    categories = ["gaz", "svet", "suv", "arenda"]
     year_id = CalendarYear.query.filter(CalendarYear.date == year_obj).first().id
     month_id = CalendarMonth.query.filter(
         CalendarMonth.date == month_date_obj,
         CalendarMonth.year_id == year_id
     ).first().id
+    total_gaz = 0
+    total_svet = 0
+    total_suv = 0
+    total_arenda = 0
+    total_other = 0
+    overhead_list = []
+    for category in categories:
+        overheads = Overhead.query.filter(Overhead.calendar_month == month_id, Overhead.calendar_year == year_id,
+                                          Overhead.location_id == location_id,
+                                          Overhead.item_name == category).all()
+        other_overheads = Overhead.query.filter(Overhead.calendar_month == month_id, Overhead.calendar_year == year_id,
+                                                Overhead.location_id == location_id,
+                                                Overhead.item_name != category).all()
+        for overhead in overheads:
+            total_gaz += overhead.item_sum if overhead.item_sum else 0
+            total_svet += overhead.item_sum if overhead.item_sum else 0
+            total_suv += overhead.item_sum if overhead.item_sum else 0
+            total_arenda += overhead.item_sum if overhead.item_sum else 0
+            overhead_list.append({
+                'id': overhead.id,
+                'item_name': overhead.item_name,
+                'item_sum': overhead.item_sum,
+                'month': month_date_obj.strftime("%Y-%m")
+            })
+        for overhead in other_overheads:
+            total_other += overhead.item_sum if overhead.item_sum else 0
+            overhead_list.append({
+                'id': overhead.id,
+                'item_name': overhead.item_name,
+                'item_sum': overhead.item_sum,
+                'month': month_date_obj.strftime("%Y-%m")
+            })
+    return jsonify({
+        "overhead_list": overhead_list,
+        "total_gaz": total_gaz,
+        "total_svet": total_svet,
+        "total_suv": total_suv,
+        "total_arenda": total_arenda,
+        "total_other": total_other
+    })
