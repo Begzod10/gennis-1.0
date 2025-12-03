@@ -202,7 +202,7 @@ def calculate_branch_metrics(location, calendar_year, calendar_month, calendar_d
             Users, Users.id == Teachers.user_id
         ).filter(
             Users.location_id == location.id,
-            Teachers.deleted != None  # Fixed: Use .is_(False) for boolean comparison
+            Teachers.deleted == None  # Fixed: Use .is_(False) for boolean comparison
         ).count()
     except:
         # Fallback if deleted is not a boolean column
@@ -218,7 +218,7 @@ def calculate_branch_metrics(location, calendar_year, calendar_month, calendar_d
             Users, Users.id == Staff.user_id
         ).filter(
             Users.location_id == location.id,
-            Staff.deleted.is_(False)  # Fixed: Use .is_(False) for boolean comparison
+            Staff.deleted != True  # Fixed: Use .is_(False) for boolean comparison
         ).count()
     except:
         # Fallback: If Staff model doesn't exist or deleted field has issues, return 0
