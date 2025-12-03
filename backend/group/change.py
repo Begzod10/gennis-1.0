@@ -1,11 +1,11 @@
 from backend.models.models import Teachers, Group_Room_Week, Students, Groups, Subjects, Locations, Roles, \
-    EducationLanguage, CourseTypes, Rooms, Week, db, time_table_student,time_table_teacher, student_group
+    EducationLanguage, CourseTypes, Rooms, Week, db, time_table_student, time_table_teacher, student_group
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import contains_eager
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 from pprint import pprint
-from backend.functions.utils import get_json_field, remove_items_create_group, api
+from backend.functions.utils import get_json_field, remove_items_create_group, api, find_calendar_date
 from flask import Blueprint, jsonify, request
 from sqlalchemy import delete
 
@@ -95,8 +95,9 @@ def add_teacher_group(teacher_id, group_id):
 @group_change_bp.route(f'/delete_group/<int:group_id>')
 @jwt_required()
 def delete_group(group_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     group = Groups.query.filter(Groups.id == group_id).first()
-    Groups.query.filter(Groups.id == group_id).update({"deleted": True})
+    Groups.query.filter(Groups.id == group_id).update({"deleted": True, "calendar_day": calendar_day.id})
     subject = Subjects.query.filter(Subjects.id == group.subject_id).first()
     db.session.commit()
     teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
