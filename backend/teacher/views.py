@@ -10,11 +10,11 @@ from backend.teacher.requests.requests import teacher_requests_bp
 
 
 def register_teacher_views(api, app):
-    app.register_blueprint(lesson_plan_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(observetion_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(teacher_delete_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(teachers_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(lesson_plan_gennis_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(gennis_observation_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(teacher_home_page_bp, url_prefix=f"/{api}/teacher")
-    app.register_blueprint(teacher_requests_bp, url_prefix=f"/{api}/teacher")
+    app.register_blueprint(lesson_plan_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(observetion_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(teacher_delete_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(teachers_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(lesson_plan_gennis_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(gennis_observation_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(teacher_home_page_bp, url_prefix=f"/api/teacher")
+    app.register_blueprint(teacher_requests_bp, url_prefix=f"/api/teacher")

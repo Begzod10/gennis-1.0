@@ -5,13 +5,12 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from flask import Blueprint
 
-from app import db
 from sqlalchemy import desc
 from flask import jsonify, request
 
 from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
 from backend.models.models import Users, Students, CalendarDay, TaskStudents, TasksStatistics, StudentExcuses, Tasks, \
-    TaskDailyStatistics, BlackStudents, StudentCallingInfo, LeadInfos, Lead
+    TaskDailyStatistics, BlackStudents, StudentCallingInfo, LeadInfos, Lead, db
 from backend.tasks.utils import update_debt_progress, update_all_ratings, black_students_count
 
 task_debts = Blueprint('task_debts', __name__)

@@ -2,11 +2,10 @@ from sqlalchemy import asc, desc
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import func, and_, or_
 
-from app import db
 from backend.functions.utils import find_calendar_date, refreshdatas
 from backend.models.models import Users, Students, BlackStudentsStatistics, BlackStudents, StudentExcuses, TaskStudents, \
     TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo, Lead, LeadInfos, \
-    TaskRatingsMonthly, TaskRatings
+    TaskRatingsMonthly, TaskRatings, db
 
 
 def black_students_count(calendar_month, calendar_year, location_id):

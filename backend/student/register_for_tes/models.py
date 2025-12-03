@@ -1,4 +1,4 @@
-from app import db
+from backend.models.models import db
 
 
 class Defenation(db.Model):

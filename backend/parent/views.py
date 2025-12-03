@@ -5,7 +5,7 @@ from backend.parent.classroom.student_tests import classroom_student_tests_bp
 
 
 def register_parent_views(api, app):
-    app.register_blueprint(crud_parent_bp, url_prefix=f"/{api}/parent")
-    app.register_blueprint(get_parent_bp, url_prefix=f"/{api}/parent")
-    app.register_blueprint(classroom_bp, url_prefix=f"/{api}/parent")
-    app.register_blueprint(classroom_student_tests_bp, url_prefix=f"/{api}/parent")
+    app.register_blueprint(crud_parent_bp, url_prefix=f"/api/parent")
+    app.register_blueprint(get_parent_bp, url_prefix=f"/api/parent")
+    app.register_blueprint(classroom_bp, url_prefix=f"/api/parent")
+    app.register_blueprint(classroom_student_tests_bp, url_prefix=f"/api/parent")

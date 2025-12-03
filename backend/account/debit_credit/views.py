@@ -3,10 +3,9 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
 from sqlalchemy import func
 
-from app import db
 from backend.functions.utils import iterate_models, find_calendar_date
 from backend.models.models import StudentPayments, Investment, CalendarYear, Overhead, Capital, TeacherSalaries, \
-    StaffSalaries, Dividend, MainOverhead, AccountPayable, CampStaffSalaries, AccountPayableHistory
+    StaffSalaries, Dividend, MainOverhead, AccountPayable, CampStaffSalaries, AccountPayableHistory, db
 
 account_debit_credit = Blueprint('account_debit_credit', __name__)
 

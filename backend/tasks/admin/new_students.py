@@ -3,9 +3,8 @@ from datetime import datetime
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
 
-from app import app, db
 from backend.functions.utils import api, find_calendar_date, iterate_models
-from backend.models.models import Students, StudentCallingInfo, CalendarDay, TaskDailyStatistics
+from backend.models.models import Students, StudentCallingInfo, CalendarDay, TaskDailyStatistics, db
 from backend.tasks.models.models import Tasks, TasksStatistics
 from backend.tasks.utils import update_all_ratings, filter_new_students
 

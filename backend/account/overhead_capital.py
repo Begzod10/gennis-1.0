@@ -4,12 +4,12 @@ import uuid
 from datetime import datetime
 
 from docx import Document
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file, current_app as app
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 from sqlalchemy import and_, or_, extract, desc
 from sqlalchemy.orm import contains_eager
-from app import app
+
 from backend.functions.filters import old_current_dates
 from backend.functions.small_info import room_images, checkFile
 from backend.functions.utils import get_json_field, find_calendar_date, iterate_models
@@ -19,6 +19,7 @@ from backend.models.models import Overhead, AccountingPeriod, PaymentTypes, Dele
 from backend.models.models import func
 from .utils import update_capital
 from pprint import pprint
+
 account_capital_bp = Blueprint('account_capital_bp', __name__)
 
 
@@ -348,7 +349,7 @@ def add_overhead(location_id):
     return jsonify({
         "success": True,
         "msg": "Qo'shimcha xarajat qo'shildi",
-        "data":add.convert_json()
+        "data": add.convert_json()
     })
 
 
@@ -440,7 +441,7 @@ def add_capital(location_id):
         return jsonify({
             "success": True,
             "msg": "Qo'shimcha xarajat qo'shildi",
-            "data":add.convert_json()
+            "data": add.convert_json()
         })
 
 

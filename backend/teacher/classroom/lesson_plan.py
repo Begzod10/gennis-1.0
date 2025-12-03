@@ -2,11 +2,10 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify
 
-from app import db
 from backend.functions.filters import update_lesson_plan
 from backend.functions.utils import find_calendar_date
 from backend.functions.utils import get_json_field
-from backend.models.models import LessonPlan, LessonPlanStudents, extract
+from backend.models.models import LessonPlan, LessonPlanStudents, extract, db
 
 lesson_plan_bp = Blueprint('lesson_plan', __name__)
 

@@ -1,15 +1,14 @@
 import os
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
-from app import app, db
 from backend.functions.small_info import checkFile, user_photo_folder
 from backend.functions.utils import find_calendar_date
-from backend.models.models import Users, PhoneList, Students, Teachers, Roles, StudentExcuses, Subjects
+from backend.models.models import Users, PhoneList, Students, Teachers, Roles, StudentExcuses, Subjects, db
 
 change_student_bp = Blueprint('change_students', __name__)
 
@@ -18,7 +17,7 @@ change_student_bp = Blueprint('change_students', __name__)
 @jwt_required()
 def update_photo_profile(user_id):
     photo = request.files['file']
-    app.config['UPLOAD_FOLDER'] = user_photo_folder()
+    current_app.config['UPLOAD_FOLDER'] = user_photo_folder()
     user = Users.query.filter(Users.id == user_id).first()
     url = ""
 
@@ -26,7 +25,7 @@ def update_photo_profile(user_id):
         if os.path.exists(f'staticfiles/img_folder/{user.photo_profile}'):
             os.remove(f'staticfiles/img_folder/{user.photo_profile}')
         photo_filename = secure_filename(photo.filename)
-        photo.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+        photo.save(os.path.join(current_app.config['UPLOAD_FOLDER'], photo_filename))
         url = "staticfiles" + "/" + "img_folder" + "/" + photo_filename
 
         Users.query.filter(Users.id == user_id).update({

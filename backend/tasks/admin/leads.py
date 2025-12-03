@@ -1,10 +1,9 @@
 from datetime import datetime
 
-from flask import jsonify,request
+from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app import app
-from backend.functions.utils import api, find_calendar_date, get_json_field, iterate_models
+from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
 from backend.lead.models import Lead, LeadInfos
 from backend.models.models import db, TasksStatistics, TaskDailyStatistics, Tasks
 from backend.tasks.utils import filter_new_leads, update_all_ratings

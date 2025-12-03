@@ -1,13 +1,12 @@
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app import app
 import os
 from backend.functions.small_info import checkFile, news_photo_folder
 from backend.for_programmers.models import PlatformNews
 from werkzeug.utils import secure_filename
 
 from backend.models.models import Users, db
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app as app
 
 for_programmers_basic_bp = Blueprint('for_programmers_basic', __name__)
 

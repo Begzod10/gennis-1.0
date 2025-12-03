@@ -4,7 +4,6 @@ from backend.functions.small_info import room_images, checkFile
 
 from werkzeug.utils import secure_filename
 import os
-from app import app
 from flask import Blueprint, request, jsonify
 
 room_bp = Blueprint('room', __name__)

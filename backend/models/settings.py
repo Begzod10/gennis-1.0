@@ -1,5 +1,4 @@
-from backend.models.models import func, StudentPayments
-from app import db
+from backend.models.models import func, StudentPayments, db
 
 
 def sum_money(model_item, model_period, period_id, model_location, location_id, model_payment_type_id,
@@ -20,5 +19,3 @@ def sum_money(model_item, model_period, period_id, model_location, location_id, 
     else:
         payment = 0
     return payment
-
-

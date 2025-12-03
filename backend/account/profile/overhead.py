@@ -4,9 +4,8 @@ from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
 
-from app import db
 from backend.functions.utils import find_calendar_date, iterate_models
-from backend.models.models import MainOverhead, PaymentTypes
+from backend.models.models import MainOverhead, PaymentTypes, db
 from .utils import update_account
 
 account_overhead_bp = Blueprint('account_overhead_bp', __name__)

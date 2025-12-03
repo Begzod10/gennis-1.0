@@ -4,10 +4,9 @@ from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required
 
-from app import db
 from sqlalchemy import desc
 from backend.functions.utils import find_calendar_date, iterate_models
-from backend.models.models import Dividend, AccountingPeriod, CalendarMonth
+from backend.models.models import Dividend, AccountingPeriod, CalendarMonth, db
 from .utils import update_account
 
 account_dividend_bp = Blueprint('account_dividend_bp', __name__)

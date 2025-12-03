@@ -5,9 +5,8 @@ from flask import request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
 
-from app import db
 from backend.functions.utils import find_calendar_date, refreshdatas, get_json_field, iterate_models
-from backend.models.models import Investment, AccountingPeriod, CalendarMonth, PaymentTypes, Locations
+from backend.models.models import Investment, AccountingPeriod, CalendarMonth, PaymentTypes, Locations, db
 from .utils import update_account
 
 account_investment = Blueprint('account_investment', __name__)

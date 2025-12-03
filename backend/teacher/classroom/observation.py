@@ -2,11 +2,10 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from app import db
 from backend.functions.filters import old_current_dates
 from backend.functions.utils import find_calendar_date, iterate_models, get_json_field, filter_month_day
 from backend.models.models import Users, Week, Groups, Group_Room_Week, \
-    CalendarMonth, or_, CalendarDay
+    CalendarMonth, or_, CalendarDay, db
 from backend.teacher.models import TeacherObservation, ObservationOptions, ObservationInfo, \
     TeacherObservationDay, Teachers
 

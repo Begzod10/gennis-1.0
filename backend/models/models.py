@@ -101,7 +101,7 @@ class CalendarYear(db.Model):
     account_payable_history = relationship("AccountPayableHistory", backref="year", order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="year", order_by="TaskRatings.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
-
+    branch_report = relationship("BranchReport", backref="year", order_by="BranchReport.id")
     school_user_salary = relationship("SchoolUserSalary", backref="year", order_by="SchoolUserSalary.id")
 
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
@@ -183,6 +183,7 @@ class CalendarMonth(db.Model):
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="month", order_by="TaskRatingsMonthly.id")
 
     school_user_salary = relationship("SchoolUserSalary", backref="month", order_by="SchoolUserSalary.id")
+    branch_report = relationship("BranchReport", backref="month", order_by="BranchReport.id")
 
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
@@ -292,6 +293,7 @@ class CalendarDay(db.Model):
     students_joined = db.relationship("Students", foreign_keys="Students.joined_day_id", backref="joined_day",
                                       lazy=True)
     deleted_staff = relationship("DeletedStaff", backref="day", order_by="DeletedStaff.id")
+    branch_report = relationship("BranchReport", backref="day", order_by="BranchReport.id")
 
     def convert_json(self, entire=False):
         return {
@@ -353,6 +355,7 @@ class Locations(db.Model):
     dividend = relationship("Dividend", backref="location", order_by="Dividend.id")
     investments = relationship("Investment", backref="location", order_by="Investment.id")
     task_rating = relationship("TaskRatings", backref="location", order_by="TaskRatings.id")
+    branch_report = relationship("BranchReport", backref="location", order_by="BranchReport.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="location", order_by="TaskRatingsMonthly.id")
 
     def convert_json(self, entire=False):
@@ -710,3 +713,68 @@ class Professions(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+
+class BranchReport(db.Model):
+    """Daily branch/location report"""
+    __tablename__ = "branch_reports"
+
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
+    year_id = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
+    month_id = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
+    day_id = Column(Integer, ForeignKey('calendarday.id'), nullable=False)
+
+    # Student metrics
+    number_of_students = Column(Integer, default=0)  # New students registered
+    number_of_deleted_students = Column(Integer, default=0)  # Students removed from groups
+    number_of_deleted_registrations = Column(Integer, default=0)  # Students deleted entirely
+
+    # Staff metrics
+    number_of_teachers = Column(Integer, default=0)  # Total active teachers
+    number_of_staff = Column(Integer, default=0)  # Total active staff
+
+    # Group metrics
+    number_of_groups = Column(Integer, default=0)  # New groups created
+    number_of_deleted_groups = Column(Integer, default=0)  # Groups deleted
+
+    # Payment metrics
+    number_of_payments = Column(Integer, default=0)  # Count of payments
+    sum_of_payments = Column(Integer, default=0)  # Total payment amount
+
+    # Timestamp
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def __repr__(self):
+        return f'<BranchReport Location:{self.location_id} Date:{self.day.date if self.day else "N/A"}>'
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'location_id': self.location_id,
+            'date': self.day.date.strftime('%Y-%m-%d') if self.day else None,
+            'students': {
+                'new': self.number_of_students,
+                'deleted_from_groups': self.number_of_deleted_students,
+                'deleted_registrations': self.number_of_deleted_registrations
+            },
+            'staff': {
+                'teachers': self.number_of_teachers,
+                'staff': self.number_of_staff
+            },
+            'groups': {
+                'new': self.number_of_groups,
+                'deleted': self.number_of_deleted_groups
+            },
+            'payments': {
+                'count': self.number_of_payments,
+                'sum': self.sum_of_payments
+            },
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }

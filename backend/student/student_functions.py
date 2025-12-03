@@ -11,7 +11,6 @@ from sqlalchemy.orm import contains_eager, joinedload
 from werkzeug.utils import secure_filename
 from sqlalchemy import or_
 from io import BytesIO
-from app import app
 from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \

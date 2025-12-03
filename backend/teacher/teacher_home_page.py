@@ -2,15 +2,14 @@ import json
 import os
 from datetime import date
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app as app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 
-from app import app, db
 from backend.functions.filters import iterate_models
 from backend.functions.small_info import certificate
 from backend.functions.small_info import checkFile
-from backend.models.models import Users, StudentCertificate, Teachers, TeacherData
+from backend.models.models import Users, StudentCertificate, Teachers, TeacherData, db
 
 teacher_home_page_bp = Blueprint('teacher_home_page', __name__)
 

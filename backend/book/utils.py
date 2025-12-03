@@ -1,13 +1,12 @@
 import json
 import os
 
-from flask import jsonify, request
+from flask import jsonify, request, current_app as app
 from werkzeug.utils import secure_filename
 
-from app import db, app
 from backend.functions.small_info import checkFile, user_photo_folder
 from backend.functions.utils import iterate_models
-from backend.models.models import Book
+from backend.models.models import Book, db
 
 
 def handle_post_request():
