@@ -33,8 +33,8 @@ celery.conf.update(
 celery.conf.beat_schedule = {
     'update-branch-reports-every-minute': {
         'task': 'update_branch_reports',
-        # 'schedule': crontab(hour=20, minute="0"),
-        'schedule': crontab(minute="*/1"),
+        'schedule': crontab(hour=20, minute="0"),
+        # 'schedule': crontab(minute="*/1"),
         'options': {'expires': 3600}
     },
 }
