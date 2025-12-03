@@ -308,13 +308,12 @@ def overhead():
             total_arenda += item_sum
         else:
             total_other += item_sum
-
-        # Add to list (once!)
         overhead_list.append({
             'id': overhead.id,
             'item_name': overhead.item_name,
             'item_sum': item_sum,
-            'month': month_date_obj.strftime("%Y-%m")
+            'month': month_date_obj.strftime("%Y-%m"),
+            "payment_type": overhead.payment_type.name
         })
 
     return jsonify({
