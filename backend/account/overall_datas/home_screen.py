@@ -269,49 +269,54 @@ def overhead():
     month_date = year + '-' + month
     year_obj = datetime.strptime(year, '%Y')
     month_date_obj = datetime.strptime(month_date, '%Y-%m')
+
     categories = ["gaz", "svet", "suv", "arenda"]
+
     year_id = CalendarYear.query.filter(CalendarYear.date == year_obj).first().id
     month_id = CalendarMonth.query.filter(
         CalendarMonth.date == month_date_obj,
         CalendarMonth.year_id == year_id
     ).first().id
+
+    # Initialize totals
     total_gaz = 0
     total_svet = 0
     total_suv = 0
     total_arenda = 0
     total_other = 0
     overhead_list = []
-    for category in categories:
-        overheads = Overhead.query.filter(Overhead.calendar_month == month_id, Overhead.calendar_year == year_id,
-                                          Overhead.location_id == location_id,
-                                          Overhead.item_name == category).all()
-        other_overheads = Overhead.query.filter(Overhead.calendar_month == month_id, Overhead.calendar_year == year_id,
-                                                Overhead.location_id == location_id,
-                                                Overhead.item_name != category).all()
-        for overhead in overheads:
-            if category == "gaz":
-                total_gaz += overhead.item_sum if overhead.item_sum else 0
-            elif category == "svet":
-                total_svet += overhead.item_sum if overhead.item_sum else 0
-            elif category == "suv":
-                total_suv += overhead.item_sum if overhead.item_sum else 0
-            elif category == "arenda":
-                total_arenda += overhead.item_sum if overhead.item_sum else 0
-            overhead_list.append({
-                'id': overhead.id,
-                'item_name': overhead.item_name,
-                'item_sum': overhead.item_sum,
-                'month': month_date_obj.strftime("%Y-%m")
-            })
-        for overhead in other_overheads:
-            if overhead.item_name != "gaz" and overhead.item_name != "svet" and overhead.item_name != "suv" and overhead.item_name != "arenda":
-                total_other += overhead.item_sum if overhead.item_sum else 0
-            overhead_list.append({
-                'id': overhead.id,
-                'item_name': overhead.item_name,
-                'item_sum': overhead.item_sum,
-                'month': month_date_obj.strftime("%Y-%m")
-            })
+
+    # Get ALL overheads once
+    all_overheads = Overhead.query.filter(
+        Overhead.calendar_month == month_id,
+        Overhead.calendar_year == year_id,
+        Overhead.location_id == location_id
+    ).all()
+
+    # Process each overhead item once
+    for overhead in all_overheads:
+        item_sum = overhead.item_sum if overhead.item_sum else 0
+
+        # Categorize and sum
+        if overhead.item_name == "gaz":
+            total_gaz += item_sum
+        elif overhead.item_name == "svet":
+            total_svet += item_sum
+        elif overhead.item_name == "suv":
+            total_suv += item_sum
+        elif overhead.item_name == "arenda":
+            total_arenda += item_sum
+        else:
+            total_other += item_sum
+
+        # Add to list (once!)
+        overhead_list.append({
+            'id': overhead.id,
+            'item_name': overhead.item_name,
+            'item_sum': item_sum,
+            'month': month_date_obj.strftime("%Y-%m")
+        })
+
     return jsonify({
         "overhead_list": overhead_list,
         "total_gaz": total_gaz,
