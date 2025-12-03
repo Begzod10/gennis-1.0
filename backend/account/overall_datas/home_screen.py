@@ -289,10 +289,14 @@ def overhead():
                                                 Overhead.location_id == location_id,
                                                 Overhead.item_name != category).all()
         for overhead in overheads:
-            total_gaz += overhead.item_sum if overhead.item_sum else 0
-            total_svet += overhead.item_sum if overhead.item_sum else 0
-            total_suv += overhead.item_sum if overhead.item_sum else 0
-            total_arenda += overhead.item_sum if overhead.item_sum else 0
+            if category == "gaz":
+                total_gaz += overhead.item_sum if overhead.item_sum else 0
+            elif category == "svet":
+                total_svet += overhead.item_sum if overhead.item_sum else 0
+            elif category == "suv":
+                total_suv += overhead.item_sum if overhead.item_sum else 0
+            elif category == "arenda":
+                total_arenda += overhead.item_sum if overhead.item_sum else 0
             overhead_list.append({
                 'id': overhead.id,
                 'item_name': overhead.item_name,
@@ -300,7 +304,8 @@ def overhead():
                 'month': month_date_obj.strftime("%Y-%m")
             })
         for overhead in other_overheads:
-            total_other += overhead.item_sum if overhead.item_sum else 0
+            if overhead.item_name != "gaz" and overhead.item_name != "svet" and overhead.item_name != "suv" and overhead.item_name != "arenda":
+                total_other += overhead.item_sum if overhead.item_sum else 0
             overhead_list.append({
                 'id': overhead.id,
                 'item_name': overhead.item_name,
