@@ -611,7 +611,6 @@ class Staff(db.Model):
     deleted_date = Column(DateTime)
 
 
-
 class DeletedStaff(db.Model):
     __tablename__ = "deleted_staff"
     id = Column(Integer, primary_key=True)
@@ -754,7 +753,7 @@ class BranchReport(db.Model):
     def __repr__(self):
         return f'<BranchReport Location:{self.location_id} Date:{self.day.date if self.day else "N/A"}>'
 
-    def to_dict(self):
+    def convert_json(self, entire=False):
         """Convert to dictionary for API responses"""
         return {
             'id': self.id,
