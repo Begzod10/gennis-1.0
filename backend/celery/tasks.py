@@ -270,8 +270,8 @@ def calculate_branch_metrics(location, calendar_year, calendar_month, calendar_d
     }
 
 
-@celery.task(name='update_branch_reports')
-def update_branch_reports(year_id, month_id, day_id):
+@celery.task(name='update_branch_reports_for_date')
+def update_branch_reports_for_date(year_id, month_id, day_id):
     """
     Update branch reports for a specific date
     Useful for recalculating historical data
@@ -374,7 +374,7 @@ def update_branch_reports_bulk(start_date, end_date):
 
             if calendar_day:
                 # Update reports for this day
-                result = update_branch_reports.delay(
+                result = update_branch_reports_for_date.delay(
                     calendar_day.year_id,
                     calendar_day.month_id,
                     calendar_day.id
