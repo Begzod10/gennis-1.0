@@ -7,6 +7,7 @@ from backend.functions.utils import update_salary
 from backend.models.models import TeacherBlackSalary, Students, db, Locations, DeletedStudents, RegisterDeletedStudents, \
     Groups, StudentPayments, BranchReport, Users, Teachers, Staff
 import logging
+from sqlalchemy import or_
 
 logger = logging.getLogger(__name__)
 
@@ -218,8 +219,7 @@ def calculate_branch_metrics(location, calendar_year, calendar_month, calendar_d
             Users, Users.id == Staff.user_id
         ).filter(
             Users.location_id == location.id,
-            Staff.deleted != True  # Fixed: Use .is_(False) for boolean comparison
-        ).count()
+        ).filter(or_(Staff.deleted == False, Staff.deleted == None)).count()
     except:
         # Fallback: If Staff model doesn't exist or deleted field has issues, return 0
         number_of_staff = 0
