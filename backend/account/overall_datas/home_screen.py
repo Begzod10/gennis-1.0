@@ -12,7 +12,6 @@ home_screen_bp = Blueprint('home_screen_bp', __name__)
 
 
 @home_screen_bp.route('/debtors/', methods=['GET'])
-# @jwt_required()
 def home_screen_debtors():
     location_id = request.args.get('location_id')
     month = request.args.get('month')
@@ -27,7 +26,6 @@ def home_screen_debtors():
         CalendarMonth.year_id == year_id
     ).first().id
 
-    # Get all attendance history with related data in one query
     attendance_records = (
         db.session.query(
             AttendanceHistoryStudent,
@@ -44,7 +42,7 @@ def home_screen_debtors():
         .join(Subjects, Groups.subject_id == Subjects.id)
         .outerjoin(DeletedStudents, Students.id == DeletedStudents.student_id)
         .outerjoin(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)
-        .outerjoin(CalendarMonth, CalendarDay.month_id == CalendarMonth.id)  # Need to join CalendarMonth
+        .outerjoin(CalendarMonth, CalendarDay.month_id == CalendarMonth.id)
         .filter(
             AttendanceHistoryStudent.calendar_month == month_id,
             AttendanceHistoryStudent.calendar_year == year_id,
@@ -52,31 +50,37 @@ def home_screen_debtors():
             Groups.status == True,
             or_(
                 DeletedStudents.id == None,
-                CalendarMonth.date >= month_date_obj  # Include students deleted in the same month
+                CalendarDay.date >= month_date_obj.replace(day=1)  # Fixed: proper date comparison
             )
         )
         .order_by(Students.id)
         .all()
     )
-    # Group by student
+
     students_dict = {}
+    calculated_discounts = {}  # Cache to avoid duplicate queries
     total_debt = 0
     payment = 0
     total_discount = 0
     total_first_discount = 0
-    # Unpack all 7 values
+
     for attendance, student, user, group, subject, deleted_student, calendar_day in attendance_records:
-        student_discounts = StudentPayments.query.filter(
-            StudentPayments.student_id == student.id,
-            StudentPayments.calendar_month == month_id,
-            StudentPayments.calendar_year == year_id,
-            StudentPayments.location_id == location_id,
-            StudentPayments.payment == False
-        ).all()
-        for_student_total_discount = 0
-        for student_discount in student_discounts:
-            for_student_total_discount += student_discount.payment_sum
-        total_first_discount += for_student_total_discount
+        # Calculate discount only once per student
+        if student.id not in calculated_discounts:
+            student_discounts = StudentPayments.query.filter(
+                StudentPayments.student_id == student.id,
+                StudentPayments.calendar_month == month_id,
+                StudentPayments.calendar_year == year_id,
+                StudentPayments.location_id == location_id,
+                StudentPayments.payment == False
+            ).all()
+
+            for_student_total_discount = sum(d.payment_sum for d in student_discounts if d.payment_sum)
+            calculated_discounts[student.id] = for_student_total_discount
+            total_first_discount += for_student_total_discount
+        else:
+            for_student_total_discount = calculated_discounts[student.id]
+
         if student.id not in students_dict:
             students_dict[student.id] = {
                 'id': student.id,
@@ -87,16 +91,18 @@ def home_screen_debtors():
                 "groups": []
             }
 
+        # Handle NULL values properly
         total_debt += attendance.total_debt if attendance.total_debt else 0
         payment += attendance.payment if attendance.payment else 0
         total_discount += attendance.total_discount if attendance.total_discount else 0
+
         students_dict[student.id]['groups'].append({
             'group_name': group.name,
             "subject_name": subject.name,
-            "remaining_debt": attendance.remaining_debt,
-            "total_debt": attendance.total_debt,
-            "payment": attendance.payment,
-            "total_discount": attendance.total_discount,
+            "remaining_debt": attendance.remaining_debt if attendance.remaining_debt is not None else 0,
+            "total_debt": attendance.total_debt if attendance.total_debt else 0,
+            "payment": attendance.payment if attendance.payment else 0,
+            "total_discount": attendance.total_discount if attendance.total_discount else 0,
             "for_student_total_discount": for_student_total_discount
         })
 
