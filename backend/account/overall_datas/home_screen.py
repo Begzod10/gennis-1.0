@@ -68,8 +68,8 @@ def home_screen_debtors():
     for attendance, student, user, group, subject, deleted_student, calendar_day in attendance_records:
         student_discounts = StudentPayments.query.filter(
             StudentPayments.student_id == student.id,
-            StudentPayments.month_id == month_id,
-            StudentPayments.year_id == year_id,
+            StudentPayments.calendar_month == month_id,
+            StudentPayments.calendar_year == year_id,
             StudentPayments.location_id == location_id,
             StudentPayments.payment == False
         ).all()
