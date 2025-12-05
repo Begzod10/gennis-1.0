@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import desc
 from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
-
+from backend.functions.debt_salary_update import update_teacher_salary
 from backend.functions.debt_salary_update import staff_salary_update
 from backend.functions.utils import find_calendar_date, get_json_field, update_staff_salary_id, \
     update_teacher_salary_id, update_salary
@@ -347,6 +347,7 @@ def teacher_salary_inside(salary_id, user_id):
 @account_salary_bp.route(f'/teacher_salary_inside_classroom/<user_id>/<salary_id>')
 def teacher_salary_inside_classroom(user_id, salary_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
+    salary_info_teacher = update_teacher_salary(teacher_id=teacher.id, salary_id=salary_id)
     black_salary = 0
     salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
     teacher_black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.calendar_month == salary.calendar_month,
@@ -414,7 +415,8 @@ def teacher_salary_inside_classroom(user_id, salary_id):
                              "exist_salary": exist_money,
                              "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries,
                              "black_salary": black_salary,
-                             "salary_debt": salary.debt, "total_fine": salary.total_fine}})
+                             "salary_debt": salary.debt, "total_fine": salary.total_fine,
+                             "salary_info_teacher": salary_info_teacher}})
 
 
 @account_salary_bp.route(f'/black_salary/<teacher_id>')
