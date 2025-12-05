@@ -46,6 +46,7 @@ def home_screen_debtors():
         .filter(
             AttendanceHistoryStudent.calendar_month == month_id,
             AttendanceHistoryStudent.calendar_year == year_id,
+            AttendanceHistoryStudent.total_debt > 0,
             Users.location_id == location_id,
             Groups.status == True,
             or_(
