@@ -46,7 +46,7 @@ def home_screen_debtors():
         .filter(
             AttendanceHistoryStudent.calendar_month == month_id,
             AttendanceHistoryStudent.calendar_year == year_id,
-            AttendanceHistoryStudent.total_debt > 0,
+            AttendanceHistoryStudent.total_debt != None,
             Users.location_id == location_id,
             Groups.status == True,
             or_(
@@ -93,7 +93,7 @@ def home_screen_debtors():
             }
 
         # Handle NULL values properly
-        total_debt += attendance.total_debt if attendance.total_debt else 0
+        total_debt += attendance.total_debt
         payment += attendance.payment if attendance.payment else 0
         total_discount += attendance.total_discount if attendance.total_discount else 0
 
