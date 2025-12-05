@@ -6,7 +6,7 @@ from sqlalchemy import or_, and_, func
 
 from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSalary, CalendarMonth, CalendarYear, \
     TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
-    DeletedStudents, CalendarDay, DeletedTeachers, Overhead
+    DeletedStudents, CalendarDay, DeletedTeachers, Overhead, StudentPayments
 
 home_screen_bp = Blueprint('home_screen_bp', __name__)
 
@@ -63,9 +63,20 @@ def home_screen_debtors():
     total_debt = 0
     payment = 0
     total_discount = 0
-
+    total_first_discount = 0
     # Unpack all 7 values
     for attendance, student, user, group, subject, deleted_student, calendar_day in attendance_records:
+        student_discounts = StudentPayments.query.filter(
+            StudentPayments.student_id == student.id,
+            StudentPayments.month_id == month_id,
+            StudentPayments.year_id == year_id,
+            StudentPayments.location_id == location_id,
+            StudentPayments.payment == False
+        ).all()
+        for_student_total_discount = 0
+        for student_discount in student_discounts:
+            for_student_total_discount += student_discount.payment_sum
+        total_first_discount += for_student_total_discount
         if student.id not in students_dict:
             students_dict[student.id] = {
                 'id': student.id,
@@ -85,7 +96,8 @@ def home_screen_debtors():
             "remaining_debt": attendance.remaining_debt,
             "total_debt": attendance.total_debt,
             "payment": attendance.payment,
-            "total_discount": attendance.total_discount
+            "total_discount": attendance.total_discount,
+            "for_student_total_discount": for_student_total_discount
         })
 
     attendance_history_list = list(students_dict.values())
@@ -95,7 +107,8 @@ def home_screen_debtors():
         "total_debt": total_debt,
         "remaining_debt": total_debt + payment,
         "payment": payment,
-        "total_discount": total_discount
+        "total_discount": total_discount,
+        "total_first_discount": total_first_discount
     })
 
 
