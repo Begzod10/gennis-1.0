@@ -277,7 +277,7 @@ def teacher_salary_inside(salary_id, user_id):
         teacher_black_salaries = TeacherBlackSalary.query.filter(
             TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
             TeacherBlackSalary.location_id == salary.location_id, TeacherBlackSalary.status == False).all()
-        salary_info_teacher = update_teacher_salary(teacher_id=teacher.id, salary_id=salary_id)
+        # salary_info_teacher = update_teacher_salary(teacher_id=teacher.id, salary_id=salary_id)
         get_old_month = int(datetime.datetime.strftime(salary.month.date, "%m")) - 1
         get_year = int(datetime.datetime.strftime(salary.month.date, "%Y"))
         if get_old_month == 0:
@@ -343,7 +343,7 @@ def teacher_salary_inside(salary_id, user_id):
                  "exist_salary": salary.remaining_salary if salary.remaining_salary else salary.total_salary,
                  "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries, "black_salary": black_salary,
                  "salary_debt": salary_debt, "total_fine": total_fine,
-                 "salary_info_teacher": salary_info_teacher
+                 # "salary_info_teacher": salary_info_teacher
                  }})
 
 
