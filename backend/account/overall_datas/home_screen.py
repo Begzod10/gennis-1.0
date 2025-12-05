@@ -182,20 +182,20 @@ def home_screen_salaries():
             taken_money = salary.taken_money if salary.taken_money else 0
             fine = salary.total_fine if salary.total_fine else 0
             remaining_salary = teacher_salary - (taken_money + black_salary + fine - debt)
-            if teacher.id not in salary_dict:
-                salary_dict[teacher.id] = {
-                    'id': teacher.id,
-                    'teacher_name': teacher_name,
-                    "month": month_date_obj.strftime("%Y-%m"),
-                    "is_deleted": deleted_teacher is not None,
-                    "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_teacher else None,
-                    "teacher_salary": teacher_salary,
-                    "taken_money": taken_money,
-                    "remaining_salary": remaining_salary,
-                    "black_salary": black_salary,
-                    "debt": debt,
-                    "fine": fine
-                }
+            # if teacher.id not in salary_dict:
+            salary_dict[teacher.id] = {
+                'id': teacher.id,
+                'teacher_name': teacher_name,
+                "month": month_date_obj.strftime("%Y-%m"),
+                "is_deleted": deleted_teacher is not None,
+                "deleted_date": calendar_year.date.strftime("%Y-%m") if deleted_teacher else None,
+                "teacher_salary": teacher_salary,
+                "taken_money": taken_money,
+                "remaining_salary": remaining_salary,
+                "black_salary": black_salary,
+                "debt": debt,
+                "fine": fine
+            }
             total_remaining_salary += remaining_salary
             total_fine += fine
             total_debt += debt
