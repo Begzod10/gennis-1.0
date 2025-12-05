@@ -290,6 +290,12 @@ def update_teacher_salary(teacher_id, salary_id):
         AttendanceDays.teacher_id == teacher.id,
         AttendanceDays.location_id == salary_location.location_id
     ).all()
+    day_salary_info = []
+    for s in attendance_teacher_salary:
+        day_salary_info.append({
+            "salary_per_day": s.salary_per_day,
+            "fine": s.fine
+        })
 
     # Use sum() for cleaner aggregation - NO commits in loop!
     total_salary = sum(s.salary_per_day for s in attendance_teacher_salary if s.salary_per_day)
@@ -351,15 +357,7 @@ def update_teacher_salary(teacher_id, salary_id):
 
     db.session.commit()
 
-    return {
-        "total_fine": total_fine,
-        "total_salary": total_salary,
-        "black_salary": black_salary,
-        "remaining_salary": remaining_salary,
-        "debt": debt,
-        "taken_money": taken_money,
-        "status": salary_location.status
-    }
+    return day_salary_info
 
 
 def staff_salary_update():
