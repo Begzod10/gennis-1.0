@@ -156,7 +156,7 @@ def home_screen_salaries():
                 TeacherSalary.location_id == location_id,
                 or_(
                     DeletedTeachers.id == None,
-                    CalendarMonth.date >= month_date_obj
+                    CalendarMonth.date > month_date_obj
                 )
             )
         )
