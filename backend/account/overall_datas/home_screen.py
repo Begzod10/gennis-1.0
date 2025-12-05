@@ -94,7 +94,8 @@ def home_screen_debtors():
         "student_list": attendance_history_list,
         "total_debt": total_debt,
         "remaining_debt": total_debt + payment,
-        "payment": payment
+        "payment": payment,
+        "total_discount": total_discount
     })
 
 
