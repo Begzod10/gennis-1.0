@@ -49,10 +49,10 @@ def home_screen_debtors():
             # AttendanceHistoryStudent.total_debt != None,
             Users.location_id == location_id,
             # Groups.status == True,
-            or_(
-                DeletedStudents.id == None,
-                CalendarDay.date >= month_date_obj.replace(day=1)  # Fixed: proper date comparison
-            )
+            # or_(
+            #     DeletedStudents.id == None,
+            #     CalendarDay.date >= month_date_obj.replace(day=1)  # Fixed: proper date comparison
+            # )
         )
         .order_by(Students.id)
         .all()
