@@ -948,6 +948,7 @@ def profile(user_id):
             "contract_url": student_get.contract_pdf_url,
             "location_id": user_get.location_id,
             "balance": user_get.balance,
+            "level": user_get.level,
             "info": {
                 "name": {
                     "name": "Ism",
@@ -1163,6 +1164,7 @@ def profile(user_id):
             "username": user_get.username,
             "type_role": type_role,
             "location_id": user_get.location_id,
+            "level": user_get.level,
             "info": {
                 "name": {
                     "name": "Ism",

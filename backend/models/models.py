@@ -461,6 +461,7 @@ class Users(db.Model):
     parent = relationship("Parent", uselist=False, backref="user", order_by="Parent.id")
     address = Column(String)
     telegram_id = Column(String)
+    level = Column(Integer, default=4)
 
     def convert_json(self, entire=False):
         if not entire:
@@ -495,7 +496,8 @@ class Users(db.Model):
                 "student": {},
                 "teacher": {},
                 "parent": self.parent.convert_json() if self.parent else {},
-                "phone": []
+                "phone": [],
+                "level": self.level
             }
             for phone in self.phone:
                 phone_info = {

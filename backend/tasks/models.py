@@ -1,7 +1,7 @@
 from sqlalchemy import String, Integer, Boolean, Column, ForeignKey, DateTime, or_, and_, desc, func, ARRAY, JSON, \
     extract, Date, BigInteger
 from backend.models.models import db
-
+from datetime import date
 from sqlalchemy.orm import relationship
 
 
@@ -38,3 +38,5 @@ class TaskDailyStatistics(db.Model):
     completed_tasks = Column(Integer, default=0)
     in_progress_tasks = Column(Integer)
     completed_tasks_percentage = Column(Integer, default=0)
+
+
