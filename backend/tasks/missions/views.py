@@ -4,6 +4,7 @@ from backend.tasks.missions.proofs import proofs_bp
 from backend.tasks.missions.attachments import attachments_bp
 from backend.tasks.missions.subtasks import subtasks_bp
 from backend.tasks.missions.tags import tags_bp
+from backend.tasks.missions.notifications import notif_bp
 
 
 def register_missions_views(api, app):
@@ -14,3 +15,4 @@ def register_missions_views(api, app):
     app.register_blueprint(subtasks_bp, url_prefix=f"/{api}subtasks")
     app.register_blueprint(tags_bp, url_prefix=f"/{api}tags")
     app.register_blueprint(up_bp, url_prefix=f"/{api}uploads")
+    app.register_blueprint(notif_bp, url_prefix=f"/{api}notifications")

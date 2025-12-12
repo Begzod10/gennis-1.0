@@ -281,6 +281,18 @@ class Mission(db.Model):
             return None
         return (self.deadline_datetime.date() - date.today()).days
 
+    def status_color(self):
+        if not self.deadline_datetime:
+            return "green"
+
+        remaining = (self.deadline_datetime.date() - date.today()).days
+
+        if remaining <= 1:
+            return "red"
+        elif remaining <= 4:
+            return "yellow"
+        return "green"
+
 
 class MissionSubtask(db.Model):
     __tablename__ = "mission_subtasks"

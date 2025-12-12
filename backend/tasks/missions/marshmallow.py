@@ -115,6 +115,7 @@ class MissionDetailSchema(SQLAlchemyAutoSchema):
 
     final_score = fields.Method("get_final_score")
     days_left = fields.Method("get_days_left")
+    status_color = fields.Method("get_color")
 
     class Meta:
         model = Mission
@@ -131,3 +132,6 @@ class MissionDetailSchema(SQLAlchemyAutoSchema):
         if not obj.deadline_datetime:
             return None
         return (obj.deadline_datetime.date() - date.today()).days
+
+    def get_color(self, obj):
+        return obj.status_color()

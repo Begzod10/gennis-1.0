@@ -16,6 +16,7 @@ from backend.functions.utils import refreshdatas
 from backend.telegram_bot.views import register_telegram_bot_routes
 import os
 from dotenv import load_dotenv
+from backend.tasks.missions.utils import recurring_check
 
 load_dotenv()
 
@@ -96,6 +97,9 @@ register_missions_views(api, app)
 # functions folder
 
 # classroom
+@app.before_request
+def auto_recurring_run():
+    recurring_check()
 
 
 def check_auth(username, password):
