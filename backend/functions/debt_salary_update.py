@@ -209,13 +209,26 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
     total_fine = sum(s.fine for s in attendance_teacher_salary if s.fine)
 
     # Get or create teacher salary record
-    salary_location = TeacherSalary.query.filter(
+    # Delete all duplicates first, keep only one
+    existing_records = TeacherSalary.query.filter(
         TeacherSalary.location_id == group.location_id,
         TeacherSalary.teacher_id == teacher.id,
         TeacherSalary.calendar_year == attendance.calendar_year,
         TeacherSalary.calendar_month == attendance.calendar_month
-    ).first()
+    ).all()
 
+    if len(existing_records) > 1:
+        # Keep the first, delete the rest
+        for record in existing_records[1:]:
+            db.session.delete(record)
+        db.session.commit()
+        salary_location = existing_records[0]
+    elif len(existing_records) == 1:
+        salary_location = existing_records[0]
+    else:
+        salary_location = None
+
+    # Now update or create
     if not salary_location:
         salary_location = TeacherSalary(
             location_id=group.location_id,
@@ -226,12 +239,12 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
             total_salary=total_salary
         )
         db.session.add(salary_location)
-        db.session.commit()
     else:
         salary_location.total_fine = total_fine
         salary_location.total_salary = total_salary
         salary_location.status = False
-        db.session.commit()
+
+    db.session.commit()
 
     # Calculate black salary
     black_salaries = TeacherBlackSalary.query.filter(
