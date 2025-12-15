@@ -13,7 +13,7 @@ from backend.functions.utils import find_calendar_date, update_salary, iterate_m
 from backend.group.class_model import Group_Functions
 from backend.models.models import Attendance, Students, AttendanceDays, Groups, Locations, Subjects, \
     StudentCharity, TeacherBlackSalary, GroupReason, TeacherObservationDay, TeacherGroupStatistics, \
-    Group_Room_Week, LessonPlan, CalendarDay
+    Group_Room_Week, LessonPlan, CalendarDay, GroupAttendance
 from backend.models.models import CalendarMonth, CalendarYear, db
 from backend.models.models import Teachers, Users, Roles
 from backend.student.class_model import Student_Functions
@@ -446,7 +446,20 @@ def make_attendance():
     )
     db.session.add(attendance_add)
     db.session.commit()
-
+    year_date = attendance_add.calendar_year.date
+    month_date = attendance_add.calendar_month.date
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+    if group_attendance:
+        group_attendance.status = False
+        db.session.commit()
     # Update percentage
     attendance_days = AttendanceDays.query.filter_by(attendance_id=attendance.id).filter(
         AttendanceDays.teacher_ball != None).all()
@@ -512,6 +525,20 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
                                                    TeacherBlackSalary.location_id == student.user.location_id,
                                                    ).first()
     salary_per_day = attendancedays.salary_per_day
+    year_date = attendace_get.calendar_year.date
+    month_date = attendace_get.calendar_month.date
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+    if group_attendance:
+        group_attendance.status = False
+        db.session.commit()
     if black_salary:
         if black_salary.total_salary:
             black_salary.total_salary -= salary_per_day

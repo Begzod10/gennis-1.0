@@ -16,8 +16,9 @@ from backend.student.class_model import Student_Functions
 from backend.functions.functions import update_user_time_table, get_dates_for_weekdays
 from flask import Blueprint, request, jsonify
 from sqlalchemy import desc, extract, or_
-from sqlalchemy.orm import contains_eager
-from backend.models.models import EducationLanguage,Users
+from sqlalchemy.orm import contains_eager, joinedload
+from backend.models.models import EducationLanguage, Users, CalendarYear, GroupAttendance
+
 group_bp = Blueprint('group', __name__)
 
 
@@ -90,11 +91,11 @@ def group_statistics(group_id):
 @group_bp.route(f'/groups/<location_id>', methods=['POST', 'GET'])
 @jwt_required()
 def groups(location_id):
-    typeOfCourse = request.args.get('typeOfCourse',default=None,type=str)
-    teacher=request.args.get('teacher',default=None,type=str)
-    language=request.args.get('language',default=None,type=str)
-    subjects=request.args.get('subject',default=None,type=str)
-    status =request.args.get('status',default=None,type=str)
+    typeOfCourse = request.args.get('typeOfCourse', default=None, type=str)
+    teacher = request.args.get('teacher', default=None, type=str)
+    language = request.args.get('language', default=None, type=str)
+    subjects = request.args.get('subject', default=None, type=str)
+    status = request.args.get('status', default=None, type=str)
     query = Groups.query.filter(
         Groups.location_id == location_id,
         Groups.teacher_id != None,
@@ -425,51 +426,84 @@ def group_time_table(group_id):
 @jwt_required()
 def attendances(group_id):
     update_lesson_plan(group_id)
-    students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
-        Groups.id == group_id).order_by(Students.id).all()
-    student_list = [{
-        "id": st.user.id,
-        "img": None,
-        "name": st.user.name.title(),
-        "surname": st.user.surname.title(),
-        "money": st.user.balance,
-        "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0,
-        "comment": st.user.comment,
-        "reg_date": st.user.day.date.strftime("%Y-%m-%d"),
-        "phone": st.user.phone[0].phone,
-        "username": st.user.username,
-        "age": st.user.age,
-        "photo_profile": st.user.photo_profile,
-        "role": Roles.query.filter(Roles.id == st.user.role_id).first().role
-    } for st in students]
+    students = db.session.query(Students).join(
+        Students.group
+    ).options(
+        contains_eager(Students.group),
+        joinedload(Students.user).joinedload('phone')  # Solve N+1 problem
+    ).filter(
+        Groups.id == group_id
+    ).order_by(Students.id).all()
 
-    gr_functions = Group_Functions(group_id=group_id)
-    if request.method == "GET":
-        current_month = datetime.now().month
-        if len(str(current_month)) == 1:
-            current_month = "0" + str(current_month)
-        current_year = datetime.now().year
+    # Student list building - role query optimization
+    roles_cache = {}  # Cache roles to avoid repeated queries
+    student_list = []
 
-        return jsonify({
+    for st in students:
+        # Role caching
+        role_id = st.user.role_id
+        if role_id not in roles_cache:
+            role = Roles.query.filter(Roles.id == role_id).first()
+            roles_cache[role_id] = role.role if role else None
 
-            "data": {
-                "attendance_filter": gr_functions.attendance_filter(month=current_month, year=current_year),
-                "students": student_list,
-                "date": old_current_dates(group_id),
-            }
+        student_list.append({
+            "id": st.user.id,
+            "img": None,
+            "name": st.user.name.title(),
+            "surname": st.user.surname.title(),
+            "money": st.user.balance,
+            "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0,
+            "comment": st.user.comment,
+            "reg_date": st.user.day.date.strftime("%Y-%m-%d"),
+            "phone": st.user.phone[0].phone if st.user.phone else None,
+            "username": st.user.username,
+            "age": st.user.age,
+            "photo_profile": st.user.photo_profile,
+            "role": roles_cache[role_id]
         })
+
+    # Common logic for both GET and POST
+    if request.method == "GET":
+        year = datetime.now().year
+        month = datetime.now().month
     else:
         year = get_json_field('year')
-
         month = get_json_field('month')
-        return jsonify({
 
-            "data": {
-                "attendance_filter": gr_functions.attendance_filter(month=month, year=year),
-                "students": student_list,
-                "date": old_current_dates(group_id),
-            }
-        })
+    # String formatting optimization
+    month_str = f"{month:02d}"  # Ensures "01", "02", ... "12" format
+    date_str = f"{year}-{month_str}"
+
+    year_date = datetime.strptime(str(year), "%Y")
+    month_date = datetime.strptime(date_str, "%Y-%m")
+
+    # Single query with joins instead of multiple queries
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+
+    gr_functions = Group_Functions(group_id=group_id)
+
+    # Simplified condition logic
+    attendance_filter = (
+        gr_functions.attendance_filter_android(month=month_str, year=year)
+        if not group_attendance or not group_attendance.status
+        else group_attendance.to_json
+    )
+
+    return jsonify({
+        "data": {
+            "attendance_filter": attendance_filter,
+            "students": student_list,
+            "date": old_current_dates(group_id),
+        }
+    })
 
 
 @group_bp.route(f'/attendances_android/<int:group_id>', methods=['GET', "POST"])

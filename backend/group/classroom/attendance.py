@@ -545,7 +545,20 @@ def make_attendance_classroom():
                                         )
         db.session.add(attendance_add)
         db.session.commit()
-
+    year_date = attendance_add.calendar_year.date
+    month_date = attendance_add.calendar_month.date
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+    if group_attendance:
+        group_attendance.status = False
+        db.session.commit()
     user = Users.query.filter(Users.id == student.user_id).first()
     if user.school_user_id:
         update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
