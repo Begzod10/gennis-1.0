@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Blueprint
 from flask import request, jsonify
 from sqlalchemy import or_, and_, func
-
+from dateutil.relativedelta import relativedelta
 from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSalary, CalendarMonth, CalendarYear, \
     TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
     DeletedStudents, CalendarDay, DeletedTeachers, Overhead, StudentPayments
@@ -25,7 +25,7 @@ def home_screen_debtors():
         CalendarMonth.date == month_date_obj,
         CalendarMonth.year_id == year_id
     ).first().id
-
+    next_month_first_day = (month_date_obj.replace(day=1) + relativedelta(months=1)).date()
     attendance_records = (
         db.session.query(
             AttendanceHistoryStudent,
@@ -51,7 +51,7 @@ def home_screen_debtors():
             Groups.status == True,
             or_(
                 DeletedStudents.id == None,
-                CalendarDay.date >= month_date_obj  # Fixed: proper date comparison
+                CalendarDay.date >= next_month_first_day  # Deleted on/after next month
             )
         )
         .order_by(Students.id)
