@@ -430,7 +430,7 @@ def attendances(group_id):
         Students.group
     ).options(
         contains_eager(Students.group),
-        joinedload(Students.user).joinedload('phone')  # Solve N+1 problem
+        joinedload(Students.user).joinedload(Users.phone)  # Use User.phone instead of 'phone'
     ).filter(
         Groups.id == group_id
     ).order_by(Students.id).all()
