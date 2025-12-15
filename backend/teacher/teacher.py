@@ -525,8 +525,8 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
                                                    TeacherBlackSalary.location_id == student.user.location_id,
                                                    ).first()
     salary_per_day = attendancedays.salary_per_day
-    year_date = attendace_get.calendar_year.date
-    month_date = attendace_get.calendar_month.date
+    year_date = attendace_get.year.date
+    month_date = attendace_get.month.date
     group_attendance = db.session.query(GroupAttendance).join(
         CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
     ).join(
