@@ -1,4 +1,4 @@
-from backend.models.models import Column, Integer, Float, ForeignKey, String, Boolean, relationship, DateTime, db
+from backend.models.models import Column, Integer, Float, ForeignKey, String, Boolean, relationship, DateTime, db, JSON
 
 student_group = db.Table('student_group',
                          db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
@@ -262,3 +262,13 @@ class GroupTest(db.Model):
             "percentage": self.percentage,
             "file": self.file
         }
+
+
+class GroupAttendance(db.Model):
+    __tablename__ = "group_attendance"
+    id = Column(Integer, primary_key=True)
+    group_id = Column(Integer, ForeignKey('groups.id'))
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
+    to_json = Column(JSON)
+    status = Column(Boolean, default=False)

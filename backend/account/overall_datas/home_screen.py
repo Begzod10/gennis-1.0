@@ -226,7 +226,7 @@ def home_screen_debtors():
     return jsonify({
         "student_list": attendance_history_list,
         "total_debt": total_debt,
-        "remaining_debt": total_debt - payment,  # Fixed: should be MINUS not PLUS
+        "remaining_debt": total_debt + payment,  # Fixed: should be MINUS not PLUS
         "payment": payment,
         "total_discount": total_discount,
         "total_first_discount": total_first_discount

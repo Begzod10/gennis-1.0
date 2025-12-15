@@ -10,10 +10,10 @@ from datetime import timedelta
 from backend.teacher.utils import send_telegram_message
 from sqlalchemy import desc, or_
 from backend.functions.functions import get_dates_for_weekdays
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from datetime import datetime
 from backend.functions.filters import update_lesson_plan, old_current_dates
-from backend.group.class_model import Group_Functions
+from backend.group.class_model import Group_Functions, GroupAttendance
 from backend.student.class_model import Student_Functions
 from backend.functions.debt_salary_update import salary_debt
 from flask import Blueprint, request
@@ -68,54 +68,89 @@ def group_dates2_classroom(group_id):
     })
 
 
-@group_classroom_attendance_bp.route(f'/attendances_classroom/<int:group_id>', methods=['GET', "POST"])
+@group_classroom_attendance_bp.route(f'/attendances_classroom/<int:group_id>', methods=['GET', 'POST'])
 def attendances_classroom(group_id):
     update_lesson_plan(group_id)
-    students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
-        Groups.id == group_id).order_by(Students.id).all()
-    student_list = [{
-        "id": st.user.id,
-        "img": None,
-        "name": st.user.name.title(),
-        "surname": st.user.surname.title(),
-        "money": st.user.balance,
-        "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0,
-        "comment": st.user.comment,
-        "reg_date": st.user.day.date.strftime("%Y-%m-%d"),
-        "phone": st.user.phone[0].phone,
-        "username": st.user.username,
-        "age": st.user.age,
-        "photo_profile": st.user.photo_profile,
-        "role": Roles.query.filter(Roles.id == st.user.role_id).first().role
-    } for st in students]
 
-    gr_functions = Group_Functions(group_id=group_id)
-    if request.method == "GET":
-        current_month = datetime.now().month
-        if len(str(current_month)) == 1:
-            current_month = "0" + str(current_month)
-        current_year = datetime.now().year
+    # Students query optimization - fetch only needed fields
+    students = db.session.query(Students).join(
+        Students.group
+    ).options(
+        contains_eager(Students.group),
+        joinedload(Students.user).joinedload('phone')  # Solve N+1 problem
+    ).filter(
+        Groups.id == group_id
+    ).order_by(Students.id).all()
 
-        return jsonify({
+    # Student list building - role query optimization
+    roles_cache = {}  # Cache roles to avoid repeated queries
+    student_list = []
 
-            "data": {
-                "attendance_filter": gr_functions.attendance_filter(month=current_month, year=current_year),
-                "students": student_list,
-                "date": old_current_dates(group_id),
-            }
+    for st in students:
+        # Role caching
+        role_id = st.user.role_id
+        if role_id not in roles_cache:
+            role = Roles.query.filter(Roles.id == role_id).first()
+            roles_cache[role_id] = role.role if role else None
+
+        student_list.append({
+            "id": st.user.id,
+            "img": None,
+            "name": st.user.name.title(),
+            "surname": st.user.surname.title(),
+            "money": st.user.balance,
+            "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0,
+            "comment": st.user.comment,
+            "reg_date": st.user.day.date.strftime("%Y-%m-%d"),
+            "phone": st.user.phone[0].phone if st.user.phone else None,
+            "username": st.user.username,
+            "age": st.user.age,
+            "photo_profile": st.user.photo_profile,
+            "role": roles_cache[role_id]
         })
+
+    # Common logic for both GET and POST
+    if request.method == "GET":
+        year = datetime.now().year
+        month = datetime.now().month
     else:
         year = get_json_field('year')
-
         month = get_json_field('month')
-        return jsonify({
 
-            "data": {
-                "attendance_filter": gr_functions.attendance_filter(month=month, year=year),
-                "students": student_list,
-                "date": old_current_dates(group_id),
-            }
-        })
+    # String formatting optimization
+    month_str = f"{month:02d}"  # Ensures "01", "02", ... "12" format
+    date_str = f"{year}-{month_str}"
+
+    year_date = datetime.strptime(str(year), "%Y")
+    month_date = datetime.strptime(date_str, "%Y-%m")
+
+    # Single query with joins instead of multiple queries
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+
+    gr_functions = Group_Functions(group_id=group_id)
+
+    # Simplified condition logic
+    attendance_filter = (
+        gr_functions.attendance_filter_android(month=month_str, year=year)
+        if not group_attendance or not group_attendance.status
+        else group_attendance.to_json
+    )
+
+    return jsonify({
+        "data": {
+            "attendance_filter": attendance_filter,
+            "students": student_list,
+            "date": old_current_dates(group_id),
+        }
+    })
 
 
 @group_classroom_attendance_bp.route(f'/group_time_table_classroom/<int:group_id>')
@@ -459,7 +494,6 @@ def make_attendance_classroom():
     week_names = [time.week.eng_name for time in group_time_table]
 
     target_dates = [d.date() for d in get_dates_for_weekdays(week_names)]
-
 
     fine = 0
     today_lesson_plan = LessonPlan.query.filter(LessonPlan.group_id == group.id,
