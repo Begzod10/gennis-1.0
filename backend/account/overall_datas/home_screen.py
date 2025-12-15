@@ -11,6 +11,113 @@ from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSa
 home_screen_bp = Blueprint('home_screen_bp', __name__)
 
 
+# @home_screen_bp.route('/debtors/', methods=['GET'])
+# def home_screen_debtors():
+#     location_id = request.args.get('location_id')
+#     month = request.args.get('month')
+#     year = request.args.get('year')
+#     month_date = year + '-' + month
+#     year_obj = datetime.strptime(year, '%Y')
+#     month_date_obj = datetime.strptime(month_date, '%Y-%m')
+#
+#     year_id = CalendarYear.query.filter(CalendarYear.date == year_obj).first().id
+#     month_id = CalendarMonth.query.filter(
+#         CalendarMonth.date == month_date_obj,
+#         CalendarMonth.year_id == year_id
+#     ).first().id
+#     next_month_first_day = (month_date_obj.replace(day=1) + relativedelta(months=1)).date()
+#     attendance_records = (
+#         db.session.query(
+#             AttendanceHistoryStudent,
+#             Students,
+#             Users,
+#             Groups,
+#             Subjects,
+#             DeletedStudents,
+#             CalendarDay
+#         )
+#         .join(Students, AttendanceHistoryStudent.student_id == Students.id)
+#         .join(Users, Students.user_id == Users.id)
+#         .join(Groups, AttendanceHistoryStudent.group_id == Groups.id)
+#         .join(Subjects, Groups.subject_id == Subjects.id)
+#         .outerjoin(DeletedStudents, Students.id == DeletedStudents.student_id)
+#         .outerjoin(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)
+#         .outerjoin(CalendarMonth, CalendarDay.month_id == CalendarMonth.id)
+#         .filter(
+#             AttendanceHistoryStudent.calendar_month == month_id,
+#             AttendanceHistoryStudent.calendar_year == year_id,
+#             # AttendanceHistoryStudent.total_debt != None,
+#             Users.location_id == location_id,
+#             Groups.status == True,
+#             or_(
+#                 DeletedStudents.id == None,
+#                 CalendarDay.date >= next_month_first_day  # Deleted on/after next month
+#             )
+#         )
+#         .order_by(Students.id)
+#         .all()
+#     )
+#
+#     students_dict = {}
+#     calculated_discounts = {}  # Cache to avoid duplicate queries
+#     total_debt = 0
+#     payment = 0
+#     total_discount = 0
+#     total_first_discount = 0
+#
+#     for attendance, student, user, group, subject, deleted_student, calendar_day in attendance_records:
+#         # Calculate discount only once per student
+#         if student.id not in calculated_discounts:
+#             student_discounts = StudentPayments.query.filter(
+#                 StudentPayments.student_id == student.id,
+#                 StudentPayments.calendar_month == month_id,
+#                 StudentPayments.calendar_year == year_id,
+#                 StudentPayments.location_id == location_id,
+#                 StudentPayments.payment == False
+#             ).all()
+#
+#             for_student_total_discount = sum(d.payment_sum for d in student_discounts if d.payment_sum)
+#             calculated_discounts[student.id] = for_student_total_discount
+#             total_first_discount += for_student_total_discount
+#         else:
+#             for_student_total_discount = calculated_discounts[student.id]
+#
+#         if student.id not in students_dict:
+#             students_dict[student.id] = {
+#                 'id': student.id,
+#                 'student_name': f"{user.name} {user.surname}",
+#                 "month": month_date_obj.strftime("%Y-%m"),
+#                 "is_deleted": deleted_student is not None,
+#                 "deleted_date": calendar_day.date.strftime("%Y-%m") if calendar_day else None,
+#                 "groups": []
+#             }
+#
+#         # Handle NULL values properly
+#         total_debt += attendance.total_debt
+#         payment += attendance.payment if attendance.payment else 0
+#         total_discount += attendance.total_discount if attendance.total_discount else 0
+#
+#         students_dict[student.id]['groups'].append({
+#             'group_name': group.name,
+#             "subject_name": subject.name,
+#             "remaining_debt": attendance.remaining_debt if attendance.remaining_debt is not None else 0,
+#             "total_debt": attendance.total_debt if attendance.total_debt else 0,
+#             "payment": attendance.payment if attendance.payment else 0,
+#             "total_discount": attendance.total_discount if attendance.total_discount else 0,
+#             "for_student_total_discount": for_student_total_discount
+#         })
+#
+#     attendance_history_list = list(students_dict.values())
+#
+#     return jsonify({
+#         "student_list": attendance_history_list,
+#         "total_debt": total_debt,
+#         "remaining_debt": total_debt + payment,
+#         "payment": payment,
+#         "total_discount": total_discount,
+#         "total_first_discount": total_first_discount
+#     })
+
 @home_screen_bp.route('/debtors/', methods=['GET'])
 def home_screen_debtors():
     location_id = request.args.get('location_id')
@@ -25,38 +132,44 @@ def home_screen_debtors():
         CalendarMonth.date == month_date_obj,
         CalendarMonth.year_id == year_id
     ).first().id
-    next_month_first_day = (month_date_obj.replace(day=1) + relativedelta(months=1)).date()
+
+    # Simplified query - removed DeletedStudents filter
     attendance_records = (
         db.session.query(
             AttendanceHistoryStudent,
             Students,
             Users,
             Groups,
-            Subjects,
-            DeletedStudents,
-            CalendarDay
+            Subjects
         )
         .join(Students, AttendanceHistoryStudent.student_id == Students.id)
         .join(Users, Students.user_id == Users.id)
         .join(Groups, AttendanceHistoryStudent.group_id == Groups.id)
         .join(Subjects, Groups.subject_id == Subjects.id)
-        .outerjoin(DeletedStudents, Students.id == DeletedStudents.student_id)
-        .outerjoin(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)
-        .outerjoin(CalendarMonth, CalendarDay.month_id == CalendarMonth.id)
         .filter(
             AttendanceHistoryStudent.calendar_month == month_id,
             AttendanceHistoryStudent.calendar_year == year_id,
-            # AttendanceHistoryStudent.total_debt != None,
             Users.location_id == location_id,
-            Groups.status == True,
-            or_(
-                DeletedStudents.id == None,
-                CalendarDay.date <= next_month_first_day  # Deleted on/after next month
-            )
+            Groups.status == True
         )
         .order_by(Students.id)
         .all()
     )
+
+    # Get deleted students info separately (only for display purposes)
+    deleted_students_info = {}
+    deleted_students = (
+        db.session.query(
+            DeletedStudents.student_id,
+            CalendarDay.date
+        )
+        .join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id)
+        .filter(DeletedStudents.student_id.in_([r[1].id for r in attendance_records]))
+        .all()
+    )
+
+    for student_id, deletion_date in deleted_students:
+        deleted_students_info[student_id] = deletion_date
 
     students_dict = {}
     calculated_discounts = {}  # Cache to avoid duplicate queries
@@ -65,7 +178,7 @@ def home_screen_debtors():
     total_discount = 0
     total_first_discount = 0
 
-    for attendance, student, user, group, subject, deleted_student, calendar_day in attendance_records:
+    for attendance, student, user, group, subject in attendance_records:
         # Calculate discount only once per student
         if student.id not in calculated_discounts:
             student_discounts = StudentPayments.query.filter(
@@ -83,17 +196,18 @@ def home_screen_debtors():
             for_student_total_discount = calculated_discounts[student.id]
 
         if student.id not in students_dict:
+            deletion_date = deleted_students_info.get(student.id)
             students_dict[student.id] = {
                 'id': student.id,
                 'student_name': f"{user.name} {user.surname}",
                 "month": month_date_obj.strftime("%Y-%m"),
-                "is_deleted": deleted_student is not None,
-                "deleted_date": calendar_day.date.strftime("%Y-%m") if calendar_day else None,
+                "is_deleted": student.id in deleted_students_info,
+                "deleted_date": deletion_date.strftime("%Y-%m-%d") if deletion_date else None,
                 "groups": []
             }
 
         # Handle NULL values properly
-        total_debt += attendance.total_debt
+        total_debt += attendance.total_debt if attendance.total_debt else 0
         payment += attendance.payment if attendance.payment else 0
         total_discount += attendance.total_discount if attendance.total_discount else 0
 
@@ -112,12 +226,11 @@ def home_screen_debtors():
     return jsonify({
         "student_list": attendance_history_list,
         "total_debt": total_debt,
-        "remaining_debt": total_debt + payment,
+        "remaining_debt": total_debt - payment,  # Fixed: should be MINUS not PLUS
         "payment": payment,
         "total_discount": total_discount,
         "total_first_discount": total_first_discount
     })
-
 
 @home_screen_bp.route('/salaries/', methods=['GET'])
 def home_screen_salaries():
