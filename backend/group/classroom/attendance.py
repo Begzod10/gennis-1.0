@@ -118,8 +118,8 @@ def attendances_classroom(group_id):
         month = get_json_field('month')
 
     # String formatting optimization
-    month_str = f"{month:02d}"  # Ensures "01", "02", ... "12" format
-    date_str = f"{year}-{month_str}"
+    # month_str = f"{month:02d}"  # Ensures "01", "02", ... "12" format
+    date_str = f"{year}-{month}"
 
     year_date = datetime.strptime(str(year), "%Y")
     month_date = datetime.strptime(date_str, "%Y-%m")
@@ -139,7 +139,7 @@ def attendances_classroom(group_id):
 
     # Simplified condition logic
     attendance_filter = (
-        gr_functions.attendance_filter_android(month=month_str, year=year)
+        gr_functions.attendance_filter_android(month=month, year=year)
         if not group_attendance or not group_attendance.status
         else group_attendance.to_json
     )
