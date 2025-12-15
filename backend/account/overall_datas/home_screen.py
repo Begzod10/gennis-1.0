@@ -150,7 +150,7 @@ def home_screen_debtors():
             AttendanceHistoryStudent.calendar_month == month_id,
             AttendanceHistoryStudent.calendar_year == year_id,
             Users.location_id == location_id,
-            Groups.status == True
+            # Groups.status == True
         )
         .order_by(Students.id)
         .all()
@@ -231,6 +231,7 @@ def home_screen_debtors():
         "total_discount": total_discount,
         "total_first_discount": total_first_discount
     })
+
 
 @home_screen_bp.route('/salaries/', methods=['GET'])
 def home_screen_salaries():
