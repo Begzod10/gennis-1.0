@@ -471,9 +471,9 @@ def attendances(group_id):
         month = get_json_field('month')
 
     # String formatting optimization
-    month_str = f"{month:02d}"  # Ensures "01", "02", ... "12" format
-    date_str = f"{year}-{month_str}"
+    # month_str = f"{month:02d}"  # Ensures "01", "02", ... "12" format
 
+    date_str = f"{year}-{month}"
     year_date = datetime.strptime(str(year), "%Y")
     month_date = datetime.strptime(date_str, "%Y-%m")
 
