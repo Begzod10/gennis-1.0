@@ -77,7 +77,7 @@ def attendances_classroom(group_id):
         Students.group
     ).options(
         contains_eager(Students.group),
-        joinedload(Students.user).joinedload('phone')  # Solve N+1 problem
+        joinedload(Students.user).joinedload(Users.phone)  # Use User.phone instead of 'phone'
     ).filter(
         Groups.id == group_id
     ).order_by(Students.id).all()
@@ -548,9 +548,9 @@ def make_attendance_classroom():
     year_date = attendance_add.calendar_year.date
     month_date = attendance_add.calendar_month.date
     group_attendance = db.session.query(GroupAttendance).join(
-        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
     ).join(
-        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
     ).filter(
         GroupAttendance.group_id == group_id,
         CalendarYear.date == year_date,
