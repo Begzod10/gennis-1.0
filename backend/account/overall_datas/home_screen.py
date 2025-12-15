@@ -51,7 +51,7 @@ def home_screen_debtors():
             Groups.status == True,
             or_(
                 DeletedStudents.id == None,
-                CalendarDay.date < month_date_obj.replace(day=1)  # Fixed: proper date comparison
+                CalendarDay.date >= month_date_obj.replace(day=1)  # Fixed: proper date comparison
             )
         )
         .order_by(Students.id)
