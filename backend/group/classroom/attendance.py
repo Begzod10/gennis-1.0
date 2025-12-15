@@ -545,8 +545,8 @@ def make_attendance_classroom():
                                         )
         db.session.add(attendance_add)
         db.session.commit()
-    year_date = attendance_add.calendar_year.date
-    month_date = attendance_add.calendar_month.date
+    year_date = attendance.year.date
+    month_date = attendance.month.date
     group_attendance = db.session.query(GroupAttendance).join(
         CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
     ).join(
