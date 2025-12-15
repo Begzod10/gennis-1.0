@@ -55,50 +55,68 @@ def list_missions():
 @missions_bp.route("/", methods=["POST"])
 def create_mission():
     json_data = request.get_json() or {}
+
     try:
         data = MissionCreateSchema().load(json_data)
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    # creator_id: pull from auth (example: request.user.id)
-    # Here for demo: expect request.json['creator_id'] or a placeholder (adjust for your auth)
+    # Authdan kelishi kerak (misol uchun jsondan olyapmiz)
     creator_id = json_data.get("creator_id")
-    if not creator_id:
-        return jsonify({"detail": "creator_id required (or set from auth)"}), 400
+    executor_ids = json_data.get("executor_ids", [])
 
-    m = Mission(
-        title=data.get("title"),
-        description=data.get("description"),
-        category=data.get("category"),
-        creator_id=creator_id,
-        executor_id=data.get("executor_id"),
-        reviewer_id=data.get("reviewer_id"),
-        location_id=data.get("location_id"),
-        start_datetime=data.get("start_datetime") or datetime.utcnow(),
-        deadline_datetime=data["deadline_datetime"],  # REQUIRED — schema bergan
-        is_recurring=data.get("is_recurring", False),
-        status=data.get("status", False),
-        repeat_every=data.get("repeat_every", 1),
-        kpi_weight=data.get("kpi_weight", 10),
-        penalty_per_day=data.get("penalty_per_day", 2)
-    )
-    db.session.add(m)
+    if not creator_id:
+        return jsonify({"detail": "creator_id required"}), 400
+
+    if not executor_ids or not isinstance(executor_ids, list):
+        return jsonify({"detail": "executor_ids must be non-empty list"}), 400
+
+    created_missions = []
+
+    for executor_id in executor_ids:
+        mission = Mission(
+            title=data["title"],
+            description=data.get("description"),
+            category=data.get("category", "academic"),
+            creator_id=creator_id,
+            executor_id=executor_id,
+            reviewer_id=data.get("reviewer_id"),
+            location_id=data.get("location_id"),
+            start_datetime=data.get("start_datetime") or datetime.utcnow(),
+            deadline_datetime=data["deadline_datetime"],
+            status=data.get("status", "not_started"),
+            is_recurring=data.get("is_recurring", False),
+            repeat_every=data.get("repeat_every", 1),
+            kpi_weight=data.get("kpi_weight", 10),
+            penalty_per_day=data.get("penalty_per_day", 2),
+            early_bonus_per_day=data.get("early_bonus_per_day", 1),
+            max_bonus=data.get("max_bonus", 3),
+            max_penalty=data.get("max_penalty", 10),
+        )
+
+        db.session.add(mission)
+        db.session.flush()  # mission.id olish uchun
+
+        # TAGS
+        tag_ids = json_data.get("tags", [])
+        if tag_ids:
+            tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
+            mission.tags = tags
+
+        # NOTIFICATION
+        send_notification(
+            user_id=executor_id,
+            mission=mission,
+            message=f"Sizga task berildi: {mission.title}",
+            role="executor"
+        )
+
+        created_missions.append(mission)
+
     db.session.commit()
 
-    tag_ids = json_data.get("tags", [])
-    if tag_ids:
-        tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
-        m.tags = tags
-        db.session.commit()
-
-    send_notification(
-        user_id=m.executor_id,
-        mission=m,
-        message=f"Sizga task berildi: {m.title}",
-        role="executor"
-    )
-    schema = MissionDetailSchema()
-    return jsonify(schema.dump(m)), 201
+    schema = MissionDetailSchema(many=True)
+    return jsonify(schema.dump(created_missions)), 201
 
 
 @missions_bp.route("/<int:pk>/", methods=["GET"])

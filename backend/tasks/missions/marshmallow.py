@@ -26,7 +26,7 @@ class MissionCreateSchema(Schema):
     tags = fields.List(fields.Int(), load_default=[])
 
     creator_id = fields.Int(required=True)
-    executor_id = fields.Int(required=True)
+    executor_ids = fields.List(fields.Int(), load_default=[])
     reviewer_id = fields.Int(load_default=None)
 
     location_id = fields.Int(load_default=None)
