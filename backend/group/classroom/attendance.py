@@ -126,9 +126,9 @@ def attendances_classroom(group_id):
 
     # Single query with joins instead of multiple queries
     group_attendance = db.session.query(GroupAttendance).join(
-        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
     ).join(
-        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
     ).filter(
         GroupAttendance.group_id == group_id,
         CalendarYear.date == year_date,
