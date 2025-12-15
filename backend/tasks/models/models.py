@@ -219,6 +219,19 @@ class Mission(db.Model):
     executor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
+    original_executor_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True
+    )
+    is_redirected = db.Column(db.Boolean, default=False)
+    redirected_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True
+    )
+    redirected_at = db.Column(db.DateTime, nullable=True)
+
     location_id = db.Column(db.Integer, db.ForeignKey("locations.id"))
 
     start_datetime = db.Column(db.DateTime, default=datetime.utcnow)
@@ -252,6 +265,7 @@ class Mission(db.Model):
     creator = db.relationship("Users", foreign_keys=[creator_id], backref="created_missions")
     executor = db.relationship("Users", foreign_keys=[executor_id], backref="executed_missions")
     reviewer = db.relationship("Users", foreign_keys=[reviewer_id], backref="reviewed_missions")
+    redirected_by = db.relationship("Users", foreign_keys=[redirected_by_id], backref="redirected_by_missions")
 
     def calculate_delay(self):
         if self.finish_datetime and self.deadline_datetime:

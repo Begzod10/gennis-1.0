@@ -103,8 +103,10 @@ class MissionDetailSchema(SQLAlchemyAutoSchema):
     finish_datetime = fields.DateTime(format="%Y-%m-%d %H:%M")
     created_at = fields.DateTime(format="%Y-%m-%d %H:%M")
     updated_at = fields.DateTime(format="%Y-%m-%d %H:%M")
+    redirected_at = fields.DateTime(format="%Y-%m-%d %H:%M")
     creator = fields.Nested(UserShortSchema)
     executor = fields.Nested(UserShortSchema)
+    redirected_by = fields.Nested(UserShortSchema)
     reviewer = fields.Nested(UserShortSchema, allow_none=True)
 
     tags = fields.Nested(TagSchema, many=True)

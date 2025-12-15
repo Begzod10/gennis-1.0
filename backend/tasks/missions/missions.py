@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from sqlalchemy.orm import joinedload
+from sqlalchemy import or_, and_
 from flask import Blueprint, request, jsonify, send_from_directory
 from marshmallow import ValidationError
 from backend.tasks.missions.marshmallow import MissionCreateSchema, MissionDetailSchema
@@ -17,6 +18,7 @@ def list_missions():
         joinedload(Mission.creator),
         joinedload(Mission.executor),
         joinedload(Mission.reviewer),
+        joinedload(Mission.redirected_by),
         joinedload(Mission.tags),
         joinedload(Mission.comments).joinedload(MissionComment.user),
         joinedload(Mission.subtasks),
@@ -34,22 +36,36 @@ def list_missions():
 
     if status:
         q = q.filter(Mission.status == status)
+
     if category:
         q = q.filter(Mission.category == category)
+
     if creator:
         q = q.filter(Mission.creator_id == int(creator))
+
     if executor:
-        q = q.filter(Mission.executor_id == int(executor))
+        executor_id = int(executor)
+        q = q.filter(
+            or_(
+                Mission.executor_id == executor_id,
+                and_(
+                    Mission.is_redirected == True,
+                    Mission.redirected_by_id == executor_id
+                )
+            )
+        )
+
     if reviewer:
         q = q.filter(Mission.reviewer_id == int(reviewer))
+
     if d_after:
-        q = q.filter(Mission.deadline >= date.fromisoformat(d_after))
+        q = q.filter(Mission.deadline_datetime >= datetime.fromisoformat(d_after))
+
     if d_before:
-        q = q.filter(Mission.deadline <= date.fromisoformat(d_before))
+        q = q.filter(Mission.deadline_datetime <= datetime.fromisoformat(d_before))
 
     items = q.order_by(Mission.created_at.desc()).all()
-    schema = MissionDetailSchema(many=True)
-    return jsonify(schema.dump(items)), 200
+    return jsonify(MissionDetailSchema(many=True).dump(items)), 200
 
 
 @missions_bp.route("/", methods=["POST"])
@@ -131,23 +147,44 @@ def update_mission(pk):
     m = Mission.query.get_or_404(pk)
     json_data = request.get_json() or {}
 
-    old_status = m.status  # status o‘zgarishini kuzatish
+    old_status = m.status
+    old_executor_id = m.executor_id
 
-    # Executor o‘zgarganda → notification
+    # =========================
+    # EXECUTOR CHANGE / REDIRECT
+    # =========================
     if "executor_id" in json_data:
-        m.executor_id = json_data["executor_id"]
-        send_notification(
-            user_id=m.executor_id,
-            mission=m,
-            message=f"Sizga task berildi: {m.title}",
-            role="executor"
-        )
+        new_executor_id = int(json_data["executor_id"])
 
+        if new_executor_id != old_executor_id:
+            # m.executor_id = new_executor_id
+
+            # 🔁 redirect aniqlash
+            if new_executor_id != m.original_executor_id:
+                m.is_redirected = True
+                m.redirected_at = datetime.utcnow()
+                m.redirected_by_id = json_data.get("executor_id")
+            else:
+                # agar originalga qaytsa
+                m.is_redirected = False
+                m.redirected_at = None
+                m.redirected_by_id = None
+
+            send_notification(
+                user_id=new_executor_id,
+                mission=m,
+                message=f"Sizga task berildi: {m.title}",
+                role="executor"
+            )
+
+    # =========================
+    # BASIC FIELDS
+    # =========================
     if "reviewer_id" in json_data:
         m.reviewer_id = json_data["reviewer_id"]
 
-    if "deadline" in json_data:
-        m.deadline_datetime = datetime.fromisoformat(json_data["deadline"])
+    if "deadline_datetime" in json_data:
+        m.deadline_datetime = datetime.fromisoformat(json_data["deadline_datetime"])
 
     if "title" in json_data:
         m.title = json_data["title"]
@@ -158,13 +195,13 @@ def update_mission(pk):
     if "category" in json_data:
         m.category = json_data["category"]
 
-    # STATUS CHANGE
+    # =========================
+    # STATUS CHANGE (signal analog)
+    # =========================
     if "status" in json_data:
         new_status = json_data["status"]
 
-        # Agar status o‘zgargan bo‘lsa → Django signaliga o‘xshatamiz
         if new_status != old_status:
-            # Agar completed bo‘lsa → finish_date qo‘yiladi
             if new_status == "completed" and not m.finish_datetime:
                 m.finish_datetime = datetime.utcnow()
                 m.calculate_delay()
@@ -173,16 +210,19 @@ def update_mission(pk):
             m.status = new_status
             db.session.commit()
 
-            # Django signaliga to‘liq analog
             on_mission_status_change(old_status, new_status, m)
 
-    # Tags
+    # =========================
+    # TAGS
+    # =========================
     if "tags" in json_data:
         tag_ids = json_data.get("tags", [])
         tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
         m.tags = tags
 
-    # Recurring
+    # =========================
+    # RECURRING
+    # =========================
     if "is_recurring" in json_data:
         m.is_recurring = bool(json_data["is_recurring"])
 
@@ -191,8 +231,7 @@ def update_mission(pk):
 
     db.session.commit()
 
-    schema = MissionDetailSchema()
-    return jsonify(schema.dump(m)), 200
+    return jsonify(MissionDetailSchema().dump(m)), 200
 
 
 @missions_bp.route("/<int:pk>/", methods=["DELETE"])
