@@ -160,7 +160,7 @@ def update_mission(pk):
             # m.executor_id = new_executor_id
 
             # 🔁 redirect aniqlash
-            if new_executor_id != m.original_executor_id:
+            if new_executor_id != m.executor_id:
                 m.is_redirected = True
                 m.redirected_at = datetime.utcnow()
                 m.redirected_by_id = json_data.get("executor_id")
