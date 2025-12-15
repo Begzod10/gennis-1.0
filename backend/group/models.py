@@ -268,7 +268,7 @@ class GroupAttendance(db.Model):
     __tablename__ = "group_attendance"
     id = Column(Integer, primary_key=True)
     group_id = Column(Integer, ForeignKey('groups.id'))
-    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
     calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'))
     to_json = Column(JSON)
     status = Column(Boolean, default=False)

@@ -479,9 +479,9 @@ def attendances(group_id):
 
     # Single query with joins instead of multiple queries
     group_attendance = db.session.query(GroupAttendance).join(
-        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
     ).join(
-        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
     ).filter(
         GroupAttendance.group_id == group_id,
         CalendarYear.date == year_date,
@@ -492,7 +492,7 @@ def attendances(group_id):
 
     # Simplified condition logic
     attendance_filter = (
-        gr_functions.attendance_filter_android(month=month_str, year=year)
+        gr_functions.attendance_filter(month=month, year=year)
         if not group_attendance or not group_attendance.status
         else group_attendance.to_json
     )
