@@ -449,9 +449,9 @@ def make_attendance():
     year_date = attendance.year.date
     month_date = attendance.month.date
     group_attendance = db.session.query(GroupAttendance).join(
-        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
     ).join(
-        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
     ).filter(
         GroupAttendance.group_id == group_id,
         CalendarYear.date == year_date,
@@ -528,9 +528,9 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
     year_date = attendace_get.year.date
     month_date = attendace_get.month.date
     group_attendance = db.session.query(GroupAttendance).join(
-        CalendarYear, GroupAttendance.calendar_year_id == CalendarYear.id
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
     ).join(
-        CalendarMonth, GroupAttendance.calendar_month_id == CalendarMonth.id
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
     ).filter(
         GroupAttendance.group_id == group_id,
         CalendarYear.date == year_date,
