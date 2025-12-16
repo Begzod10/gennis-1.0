@@ -19,7 +19,6 @@ import os
 from dotenv import load_dotenv
 from backend.tasks.missions.utils import recurring_check
 
-
 # Load environment variables
 load_dotenv()
 
@@ -30,18 +29,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 API_PREFIX = 'api/'
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'rimefara')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'top12')
 GITHUB_SECRET = os.getenv('GITHUB_SECRET', '').encode()
 
-
 classroom_server = os.getenv("CLASSROOM_SERVER_URL")
 
 school_server = os.getenv("SCHOOL_SERVER_URL")
-
-
 
 
 def create_app(config_name='backend.models.config'):
@@ -97,7 +92,6 @@ def create_app(config_name='backend.models.config'):
 def register_all_routes(api, app):
     """Centralized route registration"""
 
-
     # Import all view registration functions
     from backend.time_table.views import register_time_table_views
     from backend.student.views import register_student_views
@@ -116,6 +110,7 @@ def register_all_routes(api, app):
     from backend.parent.views import register_parent_views
     from backend.tasks.admin.views import register_task_rating_views
     from backend.telegram_bot.views import register_telegram_bot_routes
+    from backend.tasks.missions.views import register_missions_views
 
     # Register all routes
     routes = [
@@ -136,6 +131,7 @@ def register_all_routes(api, app):
         register_parent_mobile_views,
         register_programmers_views,
         register_overall_datas_routes,
+        register_missions_views
     ]
 
     for register_func in routes:
@@ -212,7 +208,6 @@ def register_middleware(app):
     @app.before_request
     def auto_recurring_run():
         recurring_check()
-
 
 
 def check_auth(username, password):
