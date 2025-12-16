@@ -139,7 +139,7 @@ def attendances_classroom(group_id):
 
     # Simplified condition logic
     attendance_filter = (
-        gr_functions.attendance_filter_android(month=month, year=year)
+        gr_functions.attendance_filter(month=month, year=year)
         if not group_attendance or not group_attendance.status
         else group_attendance.to_json
     )
