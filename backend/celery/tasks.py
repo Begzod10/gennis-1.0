@@ -1,6 +1,6 @@
 # tasks/salary.py
 import sys
-from backend.celery.celery_app import celery
+from backend.celery.celery_app import celery, shared_task, group
 from backend.functions.debt_salary_update import salary_debt, find_calendar_date
 from backend.student.class_model import Student_Functions
 from backend.functions.utils import update_salary
@@ -8,62 +8,245 @@ from backend.models.models import TeacherBlackSalary, Students, db, Locations, D
     Groups, StudentPayments, BranchReport, Users, Teachers, Staff
 import logging
 from sqlalchemy import or_
+from backend.teacher.utils import send_telegram_message
 
 logger = logging.getLogger(__name__)
 
 
-@celery.task(name='process_salary_debt')
-def process_salary_debt(student_id, group_id, attendance_id, status_attendance, type_attendance, teacher_id,
-                        calendar_month, calendar_year, salary_per_day):
-    salary_location = salary_debt(
-        student_id, group_id, attendance_id,
-        status_attendance, type_attendance
-    )
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_student_debt_and_balance(self, student_id):
+    """
+    Update student debt and balance calculations
 
-    update_salary(teacher_id)
-    student_obj = Students.query.get(student_id)
-    st_functions = Student_Functions(student_id=student_id)
-    st_functions.update_debt()
-    st_functions.update_balance()
-    if type_attendance == "add":
-        if student_obj.debtor == 2:
-            black_salary = TeacherBlackSalary.query.filter_by(
+    Args:
+        student_id: Student ID to update
+    """
+    try:
+        st_functions = Student_Functions(student_id=student_id)
+        st_functions.update_debt()
+        st_functions.update_balance()
+
+        logger.info(f"Updated debt and balance for student {student_id}")
+        return {"status": "success", "student_id": student_id}
+
+    except Exception as exc:
+        logger.error(f"Error updating student {student_id}: {exc}")
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_salary_debt(self, student_id, group_id, attendance_id):
+    """
+    Calculate salary debt for attendance
+
+    Args:
+        student_id: Student ID
+        group_id: Group ID
+        attendance_id: Attendance day ID
+
+    Returns:
+        salary_location object ID
+    """
+    try:
+        salary_location = salary_debt(
+            student_id=student_id,
+            group_id=group_id,
+            attendance_id=attendance_id,
+            status_attendance=False,
+            type_attendance="add"
+        )
+
+        logger.info(f"Processed salary debt for attendance {attendance_id}")
+        return {
+            "status": "success",
+            "salary_location_id": salary_location.id if salary_location else None
+        }
+
+    except Exception as exc:
+        logger.error(f"Error processing salary debt: {exc}")
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def update_teacher_salary(self, teacher_user_id):
+    """
+    Update teacher salary calculations
+
+    Args:
+        teacher_user_id: Teacher's user ID
+    """
+    try:
+        update_salary(teacher_id=teacher_user_id)
+
+        logger.info(f"Updated salary for teacher {teacher_user_id}")
+        return {"status": "success", "teacher_id": teacher_user_id}
+
+    except Exception as exc:
+        logger.error(f"Error updating teacher salary {teacher_user_id}: {exc}")
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_black_salary(self, teacher_id, student_id, calendar_month_id,
+                         calendar_year_id, location_id, salary_location_id,
+                         salary_per_day):
+    """
+    Handle black salary for debtor students
+
+    Args:
+        teacher_id: Teacher ID
+        student_id: Student ID
+        calendar_month_id: Calendar month ID
+        calendar_year_id: Calendar year ID
+        location_id: Location ID
+        salary_location_id: Salary location ID
+        salary_per_day: Daily salary amount
+    """
+    try:
+        black_salary = TeacherBlackSalary.query.filter(
+            TeacherBlackSalary.teacher_id == teacher_id,
+            TeacherBlackSalary.student_id == student_id,
+            TeacherBlackSalary.calendar_month == calendar_month_id,
+            TeacherBlackSalary.calendar_year == calendar_year_id,
+            TeacherBlackSalary.status == False,
+            TeacherBlackSalary.location_id == location_id,
+            TeacherBlackSalary.salary_id == salary_location_id
+        ).first()
+
+        if not black_salary:
+            black_salary = TeacherBlackSalary(
+                teacher_id=teacher_id,
+                total_salary=salary_per_day,
+                student_id=student_id,
+                salary_id=salary_location_id,
+                calendar_month=calendar_month_id,
+                calendar_year=calendar_year_id,
+                location_id=location_id
+            )
+            black_salary.add()
+            logger.info(f"Created black salary for teacher {teacher_id}, student {student_id}")
+        else:
+            black_salary.total_salary += salary_per_day
+            db.session.commit()
+            logger.info(f"Updated black salary for teacher {teacher_id}, student {student_id}")
+
+        return {"status": "success", "black_salary_id": black_salary.id}
+
+    except Exception as exc:
+        logger.error(f"Error processing black salary: {exc}")
+        db.session.rollback()
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=5, default_retry_delay=30)
+def send_attendance_notification(self, student_id, attendance_day_id, group_id):
+    """
+    Send telegram notification for attendance
+
+    Args:
+        student_id: Student ID
+        attendance_day_id: Attendance day ID
+        group_id: Group ID
+    """
+    try:
+        send_telegram_message(student_id, attendance_day_id, group_id)
+
+        logger.info(f"Sent notification for student {student_id}, attendance {attendance_day_id}")
+        return {"status": "success", "student_id": student_id}
+
+    except Exception as exc:
+        logger.error(f"Error sending notification: {exc}")
+        # Telegram failures shouldn't fail the whole process
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 30)
+
+
+@shared_task
+def process_attendance_post_save(student_id, group_id, attendance_day_id,
+                                 teacher_user_id, is_debtor, teacher_id,
+                                 calendar_month_id, calendar_year_id,
+                                 location_id, salary_per_day):
+    """
+    Main orchestration task that coordinates all post-attendance operations
+    This runs all operations in parallel where possible
+
+    Args:
+        student_id: Student ID
+        group_id: Group ID
+        attendance_day_id: Attendance day ID
+        teacher_user_id: Teacher's user ID
+        is_debtor: Whether student is a debtor (debtor == 2)
+        teacher_id: Teacher ID
+        calendar_month_id: Calendar month ID
+        calendar_year_id: Calendar year ID
+        location_id: Location ID
+        salary_per_day: Daily salary amount
+    """
+    try:
+        # Step 1: Process student debt/balance and salary debt in parallel
+        step1_tasks = group([
+            process_student_debt_and_balance.s(student_id),
+            process_salary_debt.s(student_id, group_id, attendance_day_id)
+        ])
+
+        step1_results = step1_tasks.apply_async()
+        step1_results.get(timeout=30)  # Wait for completion with timeout
+
+        # Get salary_location_id from results
+        salary_result = step1_results.results[1].result
+        salary_location_id = salary_result.get('salary_location_id')
+
+        # Step 2: Update teacher salary
+        update_teacher_salary.delay(teacher_user_id)
+
+        # Step 3: Handle black salary if debtor (runs in parallel with teacher salary)
+        if is_debtor and salary_location_id:
+            process_black_salary.delay(
                 teacher_id=teacher_id,
                 student_id=student_id,
-                calendar_month=calendar_month.id,
-                calendar_year=calendar_year.id,
-                location_id=student_obj.user.location_id,
-                salary_id=salary_location.id,
-                status=False
-            ).first()
-            if not black_salary:
-                black_salary = TeacherBlackSalary(
-                    teacher_id=teacher_id,
-                    total_salary=salary_per_day,
-                    student_id=student_obj.id,
-                    salary_id=salary_location.id,
-                    calendar_month=calendar_month.id,
-                    calendar_year=calendar_year.id,
-                    location_id=student_obj.user.location_id
-                )
-                black_salary.add()
-            else:
-                black_salary.total_salary += salary_per_day
-                db.session.commit()
-    return {"salary_location_id": salary_location.id}
+                calendar_month_id=calendar_month_id,
+                calendar_year_id=calendar_year_id,
+                location_id=location_id,
+                salary_location_id=salary_location_id,
+                salary_per_day=salary_per_day
+            )
+
+        # Step 4: Send notification (fire and forget)
+        send_attendance_notification.delay(student_id, attendance_day_id, group_id)
+
+        logger.info(f"Successfully orchestrated post-attendance tasks for student {student_id}")
+        return {"status": "success"}
+
+    except Exception as exc:
+        logger.error(f"Error in orchestration task: {exc}")
+        raise
 
 
-@celery.task(name='send_student_info')
-def send_student_info(user_id, attendance_id):
-    from backend.models.models import Users, Students, Parent, AttendanceDays
-    attendance = AttendanceDays.query.get(attendance_id)
-    user = Users.query.get(user_id)
-    parent = Parent.query.filter_by(user_id=user.id).first()
+@shared_task
+def batch_process_attendance_notifications(attendance_data_list):
+    """
+    Batch process multiple attendance notifications
+    Useful for bulk attendance marking
+
+    Args:
+        attendance_data_list: List of dicts with student_id, attendance_day_id, group_id
+    """
+    tasks = [
+        send_attendance_notification.s(
+            data['student_id'],
+            data['attendance_day_id'],
+            data['group_id']
+        )
+        for data in attendance_data_list
+    ]
+
+    job = group(tasks)
+    results = job.apply_async()
 
     return {
-        "user": user.convert_json(),
-        "parent": bool(parent),
-        "attendance": attendance.convert_json()
+        "status": "success",
+        "total_tasks": len(tasks),
+        "task_ids": [str(r.id) for r in results.results]
     }
 
 

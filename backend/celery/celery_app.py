@@ -1,5 +1,5 @@
 # celery_app.py - SIMPLEST VERSION (No Auto-Import, No Circular Dependency)
-from celery import Celery
+from celery import Celery, shared_task, group
 from celery.schedules import crontab
 from dotenv import load_dotenv
 import os
