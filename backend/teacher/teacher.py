@@ -20,7 +20,7 @@ from backend.student.class_model import Student_Functions
 from backend.teacher.utils import send_telegram_message
 from .utils import get_students_info, prepare_scores
 from sqlalchemy import or_, extract, func
-
+from backend.celery.tasks import process_attendance_post_save
 from ..time_table.models import Week
 
 teachers_bp = Blueprint('teachers', __name__)
@@ -470,41 +470,20 @@ def make_attendance():
     db.session.commit()
 
     # Update balance and debt
-    st_functions = Student_Functions(student_id=student_obj.id)
-    st_functions.update_debt()
-    st_functions.update_balance()
-
-    salary_location = salary_debt(student_id=student_obj.id, group_id=group_id, attendance_id=attendance_add.id,
-                                  status_attendance=False, type_attendance="add")
-    update_salary(teacher_id=teacher.user_id)
-
-    if student_obj.debtor == 2:
-        black_salary = TeacherBlackSalary.query.filter_by(
-            teacher_id=teacher.id,
-            student_id=student_obj.id,
-            calendar_month=calendar_month.id,
-            calendar_year=calendar_year.id,
-            location_id=student_obj.user.location_id,
-            salary_id=salary_location.id,
-            status=False
-        ).first()
-        if not black_salary:
-            black_salary = TeacherBlackSalary(
-                teacher_id=teacher.id,
-                total_salary=salary_per_day,
-                student_id=student_obj.id,
-                salary_id=salary_location.id,
-                calendar_month=calendar_month.id,
-                calendar_year=calendar_year.id,
-                location_id=student_obj.user.location_id
-            )
-            black_salary.add()
-        else:
-            black_salary.total_salary += salary_per_day
-            db.session.commit()
+    process_attendance_post_save.delay(
+        student_id=student.id,
+        group_id=group_id,
+        attendance_day_id=attendance_add.id,
+        teacher_user_id=teacher.user_id,
+        is_debtor=(student.debtor == 2),
+        teacher_id=teacher.id,
+        calendar_month_id=calendar_month.id,
+        calendar_year_id=calendar_year.id,
+        location_id=student.user.location_id,
+        salary_per_day=salary_per_day
+    )
 
     user = Users.query.get(student_id)
-    send_telegram_message(student_obj.id, attendance_add.id, group_id)
     if user.school_user_id:
         update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
 
@@ -883,7 +862,6 @@ def branch_daily_stats(location_id):
         .all()
     )
 
-
     calendar_year = CalendarYear.query.filter(
         extract('year', CalendarYear.date) == year
     ).first()
@@ -904,7 +882,6 @@ def branch_daily_stats(location_id):
     if not calendar_day:
         return jsonify({"error": "Bu kunda davomat topilmadi"}), 200
 
-
     query = Groups.query.filter_by(location_id=location_id, deleted=False, status=True)
 
     groups = (
@@ -912,7 +889,6 @@ def branch_daily_stats(location_id):
         .order_by(Groups.id)
         .all()
     )
-
 
     branch_present = branch_absent = branch_total = 0
     group_list = []
@@ -974,4 +950,3 @@ def branch_daily_stats(location_id):
             "total": branch_total
         }
     }), 200
-
