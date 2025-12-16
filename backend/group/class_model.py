@@ -186,6 +186,7 @@ class Group_Functions:
                                                         GroupAttendance.calendar_year == calendar_year.id).first()
         if not group_attendance:
             group_attendance = GroupAttendance(group_id=self.group_id, calendar_month=calendar_month.id,
+                                               status=True,
                                                calendar_year=calendar_year.id, to_json=data)
             db.session.add(group_attendance)
             db.session.commit()
