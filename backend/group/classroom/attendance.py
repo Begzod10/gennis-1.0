@@ -404,9 +404,9 @@ def make_attendance_classroom():
     if not group:
         return jsonify({"errors": [{"active": True, "message": "Group not found", "status": "danger"}]}), 404
 
-    teacher = group.teacher
+    teacher = group.teacher_id
     subject = group.subject
-
+    teacher = Teachers.query.filter(Teachers.id == teacher).first()
     # OPTIMIZATION: Single query for student with user relationship
     student = db.session.query(Students).options(
         joinedload(Students.user)
