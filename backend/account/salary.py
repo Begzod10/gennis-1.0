@@ -418,7 +418,7 @@ def teacher_salary_inside_classroom(user_id, salary_id):
                              "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries,
                              "black_salary": black_salary,
                              "salary_debt": salary.debt, "total_fine": salary.total_fine,
-                             "salary_info_teacher": salary_info_teacher}})
+                             }})
 
 
 @account_salary_bp.route(f'/black_salary/<teacher_id>')
@@ -690,8 +690,11 @@ def employees(location_id, status):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+
     job = request.args.get("job", default=None, type=str)
     language = request.args.get("language", default=None, type=str)
+
+    level = request.args.get("level", default=None, type=int)
 
     user_id = get_jwt_identity()
     staff_salary_update()
@@ -721,7 +724,11 @@ def employees(location_id, status):
         search_pattern = f"%{search}%"
         staffs_query = staffs_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                                                Users.username.ilike(search_pattern)))
-
+    if level:
+        staffs_query = db.session.query(Staff).join(Staff.user).options(contains_eager(Staff.user)).filter(
+            Users.location_id == location_id,
+            Users.level > level).order_by(
+            Users.id)
     total = staffs_query.count()
 
     if limit:

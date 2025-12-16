@@ -1,7 +1,7 @@
 from sqlalchemy import String, Integer, Boolean, Column, ForeignKey, DateTime, or_, and_, desc, func, ARRAY, JSON
 from sqlalchemy.orm import relationship
-
 from backend.models.models import db
+from datetime import date, datetime, timedelta
 
 
 class Tasks(db.Model):
@@ -191,3 +191,169 @@ class TaskRatingsMonthly(db.Model):
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+
+mission_tags = db.Table(
+    "mission_tags",
+    db.Column("mission_id", db.Integer, db.ForeignKey("missions.id"), primary_key=True),
+    db.Column("tag_id", db.Integer, db.ForeignKey("tags.id"), primary_key=True),
+)
+
+
+class Tag(db.Model):
+    __tablename__ = "tags"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+
+
+class Mission(db.Model):
+    __tablename__ = "missions"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+
+    category = db.Column(db.String(50), default="academic")
+    tags = db.relationship("Tag", secondary=mission_tags, backref=db.backref("missions", lazy="dynamic"))
+
+    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    executor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    original_executor_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True
+    )
+    is_redirected = db.Column(db.Boolean, default=False)
+    redirected_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True
+    )
+    redirected_at = db.Column(db.DateTime, nullable=True)
+
+    location_id = db.Column(db.Integer, db.ForeignKey("locations.id"))
+
+    start_datetime = db.Column(db.DateTime, default=datetime.utcnow)
+    deadline_datetime = db.Column(db.DateTime, nullable=False)
+    finish_datetime = db.Column(db.DateTime)
+
+    status = db.Column(db.String(30), default="not_started")
+
+    kpi_weight = db.Column(db.Integer, default=10)
+    penalty_per_day = db.Column(db.Integer, default=2)
+    early_bonus_per_day = db.Column(db.Integer, default=1)
+    max_bonus = db.Column(db.Integer, default=3)
+    max_penalty = db.Column(db.Integer, default=10)
+    delay_days = db.Column(db.Integer, default=0)
+
+    # Recurring
+    is_recurring = db.Column(db.Boolean, default=False)
+    recurring_type = db.Column(db.String(20), nullable=True)
+    repeat_every = db.Column(db.Integer, default=1)  # days
+    last_generated = db.Column(db.Date, nullable=True)
+
+    final_sc = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), server_onupdate=func.now())
+    comments = db.relationship("MissionComment", backref="mission", cascade="all, delete")
+    notifications = db.relationship("Notification", backref="mission", cascade="all, delete")
+    proofs = db.relationship("MissionProof", backref="mission", cascade="all, delete")
+    attachments = db.relationship("MissionAttachment", backref="mission", cascade="all, delete")
+    subtasks = db.relationship("MissionSubtask", backref="mission", cascade="all, delete")
+    creator = db.relationship("Users", foreign_keys=[creator_id], backref="created_missions")
+    executor = db.relationship("Users", foreign_keys=[executor_id], backref="executed_missions")
+    reviewer = db.relationship("Users", foreign_keys=[reviewer_id], backref="reviewed_missions")
+    redirected_by = db.relationship("Users", foreign_keys=[redirected_by_id], backref="redirected_by_missions")
+
+    def calculate_delay(self):
+        if self.finish_datetime and self.deadline_datetime:
+            diff = self.finish_datetime - self.deadline_datetime
+            self.delay_minutes = int(diff.total_seconds() // 60)
+        else:
+            self.delay_minutes = 0
+        return self.delay_minutes
+
+    def compute_final_score(self):
+        self.calculate_delay()
+        delay_days = self.delay_minutes // 1440
+        base = self.kpi_weight
+
+        if delay_days < 0:
+            bonus = min(abs(delay_days) * self.early_bonus_per_day, self.max_bonus)
+            return base + bonus
+
+        if delay_days == 0:
+            return base
+
+        penalty = min(delay_days * self.penalty_per_day, self.max_penalty)
+        return max(0, base - penalty)
+
+    def remaining_days(self):
+        if not self.deadline_datetime:
+            return None
+        return (self.deadline_datetime.date() - date.today()).days
+
+    def status_color(self):
+        if not self.deadline_datetime:
+            return "green"
+
+        remaining = (self.deadline_datetime.date() - date.today()).days
+
+        if remaining <= 1:
+            return "red"
+        elif remaining <= 4:
+            return "yellow"
+        return "green"
+
+
+class MissionSubtask(db.Model):
+    __tablename__ = "mission_subtasks"
+    id = db.Column(db.Integer, primary_key=True)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
+    title = db.Column(db.String(255))
+    is_done = db.Column(db.Boolean, default=False)
+    order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MissionAttachment(db.Model):
+    __tablename__ = "mission_attachments"
+    id = db.Column(db.Integer, primary_key=True)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
+    file_path = db.Column(db.String(255))
+    note = db.Column(db.String(255), nullable=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MissionComment(db.Model):
+    __tablename__ = "mission_comments"
+    id = db.Column(db.Integer, primary_key=True)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    text = db.Column(db.Text)
+    attachment_path = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship("Users", backref="mission_comments")
+
+
+class MissionProof(db.Model):
+    __tablename__ = "mission_proofs"
+    id = db.Column(db.Integer, primary_key=True)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
+    file_path = db.Column(db.String(255))
+    comment = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=True)
+    message = db.Column(db.Text)
+    role = db.Column(db.String(20))  # executor/creator/reviewer
+    deadline = db.Column(db.Date, nullable=True)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -958,6 +958,8 @@ def profile(user_id):
             "location_id": user_get.location_id,
             "balance": user_get.balance,
             "address": user_get.address,
+            "level": user_get.level,
+
             "info": {
                 "name": {
                     "name": "Ism",
@@ -1174,6 +1176,7 @@ def profile(user_id):
             "username": user_get.username,
             "type_role": type_role,
             "location_id": user_get.location_id,
+            "level": user_get.level,
             "info": {
                 "name": {
                     "name": "Ism",

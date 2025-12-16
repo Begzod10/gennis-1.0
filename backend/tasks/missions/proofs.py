@@ -1,0 +1,101 @@
+from flask import Blueprint, request, jsonify, current_app
+from backend.tasks.models.models import MissionProof, db
+from backend.tasks.missions.utils import allowed_file
+from werkzeug.utils import secure_filename
+import os
+from datetime import datetime
+from backend.tasks.missions.marshmallow import ProofSchema
+
+proofs_bp = Blueprint("proofs", __name__)
+
+
+# CREATE
+@proofs_bp.route("/", methods=["POST"])
+def create_proof():
+    mission_id = request.form.get("mission_id")
+    file = request.files.get("file")
+    comment = request.form.get("comment")
+
+    if not mission_id or not file:
+        return jsonify({"detail": "mission_id and file are required"}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({"detail": "invalid file"}), 400
+
+    # secure + unique filename
+    ext = file.filename.rsplit(".", 1)[1]
+    filename = f"{datetime.utcnow().timestamp()}_{mission_id}.{ext}"
+    filename = secure_filename(filename)
+
+    # save file
+    dst = os.path.join(current_app.config['PROOFS_FOLDER'], filename)
+    file.save(dst)
+
+    # relative URL for frontend
+    file_url = f"/uploads/proofs/{filename}"
+
+    p = MissionProof(mission_id=mission_id, file_path=file_url, comment=comment)
+    db.session.add(p)
+    db.session.commit()
+
+    schema = ProofSchema()
+    result = schema.dump(p)
+
+    return jsonify(result), 201
+
+
+# UPDATE
+@proofs_bp.route("/<int:pk>/", methods=["PATCH"])
+def update_proof(pk):
+    p = MissionProof.query.get_or_404(pk)
+
+    comment = request.form.get("comment")
+    if comment:
+        p.comment = comment
+
+    file = request.files.get("file")
+    if file and allowed_file(file.filename):
+        # remove old file
+        if p.file_path:
+            try:
+                old_file_path = os.path.join(
+                    current_app.root_path,
+                    p.file_path.lstrip("/")
+                )
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+            except Exception as e:
+                print("Old file remove error:", e)
+
+        # secure + unique filename
+        ext = file.filename.rsplit(".", 1)[1]
+        filename = f"{datetime.utcnow().timestamp()}_{p.mission_id}.{ext}"
+        filename = secure_filename(filename)
+
+        dst = os.path.join(current_app.config['PROOFS_FOLDER'], filename)
+        file.save(dst)
+
+        # relative URL
+        p.file_path = f"/uploads/proofs/{filename}"
+
+    db.session.commit()
+
+    schema = ProofSchema()
+    result = schema.dump(p)
+    return jsonify(result), 200
+
+
+# DELETE
+@proofs_bp.route("/<int:pk>/", methods=["DELETE"])
+def delete_proof(pk):
+    p = MissionProof.query.get_or_404(pk)
+
+    try:
+        os.remove(p.file_path)
+    except:
+        pass
+
+    db.session.delete(p)
+    db.session.commit()
+
+    return jsonify({"detail": "deleted"}), 200

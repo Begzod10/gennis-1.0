@@ -14,6 +14,12 @@ from backend.models.models import db_setup
 from backend.school.models import register_commands
 from backend.functions.utils import refreshdatas
 
+from backend.telegram_bot.views import register_telegram_bot_routes
+import os
+from dotenv import load_dotenv
+from backend.tasks.missions.utils import recurring_check
+
+
 # Load environment variables
 load_dotenv()
 
@@ -24,11 +30,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Constants
+
 API_PREFIX = 'api/'
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'rimefara')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'top12')
 GITHUB_SECRET = os.getenv('GITHUB_SECRET', '').encode()
+
+
+classroom_server = os.getenv("CLASSROOM_SERVER_URL")
+
+school_server = os.getenv("SCHOOL_SERVER_URL")
+
+
 
 
 def create_app(config_name='backend.models.config'):
@@ -83,6 +96,7 @@ def create_app(config_name='backend.models.config'):
 
 def register_all_routes(api, app):
     """Centralized route registration"""
+
 
     # Import all view registration functions
     from backend.time_table.views import register_time_table_views
@@ -194,6 +208,11 @@ def register_middleware(app):
         """Log incoming requests (optional, can be disabled in production)"""
         if app.config.get('LOG_REQUESTS', False):
             logger.info(f"{request.method} {request.path}")
+
+    @app.before_request
+    def auto_recurring_run():
+        recurring_check()
+
 
 
 def check_auth(username, password):
