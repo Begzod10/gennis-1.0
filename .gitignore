@@ -24,6 +24,7 @@ copy_flask_admin_static.sh
 **/**/celerybeat-schedule.dat
 **/**/celerybeat-schedule.bak
 **/**/celerybeat-schedule.dir
+**/**/celerybeat-schedule
 
 
 .DS_Store
