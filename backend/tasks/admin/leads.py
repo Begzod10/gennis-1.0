@@ -7,8 +7,9 @@ from backend.functions.utils import find_calendar_date, get_json_field, iterate_
 from backend.lead.models import Lead, LeadInfos
 from backend.models.models import db, TasksStatistics, TaskDailyStatistics, Tasks
 from backend.tasks.utils import filter_new_leads, update_all_ratings
-from backend.vats.vats_process import VatsProcess
+from backend.vats.vats_process import VatsProcess, wait_until_call_finished
 from flask import Blueprint
+from pprint import pprint
 
 task_leads_bp = Blueprint('task_leads', __name__)
 
@@ -29,23 +30,25 @@ async def test_call():
     return jsonify(result)
 
 
+@task_leads_bp.route('/check-history', methods=["GET"])
+async def check_history():  # ✅ Make it async
+    vats = VatsProcess()
+
+    users_online = await vats.get_online_users()
+    users = await vats.list_all_users()
+    calls = await vats.get_today_calls()
+    calls = await vats.get_and_log_today_calls_for_user("turon_center")
+
+    print("[INFO] Waiting for call to finish...")
+    final_info = await wait_until_call_finished(vats, "8A0DU0NRPO000036")
+    print("[CALL ENDED]", final_info)
+
+    return jsonify({"users": users, "users_online": users_online, "calls": calls}), 200
+
+
 @task_leads_bp.route(f'/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def task_leads(location_id, date):
-    # vats = VatsProcess()
-
-    # users_online = await vats.get_online_users()
-    # users = await vats.list_all_users()
-    # calls = await vats.get_today_calls()
-    # calls = await vats.get_and_log_today_calls_for_user("turon_center")
-    # pprint.pprint(users)
-    # call_response = await vats.call_client("tis_sergeli", "949200232")
-    # callid = call_response.get("callid")
-    #
-    # print("[INFO] Waiting for call to finish...")
-    # final_info = await wait_until_call_finished(vats, callid)
-    # print("[CALL ENDED]", final_info)
-
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     date = datetime.strptime(date, "%Y-%m-%d")
     if date == calendar_day.date:
