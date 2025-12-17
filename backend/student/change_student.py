@@ -75,7 +75,7 @@ def change_student_info(user_id):
 
                     "address": json['address'] if json['address'] else None,
 
-                    "level": json['level'],
+                    "level": json['level'] if 'level' in json else None,
 
                 })
                 db.session.commit()
@@ -149,7 +149,7 @@ def change_student_info(user_id):
 
                     "address": json['address'] if "address" in json else "",
 
-                    "level": json['level'],
+                    "level": json['level'] if 'level' in json else None,
 
                 })
                 db.session.commit()
