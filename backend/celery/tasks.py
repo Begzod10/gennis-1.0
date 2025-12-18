@@ -9,6 +9,7 @@ from backend.models.models import TeacherBlackSalary, Students, db, Locations, D
 import logging
 from sqlalchemy import or_
 from backend.teacher.utils import send_telegram_message
+from celery import shared_task, group, chord
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,61 @@ def send_attendance_notification(self, student_id, attendance_day_id, group_id):
         raise self.retry(exc=exc, countdown=2 ** self.request.retries * 30)
 
 
+# ✅ NEW: Callback task that processes results from step 1
+@shared_task
+def handle_post_attendance_completion(step1_results, teacher_user_id, is_debtor,
+                                      teacher_id, student_id, calendar_month_id,
+                                      calendar_year_id, location_id, salary_per_day,
+                                      attendance_day_id, group_id):
+    """
+    Callback task that runs after initial parallel tasks complete
+
+    Args:
+        step1_results: Results from [process_student_debt_and_balance, process_salary_debt]
+        ... (other parameters passed through)
+    """
+    try:
+        # Extract salary_location_id from results
+        # step1_results is a list: [debt_balance_result, salary_debt_result]
+        debt_result = step1_results[0] if len(step1_results) > 0 else {}
+        salary_result = step1_results[1] if len(step1_results) > 1 else {}
+
+        salary_location_id = salary_result.get('salary_location_id')
+
+        logger.info(f"Step 1 completed for student {student_id}. Salary location: {salary_location_id}")
+
+        # Step 2: Update teacher salary
+        update_teacher_salary.delay(teacher_user_id)
+
+        # Step 3: Handle black salary if debtor
+        if is_debtor and salary_location_id:
+            process_black_salary.delay(
+                teacher_id=teacher_id,
+                student_id=student_id,
+                calendar_month_id=calendar_month_id,
+                calendar_year_id=calendar_year_id,
+                location_id=location_id,
+                salary_location_id=salary_location_id,
+                salary_per_day=salary_per_day
+            )
+            logger.info(f"Triggered black salary processing for student {student_id}")
+
+        # Step 4: Send notification (fire and forget)
+        send_attendance_notification.delay(student_id, attendance_day_id, group_id)
+
+        logger.info(f"Successfully orchestrated post-attendance tasks for student {student_id}")
+        return {
+            "status": "success",
+            "student_id": student_id,
+            "salary_location_id": salary_location_id
+        }
+
+    except Exception as exc:
+        logger.error(f"Error in post-attendance completion handler: {exc}")
+        raise
+
+
+# ✅ FIXED: Main orchestration task using chord
 @shared_task
 def process_attendance_post_save(student_id, group_id, attendance_day_id,
                                  teacher_user_id, is_debtor, teacher_id,
@@ -168,7 +224,12 @@ def process_attendance_post_save(student_id, group_id, attendance_day_id,
                                  location_id, salary_per_day):
     """
     Main orchestration task that coordinates all post-attendance operations
-    This runs all operations in parallel where possible
+    Uses Celery chord pattern to avoid blocking
+
+    Workflow:
+    1. Run student debt/balance and salary debt in parallel (group)
+    2. After both complete, trigger callback (chord)
+    3. Callback processes results and launches remaining tasks
 
     Args:
         student_id: Student ID
@@ -183,42 +244,38 @@ def process_attendance_post_save(student_id, group_id, attendance_day_id,
         salary_per_day: Daily salary amount
     """
     try:
-        # Step 1: Process student debt/balance and salary debt in parallel
+        # Step 1: Create parallel tasks group
         step1_tasks = group([
             process_student_debt_and_balance.s(student_id),
             process_salary_debt.s(student_id, group_id, attendance_day_id)
         ])
 
-        step1_results = step1_tasks.apply_async()
-        step1_results.get(timeout=30)  # Wait for completion with timeout
-
-        # Get salary_location_id from results
-        salary_result = step1_results.results[1].result
-        salary_location_id = salary_result.get('salary_location_id')
-
-        # Step 2: Update teacher salary
-        update_teacher_salary.delay(teacher_user_id)
-
-        # Step 3: Handle black salary if debtor (runs in parallel with teacher salary)
-        if is_debtor and salary_location_id:
-            process_black_salary.delay(
+        # Step 2: Create chord - runs group, then callback with results
+        workflow = chord(step1_tasks)(
+            handle_post_attendance_completion.s(
+                teacher_user_id=teacher_user_id,
+                is_debtor=is_debtor,
                 teacher_id=teacher_id,
                 student_id=student_id,
                 calendar_month_id=calendar_month_id,
                 calendar_year_id=calendar_year_id,
                 location_id=location_id,
-                salary_location_id=salary_location_id,
-                salary_per_day=salary_per_day
+                salary_per_day=salary_per_day,
+                attendance_day_id=attendance_day_id,
+                group_id=group_id
             )
+        )
 
-        # Step 4: Send notification (fire and forget)
-        send_attendance_notification.delay(student_id, attendance_day_id, group_id)
+        logger.info(f"Orchestrated post-attendance workflow for student {student_id}")
 
-        logger.info(f"Successfully orchestrated post-attendance tasks for student {student_id}")
-        return {"status": "success"}
+        return {
+            "status": "workflow_started",
+            "student_id": student_id,
+            "workflow_id": workflow.id
+        }
 
     except Exception as exc:
-        logger.error(f"Error in orchestration task: {exc}")
+        logger.error(f"Error starting orchestration task for student {student_id}: {exc}")
         raise
 
 

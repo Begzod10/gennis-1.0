@@ -11,18 +11,49 @@ class LeadInfos(db.Model):
     comment = Column(String)
     day = Column(DateTime)
     added_date = Column(DateTime)
+    audio_url = Column(String)
 
     def convert_json(self, entire=False):
         return {
             "id": self.id,
             "comment": self.comment,
             "added_date": self.added_date.strftime("%Y-%m-%d"),
-            "date": self.day.strftime("%Y-%m-%d")
+            "date": self.day.strftime("%Y-%m-%d"),
+            "audio_url": self.audio_url
         }
 
     def add(self):
         db.session.add(self)
         db.session.commit()
+
+
+class LeadInfosRecord(db.Model):
+    __tablename__ = "lead_infos_record"
+    id = Column(Integer, primary_key=True)
+    lead_id = Column(Integer, ForeignKey('lead_infos.id'))
+    audio_url = Column(String)
+    client_number = Column(String)
+    diversion = Column(String)
+    duration = Column(String)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    wait_time = Column(String)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "audio_url": self.audio_url,
+            "client_number": self.client_number,
+            "diversion": self.diversion,
+            "duration": self.duration,
+            "start_time": self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_time": self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "wait_time": self.wait_time
+        }
 
 
 class Lead(db.Model):

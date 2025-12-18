@@ -4,12 +4,16 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
 from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
-from backend.lead.models import Lead, LeadInfos
+from backend.lead.models import Lead, LeadInfos, LeadInfosRecord
 from backend.models.models import db, TasksStatistics, TaskDailyStatistics, Tasks
 from backend.tasks.utils import filter_new_leads, update_all_ratings
 from backend.vats.vats_process import VatsProcess, wait_until_call_finished
+from backend.celery.admin_calls import process_call_and_save_record
 from flask import Blueprint
 from pprint import pprint
+import aiohttp
+from datetime import timedelta
+import os
 
 task_leads_bp = Blueprint('task_leads', __name__)
 
@@ -17,33 +21,35 @@ task_leads_bp = Blueprint('task_leads', __name__)
 @task_leads_bp.route(f"/test-call", methods=["POST"])
 async def test_call():
     data = request.get_json()
+    lead_id = data.get("lead_id")
 
-    user = data.get("user")  # e.g. "admin"
-    phone = data.get("phone")  # e.g. "998901234567"
-    clid = data.get("clid")  # optional
+    if not lead_id:
+        return jsonify({"error": "Missing 'lead_id'"}), 400
 
-    if not user or not phone:
-        return jsonify({"error": "Missing 'user' or 'phone'"}), 400
+    # Queue the task
+    task = process_call_and_save_record.delay(lead_id)
 
-    vats = VatsProcess()
-    result = await vats.call_client(user, phone, clid)
-    return jsonify(result)
+    return jsonify({
+        "message": "Call processing started",
+        "task_id": task.id,
+        "status": "processing"
+    }), 202
 
 
-@task_leads_bp.route('/check-history', methods=["GET"])
-async def check_history():  # ✅ Make it async
-    vats = VatsProcess()
-
-    users_online = await vats.get_online_users()
-    users = await vats.list_all_users()
-    calls = await vats.get_today_calls()
-    calls = await vats.get_and_log_today_calls_for_user("turon_center")
-
-    print("[INFO] Waiting for call to finish...")
-    final_info = await wait_until_call_finished(vats, "8A0DU0NRPO000036")
-    print("[CALL ENDED]", final_info)
-
-    return jsonify({"users": users, "users_online": users_online, "calls": calls}), 200
+# @task_leads_bp.route('/check-history', methods=["GET"])
+# async def check_history():  # ✅ Make it async
+#     vats = VatsProcess()
+#
+#     users_online = await vats.get_online_users()
+#     users = await vats.list_all_users()
+#     calls = await vats.get_today_calls()
+#     calls = await vats.get_and_log_today_calls_for_user("turon_center")
+#
+#     print("[INFO] Waiting for call to finish...")
+#
+#     print("[CALL ENDED]", final_info)
+#
+#     return jsonify({"users": users, "users_online": users_online, "calls": calls}), 200
 
 
 @task_leads_bp.route(f'/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])

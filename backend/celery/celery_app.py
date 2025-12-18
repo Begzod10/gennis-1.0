@@ -1,4 +1,4 @@
-# celery_app.py - SIMPLEST VERSION (No Auto-Import, No Circular Dependency)
+# celery_app.py
 from celery import Celery, shared_task, group
 from celery.schedules import crontab
 from dotenv import load_dotenv
@@ -12,10 +12,11 @@ celery = Celery(
     'gennis',
     broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/2'),
     backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/2'),
-    include=['tasks']
+    include=['backend.celery.tasks']  # ✅ Changed from 'tasks' to 'backend.celery.tasks'
 )
 
 # Configure Celery
+# celery_app.py
 celery.conf.update(
     task_serializer='json',
     accept_content=['json'],
@@ -23,8 +24,8 @@ celery.conf.update(
     timezone='Asia/Tashkent',
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=30 * 60,
-    task_soft_time_limit=25 * 60,
+    task_time_limit=30 * 60,  # ✅ 30 minutes hard limit (buffer above 20 min calls)
+    task_soft_time_limit=25 * 60,  # ✅ 25 minutes soft limit
     worker_pool='solo' if sys.platform == 'win32' else 'prefork',
     worker_concurrency=1 if sys.platform == 'win32' else None,
 )
@@ -34,7 +35,6 @@ celery.conf.beat_schedule = {
     'update-branch-reports-every-minute': {
         'task': 'update_branch_reports',
         'schedule': crontab(hour=20, minute="0"),
-        # 'schedule': crontab(minute="*/1"),
         'options': {'expires': 3600}
     },
 }
