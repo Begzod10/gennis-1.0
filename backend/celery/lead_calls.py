@@ -6,9 +6,12 @@ import asyncio
 import os
 from datetime import datetime, timedelta
 import aiohttp
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-@celery.task(name='backend.celery.admin_calls.process_call_and_save_record')
+@celery.task(name='backend.celery.lead_calls.process_call_and_save_record')
 def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
     """
     Celery task to handle call processing and recording
@@ -40,25 +43,56 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
             asyncio.set_event_loop(loop)
 
             result = loop.run_until_complete(vats.call_client(user, phone))
-
-            # ✅ Pass timeout to wait_until_call_finished
             final_info = loop.run_until_complete(
                 wait_until_call_finished(vats, result['callid'], timeout=max_call_duration)
             )
 
-            # Check if it timed out
-            if final_info.get('error') == 'timeout':
+            loop.close()
+
+            # ✅ Handle different error types
+            error_type = final_info.get('error')
+
+            if error_type == 'timeout':
                 lead_info.comment = f"qo'ng'iroq juda uzoq davom etdi ({max_call_duration}s+)"
                 db.session.commit()
-                loop.close()
                 return {"error": "timeout", "callid": final_info.get('callid'), "success": False}
 
+            elif error_type == 'no_response':
+                lead_info.comment = "API javob bermadi"
+                db.session.commit()
+                return {"error": "no_response", "callid": final_info.get('callid'), "success": False}
+
+            # ✅ Handle call status
+            status = final_info.get('status')
+
+            if status in ['missed', 'cancelled', 'failed', 'busy', 'no-answer']:
+                # Set appropriate comment based on status
+                status_messages = {
+                    'missed': "tel qabul qilmadi",
+                    'cancelled': "qo'ng'iroq bekor qilindi",
+                    'failed': "qo'ng'iroq muvaffaqiyatsiz",
+                    'busy': "telefon band",
+                    'no-answer': "javob bermadi"
+                }
+                lead_info.comment = status_messages.get(status, "tel kotarmadi")
+                db.session.commit()
+
+                final_info['success'] = False
+                return final_info
+
+            # ✅ Only process recording if call was successful
+            if status != 'success':
+                lead_info.comment = "qo'ng'iroq tugallanmadi"
+                db.session.commit()
+                return {"error": "call_not_completed", "status": status, "success": False}
+
+            # Download and save recording
             local_audio_path = None
             record_url = final_info.get('record')
 
             if record_url:
                 try:
-                    save_dir = "media/call_records"
+                    save_dir = "media/call_records/leads"
                     os.makedirs(save_dir, exist_ok=True)
 
                     download_result = loop.run_until_complete(
@@ -77,8 +111,7 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
                     final_info['record_saved'] = False
                     final_info['error'] = str(e)
 
-            loop.close()
-
+            # Save to database
             if local_audio_path:
                 try:
                     start_time = datetime.fromisoformat(final_info['start'].replace('Z', ''))
@@ -97,6 +130,7 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
                     db.session.add(record)
 
                     lead_info.audio_url = local_audio_path
+                    lead_info.comment = ""
                     db.session.commit()
 
                     final_info['db_saved'] = True
@@ -107,12 +141,7 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
                     final_info['db_saved'] = False
                     final_info['db_error'] = str(e)
             else:
-                if final_info.get('status') == 'missed':
-                    lead_info.comment = "tel qabul qilmadi"
-                elif final_info.get('status') == 'cancelled':
-                    lead_info.comment = "qo'ng'iroq bekor qilindi"
-                else:
-                    lead_info.comment = "tel kotarmadi"
+                lead_info.comment = "yozuv topilmadi"
                 db.session.commit()
 
             final_info['success'] = True
@@ -120,6 +149,7 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
 
         except Exception as e:
             db.session.rollback()
+            logger.error(f"Error in process_call_and_save_record: {e}")
             return {"error": str(e), "success": False}
 
 

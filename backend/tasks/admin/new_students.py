@@ -7,7 +7,7 @@ from backend.functions.utils import api, find_calendar_date, iterate_models
 from backend.models.models import Students, StudentCallingInfo, CalendarDay, TaskDailyStatistics, db
 from backend.tasks.models.models import Tasks, TasksStatistics
 from backend.tasks.utils import update_all_ratings, filter_new_students
-
+from backend.celery.new_students import process_new_student_call
 from flask import Blueprint
 
 task_new_students_bp = Blueprint('task_new_students', __name__)
@@ -79,6 +79,97 @@ def completed_new_students(location_id, date):
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
         "table": table
     })
+
+
+@task_new_students_bp.route('/call_to_new_student', methods=["POST"])
+def call_to_new_student():
+    """
+    Initiate a call to a new student
+
+    Request body:
+        {
+            "id": 123,  // user_id
+            "phone": "998901234567"
+        }
+
+    Returns:
+        {
+            "message": "Call processing started",
+            "task_id": "task-uuid",
+            "status": "processing",
+            "user_id": 123
+        }
+    """
+    data = request.get_json()
+
+    # Get parameters
+    student_id = data.get('student_id')  # This is user_id
+    phone = data.get('phone')
+
+    # Validate input
+    if not student_id:
+        return jsonify({"error": "Student ID (user_id) is required"}), 400
+
+    if not phone:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    # Verify student exists
+    student = Students.query.filter_by(id=student_id).first()
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    # Queue the call task
+    task = process_new_student_call.delay(student_id, phone)
+
+    return jsonify({
+        "message": "Call processing started",
+        "task_id": task.id,
+        "status": "processing",
+        "user_id": student_id,
+        "student_id": student.id
+    }), 202
+
+
+@task_new_students_bp.route('/call-status/<task_id>', methods=["GET"])
+def check_new_student_call_status(task_id):
+    """
+    Check the status of a new student call task
+
+    Args:
+        task_id: Celery task ID
+
+    Returns:
+        {
+            "state": "SUCCESS|PENDING|FAILURE",
+            "result": {...}
+        }
+    """
+    from backend.celery.new_students import process_new_student_call
+
+    task = process_new_student_call.AsyncResult(task_id)
+
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'status': 'Task is waiting...'
+        }
+    elif task.state == 'SUCCESS':
+        response = {
+            'state': task.state,
+            'result': task.result
+        }
+    elif task.state == 'FAILURE':
+        response = {
+            'state': task.state,
+            'error': str(task.info)
+        }
+    else:
+        response = {
+            'state': task.state,
+            'status': str(task.info)
+        }
+
+    return jsonify(response)
 
 
 @task_new_students_bp.route(f'/call_to_new_students', methods=["POST"])

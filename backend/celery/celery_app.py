@@ -12,7 +12,12 @@ celery = Celery(
     'gennis',
     broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/2'),
     backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/2'),
-    include=['backend.celery.tasks']  # ✅ Changed from 'tasks' to 'backend.celery.tasks'
+    include=[
+        'backend.celery.tasks',
+        'backend.celery.lead_calls',
+        'backend.celery.debt_calls',
+        'backend.celery.new_students'
+    ]  # ✅ Changed from 'tasks' to 'backend.celery.tasks'
 )
 
 # Configure Celery

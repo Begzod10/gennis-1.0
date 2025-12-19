@@ -471,15 +471,15 @@ def make_attendance():
 
     # Update balance and debt
     process_attendance_post_save.delay(
-        student_id=student.id,
+        student_id=student_obj.id,
         group_id=group_id,
         attendance_day_id=attendance_add.id,
         teacher_user_id=teacher.user_id,
-        is_debtor=(student.debtor == 2),
+        is_debtor=(student_obj.debtor == 2),
         teacher_id=teacher.id,
         calendar_month_id=calendar_month.id,
         calendar_year_id=calendar_year.id,
-        location_id=student.user.location_id,
+        location_id=student_obj.user.location_id,
         salary_per_day=salary_per_day
     )
 

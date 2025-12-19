@@ -8,7 +8,7 @@ from backend.lead.models import Lead, LeadInfos, LeadInfosRecord
 from backend.models.models import db, TasksStatistics, TaskDailyStatistics, Tasks
 from backend.tasks.utils import filter_new_leads, update_all_ratings
 from backend.vats.vats_process import VatsProcess, wait_until_call_finished
-from backend.celery.admin_calls import process_call_and_save_record
+from backend.celery.lead_calls import process_call_and_save_record
 from flask import Blueprint
 from pprint import pprint
 import aiohttp
@@ -18,7 +18,7 @@ import os
 task_leads_bp = Blueprint('task_leads', __name__)
 
 
-@task_leads_bp.route(f"/test-call", methods=["POST"])
+@task_leads_bp.route(f"/call-to-lead", methods=["POST"])
 async def test_call():
     data = request.get_json()
     lead_id = data.get("lead_id")
@@ -36,20 +36,32 @@ async def test_call():
     }), 202
 
 
-# @task_leads_bp.route('/check-history', methods=["GET"])
-# async def check_history():  # ✅ Make it async
-#     vats = VatsProcess()
-#
-#     users_online = await vats.get_online_users()
-#     users = await vats.list_all_users()
-#     calls = await vats.get_today_calls()
-#     calls = await vats.get_and_log_today_calls_for_user("turon_center")
-#
-#     print("[INFO] Waiting for call to finish...")
-#
-#     print("[CALL ENDED]", final_info)
-#
-#     return jsonify({"users": users, "users_online": users_online, "calls": calls}), 200
+@task_leads_bp.route(f"/call-status/<task_id>", methods=["GET"])
+def check_call_status(task_id):
+    task = process_call_and_save_record.AsyncResult(task_id)
+
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'status': 'Task is waiting...'
+        }
+    elif task.state == 'SUCCESS':
+        response = {
+            'state': task.state,
+            'result': task.result
+        }
+    elif task.state == 'FAILURE':
+        response = {
+            'state': task.state,
+            'error': str(task.info)
+        }
+    else:
+        response = {
+            'state': task.state,
+            'status': str(task.info)
+        }
+
+    return jsonify(response)
 
 
 @task_leads_bp.route(f'/task_leads/<int:location_id>/<date>', methods=["POST", "GET"])
@@ -106,28 +118,21 @@ def completed_leads(location_id, date):
 @jwt_required()
 def task_leads_update(pk):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    lead = Lead.query.filter(Lead.id == pk).first()
+    lead_infos = LeadInfos.query.filter(LeadInfos.id == pk).first()
     comment = get_json_field('comment')
     date = get_json_field('date')
     date = datetime.strptime(date, '%Y-%m-%d')
-    info = {
-        "lead_id": lead.id,
-        "day": date,
-        "comment": comment,
-        'added_date': calendar_day.date
-    }
+
     if date > calendar_day.date:
-        exist_lead = LeadInfos.query.filter(LeadInfos.lead_id == lead.id,
-                                            LeadInfos.added_date == calendar_day.date).first()
-        if not exist_lead:
-            info = LeadInfos(**info)
-            info.add()
-        leads, task_statistics, _ = filter_new_leads(lead.location_id)
-        daily_statistics = update_all_ratings(lead.location_id)
+        lead_infos.comment = comment
+        lead_infos.day = date
+        db.session.commit()
+        leads, task_statistics, _ = filter_new_leads(lead_infos.lead.location_id)
+        daily_statistics = update_all_ratings(lead_infos.lead.location_id)
         return jsonify({
             "msg": "Komment belgilandi",
             "success": True,
-            "lead_id": lead.id,
+            "lead_id": lead_infos.lead.id,
             "task_statistics": task_statistics.convert_json(),
             "task_daily_statistics": daily_statistics.convert_json()
 

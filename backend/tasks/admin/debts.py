@@ -7,7 +7,7 @@ from flask import Blueprint
 
 from sqlalchemy import desc
 from flask import jsonify, request
-
+from backend.celery.debt_calls import process_student_call
 from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
 from backend.models.models import Users, Students, CalendarDay, TaskStudents, TasksStatistics, StudentExcuses, Tasks, \
     TaskDailyStatistics, BlackStudents, StudentCallingInfo, LeadInfos, Lead, db
@@ -110,6 +110,95 @@ def student_debts_completed(location_id, date):
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
         "table": table
     })
+
+
+@task_debts.route('/call_to_debt', methods=["POST"])
+def call_to_debt():
+    """
+    Initiate a call to a student about their debt
+
+    Request body:
+        {
+            "id": 123,
+            "phone": "998901234567"
+        }
+
+    Returns:
+        {
+            "message": "Call processing started",
+            "task_id": "task-uuid",
+            "status": "processing",
+            "student_id": 123
+        }
+    """
+    data = request.get_json()
+    student_id = data.get('student_id')
+    phone = data.get('phone')
+
+    # Validate input
+    if not student_id:
+        return jsonify({"error": "Student ID is required"}), 400
+
+    if not phone:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    # Verify student exists
+    student = Students.query.filter(Students.id == student_id).first()
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    # Queue the call task
+    task = process_student_call.delay(student_id, phone)
+
+    return jsonify({
+        "message": "Call processing started",
+        "task_id": task.id,
+        "status": "processing",
+        "student_id": student_id
+    }), 202
+
+
+@task_debts.route('/call-status/<task_id>', methods=["GET"])
+def check_student_call_status(task_id):
+    """
+    Check the status of a student call task
+
+    Args:
+        task_id: Celery task ID
+
+    Returns:
+        {
+            "state": "SUCCESS|PENDING|FAILURE",
+            "result": {...},
+            "student_id": 123
+        }
+    """
+    from backend.celery.debt_calls import process_student_call
+
+    task = process_student_call.AsyncResult(task_id)
+
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'status': 'Task is waiting...'
+        }
+    elif task.state == 'SUCCESS':
+        response = {
+            'state': task.state,
+            'result': task.result
+        }
+    elif task.state == 'FAILURE':
+        response = {
+            'state': task.state,
+            'error': str(task.info)
+        }
+    else:
+        response = {
+            'state': task.state,
+            'status': str(task.info)
+        }
+
+    return jsonify(response)
 
 
 @task_debts.route(f'/call_to_debts', methods=["POST"])
