@@ -103,6 +103,28 @@ def process_new_student_call(student_id, phone, user="admin", max_call_duration=
             if status != 'success':
                 student_calling_info.comment = "qo'ng'iroq tugallanmadi"
                 db.session.commit()
+                exist_record = StudentCallingInfoAudio.query.filter_by(student_calling_info_id=student_calling_info.id,
+                                                                       comment="tel kotarilmadi",
+                                                                       calendar_day=calendar_day.id).count()
+                if exist_record <= 1:
+                    record = StudentCallingInfoAudio(
+                        student_calling_info_id=student_calling_info.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id
+                    )
+                    record.add()
+                    exist_record = StudentCallingInfoAudio.query.filter_by(
+                        student_calling_info_id=student_calling_info.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id).count()
+                    if exist_record == 2:
+                        student_calling_info.date = calendar_day.date + timedelta(days=1)
+                        student_calling_info.comment = "tel kotarilmadi"
+                        db.session.commit()
+                else:
+                    student_calling_info.date = calendar_day.date + timedelta(days=1)
+                    student_calling_info.comment = "tel kotarilmadi"
+                    db.session.commit()
                 return {"error": "call_not_completed", "status": status, "success": False}
 
             # Download and save recording
@@ -171,7 +193,29 @@ def process_new_student_call(student_id, phone, user="admin", max_call_duration=
                     final_info['db_error'] = str(e)
                     logger.error(f"Error saving call record: {e}")
             else:
-                student_calling_info.comment = "yozuv topilmadi"
+                exist_record = StudentCallingInfoAudio.query.filter_by(student_calling_info_id=student_calling_info.id,
+                                                                       comment="tel kotarilmadi",
+                                                                       calendar_day=calendar_day.id).count()
+                if exist_record <= 1:
+                    record = StudentCallingInfoAudio(
+                        student_calling_info_id=student_calling_info.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id
+                    )
+                    record.add()
+                    exist_record = StudentCallingInfoAudio.query.filter_by(
+                        student_calling_info_id=student_calling_info.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id).count()
+                    if exist_record == 2:
+                        student_calling_info.date = calendar_day.date + timedelta(days=1)
+                        student_calling_info.comment = "tel kotarilmadi"
+                        db.session.commit()
+                else:
+                    student_calling_info.date = calendar_day.date + timedelta(days=1)
+                    student_calling_info.comment = "tel kotarilmadi"
+                    db.session.commit()
+                student_calling_info.comment = "tel kotarilmadi"
                 db.session.commit()
 
             final_info['success'] = True

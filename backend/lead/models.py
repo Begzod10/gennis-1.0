@@ -18,7 +18,7 @@ class LeadInfos(db.Model):
             "id": self.id,
             "comment": self.comment,
             "added_date": self.added_date.strftime("%Y-%m-%d"),
-            "date": self.day.strftime("%Y-%m-%d"),
+            "date": self.day.strftime("%Y-%m-%d") if self.day else None,
             "audio_url": self.audio_url
         }
 
@@ -38,6 +38,8 @@ class LeadInfosRecord(db.Model):
     start_time = Column(DateTime)
     end_time = Column(DateTime)
     wait_time = Column(String)
+    comment = Column(String)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
 
     def add(self):
         db.session.add(self)
@@ -83,10 +85,10 @@ class Lead(db.Model):
         info = LeadInfos.query.filter(LeadInfos.lead_id == self.id).order_by(desc("id")).first()
         day = info.day if info else self.day.date
         if info:
-            lead_day = int(day.strftime("%d"))
+            lead_day = int(day.strftime("%d")) if day else 0
             current_month = int(datetime.today().strftime("%m"))
             current_day = int(datetime.today().strftime("%d"))
-            lead_month = int(day.strftime("%m"))
+            lead_month = int(day.strftime("%m")) if day else 0
             if current_month == lead_month:
                 index = current_day - lead_day
                 if index > 2:

@@ -51,6 +51,8 @@ class StudentExcusesAudio(db.Model):
     start_time = Column(DateTime)
     end_time = Column(DateTime)
     wait_time = Column(String)
+    comment = Column(String)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
 
     def add(self):
         db.session.add(self)
@@ -244,6 +246,8 @@ class StudentCallingInfoAudio(db.Model):
     start_time = Column(DateTime)
     end_time = Column(DateTime)
     wait_time = Column(String)
+    comment = Column(String)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
 
 
 class Contract_Students(db.Model):

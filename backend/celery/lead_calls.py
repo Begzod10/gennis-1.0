@@ -82,8 +82,27 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
 
             # ✅ Only process recording if call was successful
             if status != 'success':
-                lead_info.comment = "qo'ng'iroq tugallanmadi"
-                db.session.commit()
+                exist_record = LeadInfosRecord.query.filter_by(lead_id=lead_info.id,
+                                                               comment="tel kotarilmadi",
+                                                               calendar_day=calendar_day.id).count()
+                if exist_record <= 1:
+                    record = LeadInfosRecord(
+                        lead_id=lead_info.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id
+                    )
+                    record.add()
+                    exist_record = LeadInfosRecord.query.filter_by(lead_id=lead_info.id,
+                                                                   comment="tel kotarilmadi",
+                                                                   calendar_day=calendar_day.id).count()
+                    if exist_record == 2:
+                        lead_info.day = calendar_day.date + timedelta(days=1)
+                        lead_info.comment = "tel kotarilmadi"
+                        db.session.commit()
+                else:
+                    lead_info.day = calendar_day.date + timedelta(days=1)
+                    lead_info.comment = "tel kotarilmadi"
+                    db.session.commit()
                 return {"error": "call_not_completed", "status": status, "success": False}
 
             # Download and save recording
@@ -112,6 +131,7 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
                     final_info['error'] = str(e)
 
             # Save to database
+
             if local_audio_path:
                 try:
                     start_time = datetime.fromisoformat(final_info['start'].replace('Z', ''))
@@ -141,8 +161,20 @@ def process_call_and_save_record(lead_id, user="admin", max_call_duration=1200):
                     final_info['db_saved'] = False
                     final_info['db_error'] = str(e)
             else:
-                lead_info.comment = "yozuv topilmadi"
-                db.session.commit()
+                exist_record = LeadInfosRecord.query.filter(lead_id=lead_info.id,
+                                                            comment="tel kotarilmadi",
+                                                            calendar_day_id=calendar_day.id).count()
+                if exist_record <= 2:
+                    record = LeadInfosRecord(
+                        lead_id=lead_info.id,
+                        comment="tel kotarilmadi"
+                    )
+
+                    record.add()
+                else:
+                    lead_info.day = calendar_day.date + timedelta(days=1)
+                    lead_info.comment = "tel kotarilmadi"
+                    db.session.commit()
 
             final_info['success'] = True
             return final_info
