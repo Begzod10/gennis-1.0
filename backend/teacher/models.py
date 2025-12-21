@@ -7,12 +7,19 @@ from backend.group.models import Groups
 from backend.models.utils import clone_group_info
 from datetime import datetime
 
+from backend.teacher.assistent.models import Assistent
+
 
 class Teachers(db.Model):
     __tablename__ = "teachers"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     subject = relationship('Subjects', secondary="teacher_subject", backref="teacher", order_by="Subjects.id")
+    assistent = relationship(
+        "Assistent",
+        backref='teacher',
+        order_by=Assistent.id
+    )
     group = relationship('Groups', secondary="teacher_group", backref="teacher", order_by="Groups.id")
     attendance = relationship("Attendance", backref="teacher", order_by="Attendance.id")
     attendance_history = relationship("AttendanceHistoryTeacher", backref="teacher",

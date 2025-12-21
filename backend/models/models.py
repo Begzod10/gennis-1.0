@@ -418,6 +418,11 @@ class Users(db.Model):
     password = Column(String, nullable=False)
     student = relationship("Students", uselist=False, backref="user", order_by="Students.id")
     teacher = relationship("Teachers", uselist=False, backref='user', order_by="Teachers.id")
+    assistent = relationship(
+        "Assistent",
+        backref='user',
+        order_by=Assistent.id
+    )
     phone = relationship("PhoneList", backref='user', order_by="PhoneList.id")
     education_language = Column(Integer, ForeignKey('educationlanguage.id'))
     staff = relationship("Staff", backref="user", order_by="Staff.id")
