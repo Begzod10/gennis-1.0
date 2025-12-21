@@ -124,6 +124,27 @@ def process_student_call(student_id, phone, user="admin", max_call_duration=1200
             if status != 'success':
                 student_excuse.reason = "qo'ng'iroq tugallanmadi"
                 db.session.commit()
+                exist_record = StudentExcusesAudio.query.filter_by(student_excuse_id=student_excuse.id,
+                                                                   comment="tel kotarilmadi",
+                                                                   calendar_day=calendar_day.id).count()
+                if exist_record <= 1:
+                    record = StudentExcusesAudio(
+                        student_excuse_id=student_excuse.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id
+                    )
+                    record.add()
+                    exist_record = StudentExcusesAudio.query.filter_by(student_excuse_id=student_excuse.id,
+                                                                       comment="tel kotarilmadi",
+                                                                       calendar_day=calendar_day.id).count()
+                    if exist_record == 2:
+                        student_excuse.to_date = calendar_day.date + timedelta(days=1)
+                        student_excuse.reason = "tel kotarilmadi"
+                        db.session.commit()
+                else:
+                    student_excuse.day = calendar_day.date + timedelta(days=1)
+                    student_excuse.reason = "tel kotarilmadi"
+                    db.session.commit()
                 return {"error": "call_not_completed", "status": status, "success": False}
 
             # Download and save recording
@@ -178,7 +199,6 @@ def process_student_call(student_id, phone, user="admin", max_call_duration=1200
 
                     # Update student excuse with audio URL
                     student_excuse.audio_url = local_audio_path
-                    student_excuse.reason = "Qo'ng'iroq muvaffaqiyatli"
                     db.session.commit()
 
                     final_info['db_saved'] = True
@@ -192,7 +212,28 @@ def process_student_call(student_id, phone, user="admin", max_call_duration=1200
                     final_info['db_error'] = str(e)
                     logger.error(f"Error saving call record: {e}")
             else:
-                student_excuse.reason = "yozuv topilmadi"
+                exist_record = StudentExcusesAudio.query.filter_by(student_excuse_id=student_excuse.id,
+                                                                   comment="tel kotarilmadi",
+                                                                   calendar_day=calendar_day.id).count()
+                if exist_record <= 1:
+                    record = StudentExcusesAudio(
+                        student_excuse_id=student_excuse.id,
+                        comment="tel kotarilmadi",
+                        calendar_day=calendar_day.id
+                    )
+                    record.add()
+                    exist_record = StudentExcusesAudio.query.filter_by(student_excuse_id=student_excuse.id,
+                                                                       comment="tel kotarilmadi",
+                                                                       calendar_day=calendar_day.id).count()
+                    if exist_record == 2:
+                        student_excuse.to_date = calendar_day.date + timedelta(days=1)
+                        student_excuse.reason = "tel kotarilmadi"
+                        db.session.commit()
+                else:
+                    student_excuse.day = calendar_day.date + timedelta(days=1)
+                    student_excuse.reason = "tel kotarilmadi"
+                    db.session.commit()
+                student_excuse.reason = "tel kotarilmadi"
                 db.session.commit()
 
             final_info['success'] = True
