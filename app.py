@@ -38,6 +38,9 @@ classroom_server = os.getenv("CLASSROOM_SERVER_URL")
 
 school_server = os.getenv("SCHOOL_SERVER_URL")
 
+from flask import send_from_directory
+import os
+
 
 def create_app(config_name='backend.models.config'):
     """Application factory pattern for better testing and configuration"""
@@ -51,12 +54,21 @@ def create_app(config_name='backend.models.config'):
     # Configuration
     app.config.from_object(config_name)
 
+    # Define media folder path
+    MEDIA_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'media')
+    app.config['MEDIA_FOLDER'] = MEDIA_FOLDER
+
     # CORS - more specific configuration
     CORS(app, resources={
         r"/api/*": {
             "origins": os.getenv('ALLOWED_ORIGINS', '*').split(','),
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
+        },
+        r"/media/*": {  # Add CORS for media files
+            "origins": os.getenv('ALLOWED_ORIGINS', '*').split(','),
+            "methods": ["GET"],
+            "allow_headers": ["Content-Type"]
         }
     })
 
@@ -74,6 +86,12 @@ def create_app(config_name='backend.models.config'):
         static_url_path='/flask_static'
     )
 
+    # Route to serve media files
+    @app.route('/media/<path:filename>')
+    def serve_media(filename):
+        """Serve media files (audio recordings, etc.)"""
+        return send_from_directory(app.config['MEDIA_FOLDER'], filename)
+
     # Register CLI commands
     register_commands(app)
 
@@ -86,6 +104,7 @@ def create_app(config_name='backend.models.config'):
     # Register middleware
     register_middleware(app)
     init_celery(app)
+
     return app
 
 

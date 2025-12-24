@@ -49,7 +49,7 @@ def student_debts_progress(location_id, date):
 
         return jsonify({"students": [], "task_statistics": None, "task_daily_statistics": None, "message": "No data"})
     return jsonify({
-        "students": iterate_models(students),
+        "students": iterate_models(students) if students else [],
         "task_statistics": task_statistics.convert_json() if task_statistics else None,
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
         "table": table
@@ -74,6 +74,7 @@ def student_debts_completed(location_id, date):
             TaskStudents.calendar_day == calendar_day.id, Students.debtor != 4,
             TaskStudents.task_id == task.id).order_by(
             desc(Students.id)).all()
+        records = db.session.query(StudentExcuses).join(StudentExcuses.student)
     elif date > calendar_day.date:
         table = True
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
@@ -308,7 +309,6 @@ def add_blacklist2(user_id):
             "success": True,
             "msg": "Student qora ro'yxatga qo'shildi"
         })
-
     else:
         black_student = BlackStudents.query.filter(BlackStudents.student_id == student.id).first()
         calendar_year, calendar_month = black_student.calendar_year, black_student.calendar_month

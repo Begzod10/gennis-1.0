@@ -10,10 +10,6 @@ from backend.tasks.utils import filter_new_leads, update_all_ratings
 from backend.vats.vats_process import VatsProcess, wait_until_call_finished
 from backend.celery.lead_calls import process_call_and_save_record
 from flask import Blueprint
-from pprint import pprint
-import aiohttp
-from datetime import timedelta
-import os
 
 task_leads_bp = Blueprint('task_leads', __name__)
 
@@ -82,36 +78,83 @@ def task_leads(location_id, date):
          "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None}), 200
 
 
+from sqlalchemy import func
+
+
 @task_leads_bp.route(f'/completed_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def completed_leads(location_id, date):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    date = datetime.strptime(date, "%Y-%m-%d")
-    task_type = Tasks.query.filter(Tasks.name == 'leads').first()
-    table = True
-    if date == calendar_day.date:
+    date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+    current_date = calendar_day.date.date() if hasattr(calendar_day.date, 'date') else calendar_day.date
+
+    is_current = date_obj == current_date
+    is_future = date_obj > current_date
+
+    # Current day logic
+    if is_current:
         _, task_statistics, leads = filter_new_leads(location_id)
         daily_statistics = update_all_ratings(location_id)
 
-        table = False
-    elif date > calendar_day.date:
-        leads = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False, Lead.location_id == location_id,
-                                                               LeadInfos.day == date).all()
+        # Lead infos added today - use func.date for comparison
+        lead_infos = db.session.query(LeadInfos).join(LeadInfos.lead).filter(
+            func.date(LeadInfos.added_date) == date_obj,
+            Lead.location_id == location_id
+        ).all()
+
+        return jsonify({
+            "leads": iterate_models(leads),
+            "task_statistics": task_statistics.convert_json() if task_statistics else None,
+            "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None,
+            "lead_infos": iterate_models(lead_infos),
+            "table": False
+        }), 200
+
+    # Future or Past date logic
+    leads = db.session.query(Lead).join(Lead.infos).filter(
+        Lead.deleted == False,
+        Lead.location_id == location_id,
+        func.date(LeadInfos.day) == date_obj
+    ).all()
+
+    lead_infos = db.session.query(LeadInfos).join(LeadInfos.lead).filter(
+        func.date(LeadInfos.day) == date_obj,
+        Lead.location_id == location_id
+    ).all()
+
+    # Statistics only for past dates
+    if is_future:
         task_statistics = None
         daily_statistics = None
     else:
-        leads = db.session.query(Lead).join(Lead.infos).filter(Lead.deleted == False, Lead.location_id == location_id,
-                                                               LeadInfos.added_date == date).all()
-        task_statistics = TasksStatistics.query.filter(TasksStatistics.task_id == task_type.id,
-                                                       TasksStatistics.calendar_day == calendar_day.id,
-                                                       TasksStatistics.location_id == location_id).first()
+        task_type = Tasks.query.filter(Tasks.name == 'leads').first()
+
+        task_statistics = TasksStatistics.query.filter(
+            TasksStatistics.task_id == task_type.id,
+            TasksStatistics.calendar_day == calendar_day.id,
+            TasksStatistics.location_id == location_id
+        ).first()
+
         daily_statistics = TaskDailyStatistics.query.filter(
             TaskDailyStatistics.location_id == location_id,
-            TaskDailyStatistics.calendar_day == calendar_day.id).first()
-    return jsonify(
-        {"leads": iterate_models(leads), "task_statistics": task_statistics.convert_json() if task_statistics else None,
-         "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None,
-         "table": table}), 200
+            TaskDailyStatistics.calendar_day == calendar_day.id
+        ).first()
+
+    return jsonify({
+        # "leads": iterate_models(leads),
+        "task_statistics": task_statistics.convert_json() if task_statistics else None,
+        "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None,
+        "lead_infos": iterate_models(lead_infos),
+        "table": True
+    }), 200
+
+
+@task_leads_bp.route(f'/leads_records/<int:lead_id>/', methods=["POST", "GET"])
+@jwt_required()
+def leads_records(lead_id):
+    lead = Lead.query.filter(Lead.id == lead_id).first()
+    lead_infos = LeadInfos.query.filter(LeadInfos.lead_id == lead_id).order_by(LeadInfos.id.desc()).all()
+    return jsonify({"lead": lead.convert_json(), "lead_infos": iterate_models(lead_infos) if lead_infos else []}), 200
 
 
 @task_leads_bp.route(f'/task_leads_update/<int:pk>', methods=["POST", "GET"])

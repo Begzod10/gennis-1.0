@@ -8,7 +8,7 @@ from datetime import timedelta
 load_dotenv()
 SECRET_KEY = os.urandom(32)
 # Grabs the folder where the script runs.
-basedir = os.path.abspath(os.path.dirname(__file__))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 DEBUG = True
 
@@ -39,7 +39,7 @@ SEND_FILE_MAX_AGE_DEFAULT = 0
 #               FILE UPLOAD FOLDERS
 # ===================================================
 
-UPLOAD_BASE = os.path.join(basedir, "uploads")
+UPLOAD_BASE = os.path.join(BASE_DIR, "uploads")
 
 COMMENTS_FOLDER = os.path.join(UPLOAD_BASE, "comments")
 ATTACHMENTS_FOLDER = os.path.join(UPLOAD_BASE, "attachments")

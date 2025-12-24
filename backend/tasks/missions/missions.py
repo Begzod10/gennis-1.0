@@ -12,6 +12,60 @@ missions_bp = Blueprint("missions", __name__)
 up_bp = Blueprint("up_bp", __name__)
 
 
+# @missions_bp.route("/", methods=["GET"])
+# def list_missions():
+#     q = Mission.query.options(
+#         joinedload(Mission.creator),
+#         joinedload(Mission.executor),
+#         joinedload(Mission.reviewer),
+#         joinedload(Mission.redirected_by),
+#         joinedload(Mission.tags),
+#         joinedload(Mission.comments).joinedload(MissionComment.user),
+#         joinedload(Mission.subtasks),
+#         joinedload(Mission.proofs),
+#         joinedload(Mission.attachments)
+#     )
+#
+#     status = request.args.get("status")
+#     category = request.args.get("category")
+#     creator = request.args.get("creator")
+#     executor = request.args.get("executor")
+#     reviewer = request.args.get("reviewer")
+#     d_after = request.args.get("deadline_after")
+#     d_before = request.args.get("deadline_before")
+#
+#     if status:
+#         q = q.filter(Mission.status == status)
+#
+#     if category:
+#         q = q.filter(Mission.category == category)
+#
+#     if creator:
+#         q = q.filter(Mission.creator_id == int(creator))
+#
+#     if executor:
+#         executor_id = int(executor)
+#         q = q.filter(
+#             or_(
+#                 Mission.executor_id == executor_id,
+#                 and_(
+#                     Mission.is_redirected == True,
+#                     Mission.redirected_by_id == executor_id
+#                 )
+#             )
+#         )
+#
+#     if reviewer:
+#         q = q.filter(Mission.reviewer_id == int(reviewer))
+#
+#     if d_after:
+#         q = q.filter(Mission.deadline_datetime >= datetime.fromisoformat(d_after))
+#
+#     if d_before:
+#         q = q.filter(Mission.deadline_datetime <= datetime.fromisoformat(d_before))
+#
+#     items = q.order_by(Mission.created_at.desc()).all()
+#     return jsonify(MissionDetailSchema(many=True).dump(items)), 200
 @missions_bp.route("/", methods=["GET"])
 def list_missions():
     q = Mission.query.options(
@@ -40,9 +94,6 @@ def list_missions():
     if category:
         q = q.filter(Mission.category == category)
 
-    if creator:
-        q = q.filter(Mission.creator_id == int(creator))
-
     if executor:
         executor_id = int(executor)
         q = q.filter(
@@ -65,7 +116,38 @@ def list_missions():
         q = q.filter(Mission.deadline_datetime <= datetime.fromisoformat(d_before))
 
     items = q.order_by(Mission.created_at.desc()).all()
-    return jsonify(MissionDetailSchema(many=True).dump(items)), 200
+    schema = MissionDetailSchema()
+
+    # ⛔ executor/reviewer bo‘lsa — OLDINGIDEK
+    if executor or reviewer or not creator:
+        data = schema.dump(items, many=True)
+        for d in data:
+            d["is_grouped"] = False
+        return jsonify(data), 200
+
+    # ✅ CREATOR UCHUN GROUPING
+    grouped = {}
+
+    for m in items:
+        key = (
+            m.title,
+            m.description,
+            m.category,
+            m.deadline_datetime,
+            m.creator_id
+        )
+
+        dumped = schema.dump(m)
+
+        if key not in grouped:
+            base = dumped.copy()
+            base["is_grouped"] = True
+            base["children"] = []
+            grouped[key] = base
+
+        grouped[key]["children"].append(dumped)
+
+    return jsonify(list(grouped.values())), 200
 
 
 @missions_bp.route("/", methods=["POST"])

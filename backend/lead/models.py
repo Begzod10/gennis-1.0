@@ -12,14 +12,17 @@ class LeadInfos(db.Model):
     day = Column(DateTime)
     added_date = Column(DateTime)
     audio_url = Column(String)
+    records = relationship("LeadInfosRecord", backref="lead_infos", order_by="LeadInfosRecord.id")
 
     def convert_json(self, entire=False):
         return {
             "id": self.id,
+            "lead_id": self.lead_id,
             "comment": self.comment,
             "added_date": self.added_date.strftime("%Y-%m-%d"),
             "date": self.day.strftime("%Y-%m-%d") if self.day else None,
-            "audio_url": self.audio_url
+            "audio_url": self.audio_url,
+            "audios_list": [record.convert_json() for record in self.records]
         }
 
     def add(self):
@@ -52,9 +55,12 @@ class LeadInfosRecord(db.Model):
             "client_number": self.client_number,
             "diversion": self.diversion,
             "duration": self.duration,
-            "start_time": self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            "end_time": self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
-            "wait_time": self.wait_time
+            "start_time": self.start_time.strftime("%Y-%m-%d %H:%M:%S") if self.start_time else None,
+            "end_time": self.end_time.strftime("%Y-%m-%d %H:%M:%S") if self.end_time else None,
+            "wait_time": self.wait_time,
+            "comment": self.comment,
+            "name": self.lead_infos.lead.name,
+            "phone": self.lead_infos.lead.phone
         }
 
 
