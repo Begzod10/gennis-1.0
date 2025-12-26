@@ -74,15 +74,17 @@ def student_debts_completed(location_id, date):
             TaskStudents.calendar_day == calendar_day.id, Students.debtor != 4,
             TaskStudents.task_id == task.id).order_by(
             desc(Students.id)).all()
-        records = db.session.query(StudentExcuses).join(StudentExcuses.student)
+        records = db.session.query(StudentExcuses).join(StudentExcuses.student).filter(
+            StudentExcuses.student_id.in_([student.id for student in students]),
+        ).all()
     elif date > calendar_day.date:
         table = True
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
         # students = db.session.query(Students).join(Students.students_tasks).filter(
         #     TaskStudents.location_id == location_id, TaskStudents.status == True).order_by(desc(Students.id)).all()
 
-        students = db.session.query(Students).join(Students.excuses).filter(
-            StudentExcuses.to_date == date).distinct().order_by(Students.id).all()
+        students = db.session.query(Students).join(Students.user).join(Students.excuses).filter(
+            StudentExcuses.to_date == date, Users.location_id == location_id).distinct().order_by(Students.id).all()
 
         # task_statistics = TasksStatistics.query.filter(TasksStatistics.location_id == location_id,
         #                                                TasksStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
@@ -90,17 +92,23 @@ def student_debts_completed(location_id, date):
         #                                                          TaskDailyStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
         task_statistics = None
         task_daily_statistics = None
+        records = db.session.query(StudentExcuses).join(StudentExcuses.student).filter(
+            StudentExcuses.student_id.in_([student.id for student in students]),
+        ).all()
     elif date < calendar_day.date:
         table = True
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
-        students = db.session.query(Students).join(Students.excuses).filter(
-            StudentExcuses.added_date == date).distinct().order_by(Students.id).all()
+        students = db.session.query(Students).join(Students.user).join(Students.excuses).filter(
+            StudentExcuses.added_date == date, Users.location_id == location_id).distinct().order_by(Students.id).all()
 
         task_statistics = TasksStatistics.query.filter(TasksStatistics.location_id == location_id,
                                                        TasksStatistics.calendar_day == calendar_day.id,
                                                        TasksStatistics.task_id == task.id).first() if calendar_day else None
         task_daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.location_id == location_id,
                                                                  TaskDailyStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
+        records = db.session.query(StudentExcuses).join(StudentExcuses.student).filter(
+            StudentExcuses.student_id.in_([student.id for student in students]),
+        ).all()
 
     else:
         return jsonify({"students": [], "task_statistics": None, "task_daily_statistics": None, "message": "No data"})
