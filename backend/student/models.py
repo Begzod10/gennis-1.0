@@ -23,6 +23,7 @@ class StudentExcuses(db.Model):
     added_date = Column(DateTime)
     old_id = Column(Integer)
     audio_url = Column(String)
+    records = relationship("StudentExcusesAudio", backref="student_excuse", order_by="StudentExcusesAudio.id")
 
     def add(self):
         db.session.add(self)
@@ -35,7 +36,9 @@ class StudentExcuses(db.Model):
             'comment': self.reason,
             'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
             'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
-            'old_id': self.old_id
+            'old_id': self.old_id,
+            'audio_url': self.audio_url,
+            "records": [record.convert_json() for record in self.records]
         }
         return info
 

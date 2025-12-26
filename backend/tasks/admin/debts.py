@@ -117,7 +117,8 @@ def student_debts_completed(location_id, date):
         "students": iterate_models(students),
         "task_statistics": task_statistics.convert_json() if task_statistics else None,
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
-        "table": table
+        "table": table,
+        "records": iterate_models(records)
     })
 
 
