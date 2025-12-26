@@ -63,7 +63,7 @@ def student_debts_progress(location_id, date):
 def student_debts_completed(location_id, date):
     date = datetime.datetime.strptime(date, "%Y-%m-%d")
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    table = False
+
     task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
     if date == calendar_day.date:
         _, task_statistics = update_debt_progress(location_id)
@@ -76,9 +76,10 @@ def student_debts_completed(location_id, date):
             desc(Students.id)).all()
         records = db.session.query(StudentExcuses).join(StudentExcuses.student).filter(
             StudentExcuses.student_id.in_([student.id for student in students]),
+            StudentExcuses.added_date == date
         ).all()
     elif date > calendar_day.date:
-        table = True
+
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
         # students = db.session.query(Students).join(Students.students_tasks).filter(
         #     TaskStudents.location_id == location_id, TaskStudents.status == True).order_by(desc(Students.id)).all()
@@ -94,9 +95,10 @@ def student_debts_completed(location_id, date):
         task_daily_statistics = None
         records = db.session.query(StudentExcuses).join(StudentExcuses.student).filter(
             StudentExcuses.student_id.in_([student.id for student in students]),
+            StudentExcuses.to_date == date
         ).all()
     elif date < calendar_day.date:
-        table = True
+
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
         students = db.session.query(Students).join(Students.user).join(Students.excuses).filter(
             StudentExcuses.added_date == date, Users.location_id == location_id).distinct().order_by(Students.id).all()
@@ -108,6 +110,7 @@ def student_debts_completed(location_id, date):
                                                                  TaskDailyStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
         records = db.session.query(StudentExcuses).join(StudentExcuses.student).filter(
             StudentExcuses.student_id.in_([student.id for student in students]),
+            StudentExcuses.added_date == date
         ).all()
 
     else:
@@ -117,7 +120,7 @@ def student_debts_completed(location_id, date):
         "students": iterate_models(students),
         "task_statistics": task_statistics.convert_json() if task_statistics else None,
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
-        "table": table,
+        "table": True,
         "records": iterate_models(records)
     })
 
