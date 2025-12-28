@@ -542,8 +542,8 @@ def make_attendance_classroom():
     ).first()
 
     fine = 0
-    if today_lesson_plan or ball < 5:
-        fine = round(salary_per_day / group.attendance_days)
+    # if today_lesson_plan or ball < 5:
+    #     fine = round(salary_per_day / group.attendance_days)
 
     # Update student ball_time
     ball_time = now + timedelta(minutes=0)

@@ -588,6 +588,15 @@ class PhoneList(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "phone": self.phone,
+            "parent": self.parent,
+            "personal": self.personal,
+            "other": self.other
+        }
+
 
 class Roles(db.Model):
     __tablename__ = "roles"

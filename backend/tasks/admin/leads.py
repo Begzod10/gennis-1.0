@@ -10,7 +10,7 @@ from backend.tasks.utils import filter_new_leads, update_all_ratings
 from backend.vats.vats_process import VatsProcess, wait_until_call_finished
 from backend.celery.lead_calls import process_call_and_save_record
 from flask import Blueprint
-
+from sqlalchemy import func
 task_leads_bp = Blueprint('task_leads', __name__)
 
 
@@ -78,7 +78,7 @@ def task_leads(location_id, date):
          "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None}), 200
 
 
-from sqlalchemy import func
+
 
 
 @task_leads_bp.route(f'/completed_leads/<int:location_id>/<date>', methods=["POST", "GET"])

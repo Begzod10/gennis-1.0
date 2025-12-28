@@ -28,205 +28,240 @@ def process_new_student_call(student_id, phone, user="admin", max_call_duration=
 
     with app.app_context():
         try:
+            # Get calendar and student data
             calendar_year, calendar_month, calendar_day = find_calendar_date()
-
-            # Get student by user_id
             student = Students.query.filter_by(id=student_id).first()
+
             if not student:
                 return {"error": "Student not found", "success": False}
 
-            # Get or create student calling info
-            student_calling_info = StudentCallingInfo.query.filter_by(
-                student_id=student.id
-            ).order_by(StudentCallingInfo.id.desc()).first()
-
-            if not student_calling_info:
-                student_calling_info = StudentCallingInfo(
-                    student_id=student.id,
-                    date=calendar_day.date,
-                    day=calendar_day.date
-                )
-                db.session.add(student_calling_info)
-                db.session.commit()
-
-            # Validate phone
             if not phone:
                 return {"error": "Phone number not found", "success": False}
 
-            # Initialize VATS and event loop
-            vats = VatsProcess()
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # Get or create student calling info
+            student_calling_info = _get_or_create_calling_info(student, calendar_day)
 
-            # Make the call
-            logger.info(f"Calling new student {student.id} (user_id: {student_id}) at {phone}")
-            result = loop.run_until_complete(vats.call_client(user, phone))
+            # Make the call and get results
+            call_result = _make_call_and_wait(user, phone, student_id, max_call_duration)
 
-            # Wait for call to finish
-            final_info = loop.run_until_complete(
-                wait_until_call_finished(vats, result['callid'], timeout=max_call_duration)
-            )
+            # Handle call errors
+            if call_result.get('error'):
+                _handle_call_error(student_calling_info, call_result)
+                return call_result
 
-            loop.close()
-
-            # Handle different error types
-            error_type = final_info.get('error')
-
-            if error_type == 'timeout':
-                student_calling_info.comment = f"qo'ng'iroq juda uzoq davom etdi ({max_call_duration}s+)"
-                db.session.commit()
-                return {"error": "timeout", "callid": final_info.get('callid'), "success": False}
-
-            elif error_type == 'no_response':
-                student_calling_info.comment = "API javob bermadi"
-                db.session.commit()
-                return {"error": "no_response", "callid": final_info.get('callid'), "success": False}
-
-            # Handle call status
-            status = final_info.get('status')
-
-            if status in ['missed', 'cancelled', 'failed', 'busy', 'no-answer']:
-                status_messages = {
-                    'missed': "tel qabul qilmadi",
-                    'cancelled': "qo'ng'iroq bekor qilindi",
-                    'failed': "qo'ng'iroq muvaffaqiyatsiz",
-                    'busy': "telefon band",
-                    'no-answer': "javob bermadi"
-                }
-                student_calling_info.comment = status_messages.get(status, "tel kotarmadi")
-                db.session.commit()
-
-                final_info['success'] = False
-                return final_info
-
-            # Only process recording if call was successful
+            # Handle unsuccessful call statuses
+            status = call_result.get('status')
             if status != 'success':
-                student_calling_info.comment = "qo'ng'iroq tugallanmadi"
-                db.session.commit()
-                exist_record = StudentCallingInfoAudio.query.filter_by(student_calling_info_id=student_calling_info.id,
-                                                                       comment="tel kotarilmadi",
-                                                                       calendar_day=calendar_day.id).count()
-                if exist_record <= 1:
-                    record = StudentCallingInfoAudio(
-                        student_calling_info_id=student_calling_info.id,
-                        comment="tel kotarilmadi",
-                        calendar_day=calendar_day.id
-                    )
-                    record.add()
-                    exist_record = StudentCallingInfoAudio.query.filter_by(
-                        student_calling_info_id=student_calling_info.id,
-                        comment="tel kotarilmadi",
-                        calendar_day=calendar_day.id).count()
-                    if exist_record == 2:
-                        student_calling_info.date = calendar_day.date + timedelta(days=1)
-                        student_calling_info.comment = "tel kotarilmadi"
-                        db.session.commit()
-                else:
-                    student_calling_info.date = calendar_day.date + timedelta(days=1)
-                    student_calling_info.comment = "tel kotarilmadi"
-                    db.session.commit()
-                return {"error": "call_not_completed", "status": status, "success": False}
+                _handle_unsuccessful_call(student_calling_info, status, calendar_day)
+                call_result['success'] = False
+                return call_result
 
-            # Download and save recording
-            local_audio_path = None
-            record_url = final_info.get('record')
-
-            if record_url:
-                try:
-                    save_dir = "media/call_records/new_students"
-                    os.makedirs(save_dir, exist_ok=True)
-
-                    # Re-open event loop for download
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-
-                    download_result = loop.run_until_complete(
-                        download_audio_file(record_url, final_info['uid'], save_dir)
-                    )
-
-                    loop.close()
-
-                    if download_result['success']:
-                        local_audio_path = download_result['filepath']
-                        final_info['local_record_path'] = local_audio_path
-                        final_info['record_saved'] = True
-                    else:
-                        final_info['record_saved'] = False
-                        final_info['error'] = download_result.get('error')
-
-                except Exception as e:
-                    final_info['record_saved'] = False
-                    final_info['error'] = str(e)
-
-            # Save to database
-            if local_audio_path:
-                try:
-                    start_time = datetime.fromisoformat(final_info['start'].replace('Z', ''))
-                    end_time = start_time + timedelta(seconds=final_info.get('duration', 0))
-
-                    # Create audio record
-                    audio_record = StudentCallingInfoAudio(
-                        student_calling_info_id=student_calling_info.id,
-                        audio_url=local_audio_path,
-                        client_number=final_info.get('client'),
-                        diversion=final_info.get('diversion', ''),
-                        duration=str(final_info.get('duration', 0)),
-                        start_time=start_time,
-                        end_time=end_time,
-                        wait_time=str(final_info.get('wait', 0))
-                    )
-                    db.session.add(audio_record)
-
-                    # Update student calling info with audio URL
-                    student_calling_info.audio_url = local_audio_path
-                    student_calling_info.comment = "Qo'ng'iroq muvaffaqiyatli"
-                    db.session.commit()
-
-                    final_info['db_saved'] = True
-                    final_info['audio_record_id'] = audio_record.id
-
-                    logger.info(f"Saved call record for new student {student.id}")
-
-                except Exception as e:
-                    db.session.rollback()
-                    final_info['db_saved'] = False
-                    final_info['db_error'] = str(e)
-                    logger.error(f"Error saving call record: {e}")
-            else:
-                exist_record = StudentCallingInfoAudio.query.filter_by(student_calling_info_id=student_calling_info.id,
-                                                                       comment="tel kotarilmadi",
-                                                                       calendar_day=calendar_day.id).count()
-                if exist_record <= 1:
-                    record = StudentCallingInfoAudio(
-                        student_calling_info_id=student_calling_info.id,
-                        comment="tel kotarilmadi",
-                        calendar_day=calendar_day.id
-                    )
-                    record.add()
-                    exist_record = StudentCallingInfoAudio.query.filter_by(
-                        student_calling_info_id=student_calling_info.id,
-                        comment="tel kotarilmadi",
-                        calendar_day=calendar_day.id).count()
-                    if exist_record == 2:
-                        student_calling_info.date = calendar_day.date + timedelta(days=1)
-                        student_calling_info.comment = "tel kotarilmadi"
-                        db.session.commit()
-                else:
-                    student_calling_info.date = calendar_day.date + timedelta(days=1)
-                    student_calling_info.comment = "tel kotarilmadi"
-                    db.session.commit()
-                student_calling_info.comment = "tel kotarilmadi"
-                db.session.commit()
-
-            final_info['success'] = True
-            final_info['student_id'] = student.id
-            final_info['user_id'] = student_id
-            return final_info
+            # Process successful call and recording
+            return _process_successful_call(
+                student_calling_info,
+                call_result,
+                student,
+                student_id,
+                calendar_day
+            )
 
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error in process_new_student_call: {e}", exc_info=True)
             return {"error": str(e), "success": False}
+
+
+def _get_or_create_calling_info(student, calendar_day):
+    """Get existing or create new StudentCallingInfo record"""
+    student_calling_info = StudentCallingInfo.query.filter_by(
+        student_id=student.id
+    ).order_by(StudentCallingInfo.id.desc()).first()
+
+    if not student_calling_info:
+        student_calling_info = StudentCallingInfo(
+            student_id=student.id,
+            date=calendar_day.date,
+            day=calendar_day.date
+        )
+        db.session.add(student_calling_info)
+        db.session.commit()
+
+    return student_calling_info
+
+
+def _make_call_and_wait(user, phone, student_id, max_call_duration):
+    """Initialize VATS, make call, and wait for completion"""
+    vats = VatsProcess()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        logger.info(f"Calling new student {student_id} at {phone}")
+        result = loop.run_until_complete(vats.call_client(user, phone))
+
+        final_info = loop.run_until_complete(
+            wait_until_call_finished(vats, result['callid'], timeout=max_call_duration)
+        )
+
+        return final_info
+    finally:
+        loop.close()
+
+
+def _handle_call_error(student_calling_info, call_result):
+    """Handle call errors (timeout, no_response, etc.)"""
+    error_type = call_result.get('error')
+
+    error_messages = {
+        'timeout': f"qo'ng'iroq juda uzoq davom etdi",
+        'no_response': "API javob bermadi"
+    }
+
+    comment = error_messages.get(error_type, "qo'ng'iroq xatosi")
+    student_calling_info.comment = comment
+    db.session.commit()
+
+
+def _handle_unsuccessful_call(student_calling_info, status, calendar_day):
+    """Handle unsuccessful call statuses"""
+    status_messages = {
+        'missed': "tel qabul qilmadi",
+        'cancelled': "qo'ng'iroq bekor qilindi",
+        'failed': "qo'ng'iroq muvaffaqiyatsiz",
+        'busy': "telefon band",
+        'no-answer': "javob bermadi"
+    }
+
+    comment = status_messages.get(status, "tel kotarmadi")
+    student_calling_info.comment = comment
+
+    # Track failed call attempts
+    _track_failed_call_attempt(student_calling_info, calendar_day)
+    db.session.commit()
+
+
+def _track_failed_call_attempt(student_calling_info, calendar_day):
+    """Track failed call attempts and reschedule if needed"""
+    failed_calls_count = StudentCallingInfoAudio.query.filter_by(
+        student_calling_info_id=student_calling_info.id,
+        comment="tel kotarilmadi",
+        calendar_day=calendar_day.id
+    ).count()
+
+    if failed_calls_count < 2:
+        audio_record = StudentCallingInfoAudio(
+            student_calling_info_id=student_calling_info.id,
+            comment="tel kotarilmadi",
+            calendar_day=calendar_day.id
+        )
+        db.session.add(audio_record)
+        db.session.flush()
+
+        # Check again after adding
+        if failed_calls_count + 1 >= 2:
+            student_calling_info.date = calendar_day.date + timedelta(days=1)
+    else:
+        student_calling_info.date = calendar_day.date + timedelta(days=1)
+
+
+def _process_successful_call(student_calling_info, call_result, student, student_id, calendar_day):
+    """Process successful call: download recording and save to database"""
+    record_url = call_result.get('record')
+
+    if not record_url:
+        _track_failed_call_attempt(student_calling_info, calendar_day)
+        student_calling_info.comment = "tel kotarilmadi"
+        db.session.commit()
+        call_result['success'] = True
+        call_result['student_id'] = student.id
+        call_result['user_id'] = student_id
+        return call_result
+
+    # Download audio file
+    local_audio_path = _download_call_recording(record_url, call_result)
+
+    if not local_audio_path:
+        _track_failed_call_attempt(student_calling_info, calendar_day)
+        student_calling_info.comment = "tel kotarilmadi"
+        db.session.commit()
+        call_result['success'] = True
+        call_result['student_id'] = student.id
+        call_result['user_id'] = student_id
+        return call_result
+
+    # Save to database
+    _save_call_record_to_db(student_calling_info, call_result, local_audio_path, student)
+
+    call_result['success'] = True
+    call_result['student_id'] = student.id
+    call_result['user_id'] = student_id
+    return call_result
+
+
+def _download_call_recording(record_url, call_result):
+    """Download call recording from URL"""
+    try:
+        save_dir = "media/call_records/new_students"
+        os.makedirs(save_dir, exist_ok=True)
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            download_result = loop.run_until_complete(
+                download_audio_file(record_url, call_result['uid'], save_dir)
+            )
+
+            if download_result['success']:
+                call_result['local_record_path'] = download_result['filepath']
+                call_result['record_saved'] = True
+                return download_result['filepath']
+            else:
+                call_result['record_saved'] = False
+                call_result['error'] = download_result.get('error')
+                return None
+        finally:
+            loop.close()
+
+    except Exception as e:
+        logger.error(f"Error downloading audio file: {e}")
+        call_result['record_saved'] = False
+        call_result['error'] = str(e)
+        return None
+
+
+def _save_call_record_to_db(student_calling_info, call_result, local_audio_path, student):
+    """Save call recording information to database"""
+    try:
+        start_time = datetime.fromisoformat(call_result['start'].replace('Z', ''))
+        end_time = start_time + timedelta(seconds=call_result.get('duration', 0))
+
+        audio_record = StudentCallingInfoAudio(
+            student_calling_info_id=student_calling_info.id,
+            audio_url=local_audio_path,
+            client_number=call_result.get('client'),
+            diversion=call_result.get('diversion', ''),
+            duration=str(call_result.get('duration', 0)),
+            start_time=start_time,
+            end_time=end_time,
+            wait_time=str(call_result.get('wait', 0))
+        )
+        db.session.add(audio_record)
+
+        student_calling_info.audio_url = local_audio_path
+        student_calling_info.comment = "Qo'ng'iroq muvaffaqiyatli"
+        db.session.commit()
+
+        call_result['db_saved'] = True
+        call_result['audio_record_id'] = audio_record.id
+
+        logger.info(f"Saved call record for new student {student.id}")
+
+    except Exception as e:
+        db.session.rollback()
+        call_result['db_saved'] = False
+        call_result['db_error'] = str(e)
+        logger.error(f"Error saving call record: {e}")
 
 
 async def download_audio_file(url, uid, save_dir):

@@ -223,6 +223,8 @@ class StudentCallingInfo(db.Model):
     day = Column(DateTime)
     date = Column(DateTime)
     audio_url = Column(String)
+    records = relationship("StudentCallingInfoAudio", backref="student_calling_info",
+                           order_by="StudentCallingInfoAudio.id")
 
     def add(self):
         db.session.add(self)
@@ -234,7 +236,9 @@ class StudentCallingInfo(db.Model):
             "student_id": self.student_id,
             "comment": self.comment,
             "to_date": self.day.strftime("%Y-%m-%d"),
-            "added_date": self.date.strftime("%Y-%m-%d")
+            "added_date": self.date.strftime("%Y-%m-%d"),
+            "audio_url": self.audio_url,
+            "records": [record.convert_json() for record in self.records]
         }
 
 
@@ -251,6 +255,21 @@ class StudentCallingInfoAudio(db.Model):
     wait_time = Column(String)
     comment = Column(String)
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+
+    def convert_json(self, entire=False):
+        info = {
+            'id': self.id,
+            'student_calling_info_id': self.student_calling_info_id,
+            'audio_url': self.audio_url,
+            'client_number': self.client_number,
+            'diversion': self.diversion,
+            'duration': self.duration,
+            'start_time': self.start_time.strftime("%Y-%m-%d %H:%M:%S") if self.start_time else None,
+            'end_time': self.end_time.strftime("%Y-%m-%d %H:%M:%S") if self.end_time else None,
+            'wait_time': self.wait_time,
+            'comment': self.comment
+        }
+        return info
 
 
 class Contract_Students(db.Model):

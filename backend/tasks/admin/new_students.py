@@ -9,6 +9,7 @@ from backend.tasks.models.models import Tasks, TasksStatistics
 from backend.tasks.utils import update_all_ratings, filter_new_students
 from backend.celery.new_students import process_new_student_call
 from flask import Blueprint
+from sqlalchemy import desc
 
 task_new_students_bp = Blueprint('task_new_students', __name__)
 
@@ -47,12 +48,15 @@ def completed_new_students(location_id, date):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     date = datetime.strptime(date, "%Y-%m-%d")
     task_type = Tasks.query.filter(Tasks.name == 'new_students').first()
-    table = True
+
     if date == calendar_day.date:
         _, task_statistics, students = filter_new_students(location_id)
         task_daily_statistics = update_all_ratings(location_id)
-        table = False
 
+        records = StudentCallingInfo.query.filter(
+            StudentCallingInfo.day == date,
+            StudentCallingInfo.student_id.in_([student.id for student in students])
+        ).order_by(StudentCallingInfo.id).all()
     elif date > calendar_day.date:
 
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
@@ -63,6 +67,11 @@ def completed_new_students(location_id, date):
                                                        TasksStatistics.task_id == task_type.id).first() if calendar_day else None
         task_daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.location_id == location_id,
                                                                  TaskDailyStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
+
+        records = StudentCallingInfo.query.filter(
+            StudentCallingInfo.date == date,
+            StudentCallingInfo.student_id.in_([student.id for student in students])
+        ).order_by(StudentCallingInfo.id).all()
     else:
 
         calendar_day = CalendarDay.query.filter(CalendarDay.date == date).first()
@@ -73,11 +82,17 @@ def completed_new_students(location_id, date):
                                                        TasksStatistics.task_id == task_type.id).first() if calendar_day else None
         task_daily_statistics = TaskDailyStatistics.query.filter(TaskDailyStatistics.location_id == location_id,
                                                                  TaskDailyStatistics.calendar_day == calendar_day.id).first() if calendar_day else None
+
+        records = StudentCallingInfo.query.filter(
+            StudentCallingInfo.day == date,
+            StudentCallingInfo.student_id.in_([student.id for student in students])
+        ).order_by(StudentCallingInfo.id).all()
     return jsonify({
         "students": iterate_models(students),
         "task_statistics": task_statistics.convert_json() if task_statistics else None,
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
-        "table": table
+        "table": True,
+        "records": iterate_models(records)
     })
 
 
@@ -205,3 +220,14 @@ def call_to_new_students():
         })
     else:
         return jsonify({'msg': "Eski sana kiritilgan"})
+
+
+@task_new_students_bp.route(f'/new_students_records/<int:student_id>', methods=["GET", "POST"])
+def debts_records(student_id):
+    student = Students.query.filter(Students.id == student_id).first()
+    return jsonify({
+        "comments": iterate_models(
+            StudentCallingInfo.query.filter(StudentCallingInfo.student_id == student.id).order_by(
+                desc(StudentCallingInfo.id)).all()),
+        "info": Students.query.filter(Students.id == student_id).first().convert_json()
+    })
