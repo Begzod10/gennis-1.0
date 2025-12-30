@@ -67,6 +67,7 @@ def change_student_info(user_id):
                 Users.query.filter(Users.id == user_id).update({
                     "username": json['username'],
                     "name": json['name'],
+                    "crm_username": json['crm_username'],
                     "surname": json['surname'],
                     "father_name": json['fatherName'],
                     "born_day": json['birthDay'],

@@ -648,6 +648,7 @@ def my_profile(user_id):
             "birth": True,
             "phone": True,
             "birthDate": True,
+            "crm_username": True
         }
         changes = info
     phone_list = {}
@@ -1154,6 +1155,7 @@ def profile(user_id):
         user = {
             "isSalary": salary_status,
             "id": user_get.id,
+            "crm_username": user_get.username,
             "role": role,
             "photo_profile": user_get.photo_profile,
             "observer": user_get.observer,
@@ -1163,6 +1165,7 @@ def profile(user_id):
                 "username": True,
                 "name": True,
                 "surname": True,
+                "crm_username": True,
                 "fathersName": True,
                 "age": True,
                 "phone": True,

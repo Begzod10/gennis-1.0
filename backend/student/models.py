@@ -30,16 +30,36 @@ class StudentExcuses(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
-        info = {
-            'id': self.id,
-            'student_id': self.student_id,
-            'comment': self.reason,
-            'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
-            'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
-            'old_id': self.old_id,
-            'audio_url': self.audio_url,
-            "records": [record.convert_json() for record in self.records]
-        }
+        if entire:
+            info = {
+                'id': self.id,
+                'student_id': self.student_id,
+                "user_id": self.student.user_id,
+                "name": self.student.user.name,
+                "surname": self.student.user.surname,
+                'comment': self.reason,
+                'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
+                'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
+                'old_id': self.old_id,
+                'audio_url': self.audio_url,
+                "records": [record.convert_json() for record in self.records],
+                "duration": self.records[len(self.records) - 1].duration
+            }
+        else:
+            info = {
+                'id': self.id,
+                'student_id': self.student_id,
+                "user_id": self.student.user_id,
+                "name": self.student.user.name,
+                "surname": self.student.user.surname,
+                'comment': self.reason,
+                'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
+                'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
+                'old_id': self.old_id,
+                'audio_url': self.audio_url,
+                "duration": self.records[len(self.records) - 1].duration
+
+            }
         return info
 
 
@@ -231,14 +251,31 @@ class StudentCallingInfo(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        if entire:
+            return {
+                "id": self.id,
+                "student_id": self.student_id,
+                "user_id": self.student.user_id,
+                "comment": self.comment,
+                "name": self.student.user.name,
+                "surname": self.student.user.surname,
+                "to_date": self.day.strftime("%Y-%m-%d"),
+                "added_date": self.date.strftime("%Y-%m-%d"),
+                "audio_url": self.audio_url,
+                "duration": self.records[len(self.records) - 1].duration,
+                "records": [record.convert_json() for record in self.records]
+            }
         return {
             "id": self.id,
             "student_id": self.student_id,
+            "user_id": self.student.user_id,
             "comment": self.comment,
+            "name": self.student.user.name,
+            "surname": self.student.user.surname,
             "to_date": self.day.strftime("%Y-%m-%d"),
             "added_date": self.date.strftime("%Y-%m-%d"),
             "audio_url": self.audio_url,
-            "records": [record.convert_json() for record in self.records]
+            "duration": self.records[len(self.records) - 1].duration
         }
 
 

@@ -1,7 +1,7 @@
 from datetime import datetime
-
+from sqlalchemy import desc
 from flask import jsonify, request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from backend.functions.utils import find_calendar_date, get_json_field, iterate_models
 from backend.lead.models import Lead, LeadInfos, LeadInfosRecord
@@ -11,20 +11,31 @@ from backend.vats.vats_process import VatsProcess, wait_until_call_finished
 from backend.celery.lead_calls import process_call_and_save_record
 from flask import Blueprint
 from sqlalchemy import func
+from backend.models.models import Users
+
 task_leads_bp = Blueprint('task_leads', __name__)
 
 
 @task_leads_bp.route(f"/call-to-lead", methods=["POST"])
+@jwt_required()
 async def test_call():
     data = request.get_json()
     lead_id = data.get("lead_id")
 
     if not lead_id:
         return jsonify({"error": "Missing 'lead_id'"}), 400
-
+    identity = get_jwt_identity()
+    user = Users.query.filter(Users.user_id == identity).first()
+    if not user.crm_username:
+        return jsonify({"error": "Missing 'crm_username'"}), 400
+    else:
+        if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
+                                     'gennis_nurafshon']:
+            return jsonify({"error": "CRM username is invalid"}), 400
     # Queue the task
-    task = process_call_and_save_record.delay(lead_id)
 
+    task = process_call_and_save_record.delay(lead_id, user.crm_username)
+    print(user.crm_username)
     return jsonify({
         "message": "Call processing started",
         "task_id": task.id,
@@ -78,9 +89,6 @@ def task_leads(location_id, date):
          "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None}), 200
 
 
-
-
-
 @task_leads_bp.route(f'/completed_leads/<int:location_id>/<date>', methods=["POST", "GET"])
 @jwt_required()
 def completed_leads(location_id, date):
@@ -101,7 +109,6 @@ def completed_leads(location_id, date):
             func.date(LeadInfos.added_date) == date_obj,
             Lead.location_id == location_id
         ).all()
-
         return jsonify({
             "leads": iterate_models(leads),
             "task_statistics": task_statistics.convert_json() if task_statistics else None,
@@ -139,7 +146,6 @@ def completed_leads(location_id, date):
             TaskDailyStatistics.location_id == location_id,
             TaskDailyStatistics.calendar_day == calendar_day.id
         ).first()
-
     return jsonify({
         # "leads": iterate_models(leads),
         "task_statistics": task_statistics.convert_json() if task_statistics else None,
@@ -147,14 +153,6 @@ def completed_leads(location_id, date):
         "lead_infos": iterate_models(lead_infos),
         "table": True
     }), 200
-
-
-@task_leads_bp.route(f'/leads_records/<int:lead_id>/', methods=["POST", "GET"])
-@jwt_required()
-def leads_records(lead_id):
-    lead = Lead.query.filter(Lead.id == lead_id).first()
-    lead_infos = LeadInfos.query.filter(LeadInfos.lead_id == lead_id).order_by(LeadInfos.id.desc()).all()
-    return jsonify({"lead": lead.convert_json(), "lead_infos": iterate_models(lead_infos) if lead_infos else []}), 200
 
 
 @task_leads_bp.route(f'/task_leads_update/<int:pk>', methods=["POST", "GET"])
@@ -202,3 +200,14 @@ def task_leads_delete(pk):
         "task_daily_statistics": daily_statistics.convert_json(),
         "msg": "O'quvchi o'chirildi", "success": True,
     }), 200
+
+
+@task_leads_bp.route(f'/lead_records/<int:lead_id>/', methods=["GET", "POST"])
+def lead_records(lead_id):
+    lead = Lead.query.filter(Lead.id == lead_id).first()
+    return jsonify({
+        "comments": iterate_models(
+            LeadInfos.query.filter(LeadInfos.lead_id == lead.id).order_by(
+                desc(LeadInfos.id)).all(), entire=True),
+        "info": Lead.query.filter(Lead.id == lead_id).first().convert_json()
+    })

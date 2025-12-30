@@ -471,6 +471,7 @@ class Users(db.Model):
     address = Column(String)
     telegram_id = Column(String)
     level = Column(Integer, default=4)
+    crm_username = Column(String)
 
     def convert_json(self, entire=False):
         if not entire:

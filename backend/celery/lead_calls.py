@@ -28,7 +28,7 @@ STATUS_MESSAGES = {
 
 def get_or_create_lead_info(lead_id: int, calendar_day) -> LeadInfos:
     """Get existing or create new LeadInfo record"""
-    lead_info = LeadInfos.query.filter_by(lead_id=lead_id).order_by(
+    lead_info = LeadInfos.query.filter_by(lead_id=lead_id, added_date=calendar_day.date).order_by(
         LeadInfos.id.desc()
     ).first()
 
@@ -36,7 +36,6 @@ def get_or_create_lead_info(lead_id: int, calendar_day) -> LeadInfos:
         lead_info = LeadInfos(lead_id=lead_id, added_date=calendar_day.date)
         db.session.add(lead_info)
         db.session.commit()
-
     return lead_info
 
 
@@ -49,16 +48,19 @@ def count_failed_attempts(lead_info_id: int, calendar_day_id: int) -> int:
     ).count()
 
 
-def handle_failed_call_attempt(lead_info: LeadInfos, calendar_day) -> None:
+def handle_failed_call_attempt(lead_info: LeadInfos, calendar_day) -> int:
     """
     Handle a failed call attempt by:
     1. Creating a record
     2. Potentially rescheduling for next day if max attempts reached
+
+    Returns:
+        int: Total number of failed attempts (including this one)
     """
     failed_count = count_failed_attempts(lead_info.id, calendar_day.id)
 
+    # Always add the failed attempt record if under limit
     if failed_count < MAX_RETRY_ATTEMPTS:
-        # Add failed attempt record
         record = LeadInfosRecord(
             lead_id=lead_info.id,
             comment=CALL_NOT_ANSWERED_COMMENT,
@@ -66,14 +68,13 @@ def handle_failed_call_attempt(lead_info: LeadInfos, calendar_day) -> None:
         )
         db.session.add(record)
         db.session.commit()
+        failed_count += 1
 
-        # Check if we just hit the max attempts
-        new_count = count_failed_attempts(lead_info.id, calendar_day.id)
-        if new_count >= MAX_RETRY_ATTEMPTS:
-            reschedule_lead_for_next_day(lead_info, calendar_day)
-    else:
-        # Already maxed out, just reschedule
+    # Reschedule if we've reached the limit
+    if failed_count >= MAX_RETRY_ATTEMPTS:
         reschedule_lead_for_next_day(lead_info, calendar_day)
+
+    return failed_count
 
 
 def reschedule_lead_for_next_day(lead_info: LeadInfos, calendar_day) -> None:
@@ -192,7 +193,6 @@ def process_call_and_save_record(lead_id: int, user: str = "admin", max_call_dur
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     from app import app
-
     with app.app_context():
         try:
             # Get current calendar date
@@ -229,11 +229,12 @@ def process_call_and_save_record(lead_id: int, user: str = "admin", max_call_dur
             if final_info.get('error') == 'no_response':
                 lead_info.comment = "API javob bermadi"
                 db.session.commit()
-                handle_failed_call_attempt(lead_info, calendar_day)
+                attempts = handle_failed_call_attempt(lead_info, calendar_day)
                 return {
                     "error": "no_response",
                     "callid": final_info.get('callid'),
-                    "success": False
+                    "success": False,
+                    # "attempts": attempts
                 }
 
             # Check call status
@@ -248,11 +249,12 @@ def process_call_and_save_record(lead_id: int, user: str = "admin", max_call_dur
 
             # Handle any other non-success status
             if status != 'success':
-                handle_failed_call_attempt(lead_info, calendar_day)
+                attempts = handle_failed_call_attempt(lead_info, calendar_day)
                 return {
                     "error": "call_not_completed",
                     "status": status,
-                    "success": False
+                    "success": False,
+                    "attempts": attempts
                 }
             # Call was successful - process recording
             audio_path = save_call_recording(final_info)

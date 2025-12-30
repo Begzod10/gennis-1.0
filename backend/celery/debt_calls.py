@@ -1,7 +1,7 @@
 # backend/celery/student_calls.py
 
 from backend.celery.celery_app import celery
-from backend.models.models import Students, StudentExcuses, StudentExcusesAudio, db
+from backend.models.models import Students, StudentExcuses, StudentExcusesAudio, db, TaskStudents, TasksStatistics
 from backend.vats.vats_process import VatsProcess, wait_until_call_finished
 from backend.functions.utils import find_calendar_date
 import asyncio
@@ -34,7 +34,7 @@ async def download_audio_file(url, uid, save_dir):
 
 
 @celery.task(name='backend.celery.debt_calls.process_student_call')
-def process_student_call(student_id, phone, user="admin", max_call_duration=1200):
+def process_student_call(student_id, phone, task_statistics_id, user="admin", max_call_duration=1200):
     """
     Celery task to handle student debt call processing and recording
 
@@ -64,7 +64,8 @@ def process_student_call(student_id, phone, user="admin", max_call_duration=1200
 
             # Get or create student excuse
             student_excuse = StudentExcuses.query.filter_by(
-                student_id=student_id
+                student_id=student_id,
+                added_date=calendar_day.date
             ).order_by(StudentExcuses.id.desc()).first()
 
             if not student_excuse:
@@ -103,14 +104,14 @@ def process_student_call(student_id, phone, user="admin", max_call_duration=1200
 
             # Call not successful
             if status != 'success':
-                return handle_unanswered_call(student_excuse, calendar_day, status)
+                return handle_unanswered_call(student_excuse, calendar_day, status, task_statistics_id)
 
             # Process successful call recording
             return handle_successful_call(
                 student_excuse,
                 final_info,
                 calendar_day,
-                student_id
+                student_id,
             )
 
         except Exception as e:
@@ -153,7 +154,7 @@ def handle_failed_call(student_excuse, final_info, status, calendar_day):
     return final_info
 
 
-def handle_unanswered_call(student_excuse, calendar_day, status):
+def handle_unanswered_call(student_excuse, calendar_day, status, task_statistics_id=None):
     """Handle unanswered calls and track attempts"""
     # Count existing unanswered attempts
     attempt_count = StudentExcusesAudio.query.filter_by(
@@ -178,7 +179,20 @@ def handle_unanswered_call(student_excuse, calendar_day, status):
         student_excuse.to_date = calendar_day.date + timedelta(days=1)
     else:
         student_excuse.day = calendar_day.date + timedelta(days=1)
-
+    task_statistics = TasksStatistics.query.filter(
+        TasksStatistics.id == task_statistics_id,
+    ).first()
+    task_students = TaskStudents.query.filter(
+        TaskStudents.task_id == task_statistics.task_id,
+        TaskStudents.tasksstatistics_id == task_statistics.id,
+        TaskStudents.student_id == student_excuse.student_id
+    ).order_by(TaskStudents.id).all()
+    # Keep first, delete others (remove duplicates)
+    task_student = task_students[0]
+    if len(task_students) > 1:
+        for duplicate in task_students[1:]:
+            db.session.delete(duplicate)
+    task_student.status = True
     student_excuse.reason = "tel kotarilmadi"
     db.session.commit()
 

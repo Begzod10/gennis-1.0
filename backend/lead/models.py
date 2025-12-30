@@ -15,14 +15,29 @@ class LeadInfos(db.Model):
     records = relationship("LeadInfosRecord", backref="lead_infos", order_by="LeadInfosRecord.id")
 
     def convert_json(self, entire=False):
+        if entire:
+            return {
+                "id": self.id,
+                "lead_id": self.lead_id,
+                "comment": self.comment,
+                "name": self.lead.name,
+                "phone": self.lead.phone,
+                "added_date": self.added_date.strftime("%Y-%m-%d"),
+                "date": self.day.strftime("%Y-%m-%d") if self.day else None,
+                "audio_url": self.audio_url,
+                "audios_list": [record.convert_json() for record in self.records],
+                "duration": self.records[len(self.records) - 1].duration
+            }
         return {
             "id": self.id,
             "lead_id": self.lead_id,
             "comment": self.comment,
+            "name": self.lead.name,
+            "phone": self.lead.phone,
             "added_date": self.added_date.strftime("%Y-%m-%d"),
             "date": self.day.strftime("%Y-%m-%d") if self.day else None,
             "audio_url": self.audio_url,
-            "audios_list": [record.convert_json() for record in self.records]
+            "duration": self.records[len(self.records) - 1].duration if self.records else None
         }
 
     def add(self):

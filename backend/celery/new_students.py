@@ -52,8 +52,9 @@ def process_new_student_call(student_id, phone, user="admin", max_call_duration=
             # Handle unsuccessful call statuses
             status = call_result.get('status')
             if status != 'success':
-                _handle_unsuccessful_call(student_calling_info, status, calendar_day)
+                attempts = _handle_unsuccessful_call(student_calling_info, status, calendar_day)
                 call_result['success'] = False
+                call_result['attempts'] = attempts
                 return call_result
 
             # Process successful call and recording
@@ -74,13 +75,13 @@ def process_new_student_call(student_id, phone, user="admin", max_call_duration=
 def _get_or_create_calling_info(student, calendar_day):
     """Get existing or create new StudentCallingInfo record"""
     student_calling_info = StudentCallingInfo.query.filter_by(
-        student_id=student.id
+        student_id=student.id,
+        day=calendar_day.date
     ).order_by(StudentCallingInfo.id.desc()).first()
 
     if not student_calling_info:
         student_calling_info = StudentCallingInfo(
             student_id=student.id,
-            date=calendar_day.date,
             day=calendar_day.date
         )
         db.session.add(student_calling_info)
@@ -136,8 +137,9 @@ def _handle_unsuccessful_call(student_calling_info, status, calendar_day):
     student_calling_info.comment = comment
 
     # Track failed call attempts
-    _track_failed_call_attempt(student_calling_info, calendar_day)
+    attempts = _track_failed_call_attempt(student_calling_info, calendar_day)
     db.session.commit()
+    return attempts
 
 
 def _track_failed_call_attempt(student_calling_info, calendar_day):
@@ -157,11 +159,17 @@ def _track_failed_call_attempt(student_calling_info, calendar_day):
         db.session.add(audio_record)
         db.session.flush()
 
-        # Check again after adding
-        if failed_calls_count + 1 >= 2:
+        # Increment the count after adding the new record
+        failed_calls_count += 1
+
+        # Reschedule if we've reached the limit
+        if failed_calls_count >= 2:
             student_calling_info.date = calendar_day.date + timedelta(days=1)
     else:
+        # Already have 2+ failed attempts, reschedule
         student_calling_info.date = calendar_day.date + timedelta(days=1)
+
+    return failed_calls_count
 
 
 def _process_successful_call(student_calling_info, call_result, student, student_id, calendar_day):
