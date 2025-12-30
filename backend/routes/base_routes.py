@@ -1155,7 +1155,7 @@ def profile(user_id):
         user = {
             "isSalary": salary_status,
             "id": user_get.id,
-            "crm_username": user_get.username,
+            "crm_username": user_get.crm_username,
             "role": role,
             "photo_profile": user_get.photo_profile,
             "observer": user_get.observer,

@@ -73,9 +73,7 @@ def change_student_info(user_id):
                     "born_day": json['birthDay'],
                     "born_month": json['birthMonth'],
                     "born_year": json['birthYear'],
-
                     "address": json['address'] if "address" in json else None,
-
                     "level": json['level'] if 'level' in json else None,
 
                 })
