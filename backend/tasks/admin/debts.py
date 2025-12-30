@@ -306,7 +306,7 @@ def call_to_debt():
         return jsonify({"error": "CRM username is required"}), 400
     else:
         if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
-                                     'gennis_nurafshon']:
+                                     'gennis_nurafshon','admin']:
             return jsonify({"error": "CRM username is invalid"}), 400
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.calendar_day == calendar_day.id,

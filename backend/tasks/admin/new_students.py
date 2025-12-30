@@ -129,7 +129,7 @@ def call_to_new_student():
         return jsonify({"error": "Missing 'crm_username'"}), 400
     else:
         if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
-                                     'gennis_nurafshon']:
+                                     'gennis_nurafshon','admin']:
             return jsonify({"error": "CRM username is invalid"}), 400
     # Validate input
     if not student_id:
