@@ -233,7 +233,7 @@ def student_debts_completed(location_id, date):
             ).all()
 
         return jsonify({
-            "students": iterate_models(students),
+            # "students": iterate_models(students),
             "task_statistics": task_statistics.convert_json() if task_statistics else None,
             "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
             "table": True,
@@ -243,7 +243,7 @@ def student_debts_completed(location_id, date):
     except ValueError:
         return jsonify({
             "error": "Invalid date format",
-            "students": [],
+            # "students": [],
             "task_statistics": None,
             "task_daily_statistics": None,
             "table": True,
