@@ -119,7 +119,18 @@ def save_call_recording(final_info: Dict, save_dir: str = CALL_RECORDS_DIR) -> O
         return None
 
     try:
-        os.makedirs(save_dir, exist_ok=True)
+        from app import app  # or however you import your Flask app
+        base_dir = app.root_path  # or use os.path.abspath(os.path.dirname(__file__))
+        save_dir = os.path.join(base_dir, "media", "call_records", "leads")
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+            logger.info(f"Save directory created/verified: {save_dir}")
+        except PermissionError as e:
+            logger.error(f"Permission denied creating directory {save_dir}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create directory {save_dir}: {e}")
+            raise
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

@@ -290,7 +290,6 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error saving call record: {e}", exc_info=True)
-
         final_info.update({
             'record_saved': False,
             'db_saved': False,
