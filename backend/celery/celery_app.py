@@ -54,18 +54,13 @@ def get_flask_app():
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    # ✅ Import create_app function directly, not the app variable
-    from app import create_app
+    # ✅ Import the create_app factory
+    import app as app_module
 
-    # ✅ Call create_app() to get Flask app
-    flask_app = create_app()
+    # ✅ Call the factory to create Flask app
+    flask_application = app_module.create_app()
 
-    # ✅ Verify we got a Flask app, not Celery
-    from flask import Flask
-    if not isinstance(flask_app, Flask):
-        raise TypeError(f"Expected Flask app, got {type(flask_app)}")
-
-    return flask_app
+    return flask_application
 
 
 class ContextTask(celery.Task):
@@ -73,24 +68,27 @@ class ContextTask(celery.Task):
     Custom task class that ensures Flask app context is available
     in all Celery task executions
     """
-    _app = None
+    _flask_app_instance = None  # ✅ More explicit name
 
     @property
     def flask_app(self):
         """Lazy load Flask app (only create once)"""
-        if self._app is None:
-            self._app = get_flask_app()
-            print(f"✅ Flask app loaded: {type(self._app)}")  # Debug
-        return self._app
+        if self._flask_app_instance is None:
+            import logging
+            logger = logging.getLogger(__name__)
+
+            self._flask_app_instance = get_flask_app()
+            logger.info(f"Flask app loaded: {type(self._flask_app_instance).__name__}")
+
+            # Verify it's a Flask app
+            if not hasattr(self._flask_app_instance, 'app_context'):
+                logger.error(f"ERROR: Got {type(self._flask_app_instance)}, not Flask app!")
+                raise TypeError(f"Expected Flask app, got {type(self._flask_app_instance)}")
+
+        return self._flask_app_instance
 
     def __call__(self, *args, **kwargs):
-        # ✅ Add error checking
-        flask_app = self.flask_app
-
-        if not hasattr(flask_app, 'app_context'):
-            raise AttributeError(f"Object {type(flask_app)} doesn't have app_context. Expected Flask app.")
-
-        with flask_app.app_context():
+        with self.flask_app.app_context():
             return self.run(*args, **kwargs)
 
 
@@ -99,10 +97,9 @@ celery.Task = ContextTask
 
 
 # For Flask app initialization (when calling tasks from routes)
-def init_celery(app):
+def init_celery(flask_app):
     """
-    Initialize Celery with Flask app config (only needed in Flask app)
-    This is for when you call celery tasks from Flask routes
+    Initialize Celery with Flask app config
     """
-    celery.conf.update(app.config)
+    celery.conf.update(flask_app.config)
     return celery
