@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import aiohttp
 import logging
 from typing import Dict, Optional, Tuple
+from backend.celery.utils import get_media_path
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ def save_call_recording(final_info: Dict, save_dir: str = CALL_RECORDS_DIR) -> O
         return None
 
     try:
+        save_dir = get_media_path('call_records', 'leads')
         os.makedirs(save_dir, exist_ok=True)
 
         loop = asyncio.new_event_loop()
@@ -260,8 +262,10 @@ def process_call_and_save_record(lead_id: int, user: str = "admin", max_call_dur
             audio_path = save_call_recording(final_info)
             if audio_path:
                 # Save to database
-                db_saved = save_call_record_to_db(lead_info, final_info, audio_path)
-                final_info['local_record_path'] = audio_path
+                media_root = get_media_path()
+                relative_path = os.path.relpath(audio_path, media_root)
+                db_saved = save_call_record_to_db(lead_info, final_info, relative_path)
+                final_info['local_record_path'] = relative_path
                 final_info['record_saved'] = True
                 final_info['lead_info_id'] = db_saved['lead_info_id']
             else:

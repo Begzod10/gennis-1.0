@@ -1,4 +1,5 @@
 from backend.celery.celery_app import celery
+from backend.celery.utils import get_media_path
 from backend.models.models import Students, StudentCallingInfo, StudentCallingInfoAudio, db
 from backend.vats.vats_process import VatsProcess, wait_until_call_finished
 from backend.functions.utils import find_calendar_date
@@ -196,9 +197,10 @@ def _process_successful_call(student_calling_info, call_result, student, student
         call_result['student_id'] = student.id
         call_result['user_id'] = student_id
         return call_result
-
+    media_root = get_media_path()
+    relative_path = os.path.relpath(local_audio_path, media_root)
     # Save to database
-    _save_call_record_to_db(student_calling_info, call_result, local_audio_path, student)
+    _save_call_record_to_db(student_calling_info, call_result, relative_path, student)
 
     call_result['success'] = True
     call_result['student_id'] = student.id
@@ -209,8 +211,7 @@ def _process_successful_call(student_calling_info, call_result, student, student
 def _download_call_recording(record_url, call_result):
     """Download call recording from URL"""
     try:
-        save_dir = "media/call_records/new_students"
-
+        save_dir = get_media_path('call_records', 'new_students')
         os.makedirs(save_dir, exist_ok=True)
 
         loop = asyncio.new_event_loop()

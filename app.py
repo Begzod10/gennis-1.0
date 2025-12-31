@@ -260,6 +260,12 @@ def index():
     return app.send_static_file("index.html")
 
 
+@app.route('/media/<path:filename>')
+def serve_media(filename):
+    """Serve media files (audio recordings, etc.)"""
+    return send_from_directory(app.config['MEDIA_FOLDER'], filename)
+
+
 @app.route('/flask_static/<path:filename>')
 def flask_admin_static(filename):
     """Serve Flask-Admin static files"""
