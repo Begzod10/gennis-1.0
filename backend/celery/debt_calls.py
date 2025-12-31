@@ -213,8 +213,21 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
 
     # Download recording
     try:
-        save_dir = "media/call_records/debtors"
-        os.makedirs(save_dir, exist_ok=True)
+        # Use absolute path based on your app's root directory
+        from app import app  # or however you import your Flask app
+        base_dir = app.root_path  # or use os.path.abspath(os.path.dirname(__file__))
+        save_dir = os.path.join(base_dir, "media", "call_records", "debtors")
+
+        # Ensure directory exists with proper error handling
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+            logger.info(f"Save directory created/verified: {save_dir}")
+        except PermissionError as e:
+            logger.error(f"Permission denied creating directory {save_dir}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create directory {save_dir}: {e}")
+            raise
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -227,11 +240,20 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
             loop.close()
 
         if not download_result['success']:
+            logger.error(f"Download failed: {download_result.get('error')}")
             final_info['record_saved'] = False
             final_info['error'] = download_result.get('error')
             return handle_unanswered_call(student_excuse, calendar_day, 'download-failed')
 
         local_audio_path = download_result['filepath']
+
+        # Verify file was actually saved
+        if not os.path.exists(local_audio_path):
+            logger.error(f"File not found after download: {local_audio_path}")
+            return handle_unanswered_call(student_excuse, calendar_day, 'file-not-found')
+
+        file_size = os.path.getsize(local_audio_path)
+        logger.info(f"File saved successfully: {local_audio_path} ({file_size} bytes)")
 
         # Save to database
         start_time = datetime.fromisoformat(final_info['start'].replace('Z', ''))
@@ -260,13 +282,14 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
             'record_saved': True,
             'db_saved': True,
             'audio_record_id': audio_record.id,
+            'file_size': file_size
         })
 
         return final_info
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error saving call record: {e}")
+        logger.error(f"Error saving call record: {e}", exc_info=True)
 
         final_info.update({
             'record_saved': False,
