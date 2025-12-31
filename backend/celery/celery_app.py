@@ -45,14 +45,45 @@ celery.conf.beat_schedule = {
 }
 
 
+# def init_celery(app):
+#     """Initialize Celery with Flask app context"""
+#     celery.conf.update(app.config)
+#
+#     class ContextTask(celery.Task):
+#         def __call__(self, *args, **kwargs):
+#             with app.app_context():
+#                 return self.run(*args, **kwargs)
+#
+#     celery.Task = ContextTask
+#     return celery
+
+class ContextTask(celery.Task):
+    """
+    Custom task class that ensures Flask app context is available
+    in all Celery task executions
+    """
+
+    def __call__(self, *args, **kwargs):
+        app = get_flask_app()
+        with app.app_context():
+            return self.run(*args, **kwargs)
+
+
+def get_flask_app():
+    """Lazy import Flask app to avoid circular imports"""
+    # Import here to avoid circular dependency
+    from app import app
+    return app
+
+
+celery.Task = ContextTask
+
+
+# Optional: Keep init_celery for Flask app initialization
 def init_celery(app):
-    """Initialize Celery with Flask app context"""
+    """
+    Initialize Celery with Flask app config (only needed in Flask app)
+    This is for when you call celery tasks from Flask routes
+    """
     celery.conf.update(app.config)
-
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery.Task = ContextTask
     return celery

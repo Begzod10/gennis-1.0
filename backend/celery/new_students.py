@@ -209,18 +209,8 @@ def _process_successful_call(student_calling_info, call_result, student, student
 def _download_call_recording(record_url, call_result):
     """Download call recording from URL"""
     try:
-        from app import app  # or however you import your Flask app
-        base_dir = app.root_path  # or use os.path.abspath(os.path.dirname(__file__))
-        save_dir = os.path.join(base_dir, "media", "call_records", "new_students")
-        try:
-            os.makedirs(save_dir, exist_ok=True)
-            logger.info(f"Save directory created/verified: {save_dir}")
-        except PermissionError as e:
-            logger.error(f"Permission denied creating directory {save_dir}: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to create directory {save_dir}: {e}")
-            raise
+        save_dir = "media/call_records/new_students"
+
         os.makedirs(save_dir, exist_ok=True)
 
         loop = asyncio.new_event_loop()
