@@ -90,7 +90,7 @@ def completed_new_students(location_id, date):
             StudentCallingInfo.student_id.in_([student.id for student in students])
         ).order_by(StudentCallingInfo.id).all()
     return jsonify({
-        "students": iterate_models(students),
+        # "students": iterate_models(students),
         "task_statistics": task_statistics.convert_json() if task_statistics else None,
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
         "table": True,

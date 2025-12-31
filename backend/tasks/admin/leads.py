@@ -110,7 +110,7 @@ def completed_leads(location_id, date):
             Lead.location_id == location_id
         ).all()
         return jsonify({
-            "leads": iterate_models(leads),
+            # "leads": iterate_models(leads),
             "task_statistics": task_statistics.convert_json() if task_statistics else None,
             "task_daily_statistics": daily_statistics.convert_json() if daily_statistics else None,
             "lead_infos": iterate_models(lead_infos),

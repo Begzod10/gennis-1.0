@@ -30,6 +30,13 @@ class StudentExcuses(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         if entire:
             info = {
                 'id': self.id,
@@ -41,7 +48,7 @@ class StudentExcuses(db.Model):
                 'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
                 'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
                 'old_id': self.old_id,
-                'audio_url': self.audio_url,
+                'audio_url': audio_url,
                 "records": [record.convert_json() for record in self.records],
                 "duration": self.records[len(self.records) - 1].duration
             }
@@ -56,7 +63,7 @@ class StudentExcuses(db.Model):
                 'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
                 'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
                 'old_id': self.old_id,
-                'audio_url': self.audio_url,
+                'audio_url': audio_url,
                 "duration": self.records[len(self.records) - 1].duration
 
             }
@@ -82,10 +89,17 @@ class StudentExcusesAudio(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         info = {
             'id': self.id,
             'student_excuse_id': self.student_excuse_id,
-            'audio_url': self.audio_url,
+            'audio_url': audio_url,
             'client_number': self.client_number,
             'diversion': self.diversion,
             'duration': self.duration,
@@ -251,6 +265,13 @@ class StudentCallingInfo(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         if entire:
             return {
                 "id": self.id,
@@ -261,7 +282,7 @@ class StudentCallingInfo(db.Model):
                 "surname": self.student.user.surname,
                 "to_date": self.day.strftime("%Y-%m-%d"),
                 "added_date": self.date.strftime("%Y-%m-%d"),
-                "audio_url": self.audio_url,
+                "audio_url": audio_url,
                 "duration": self.records[len(self.records) - 1].duration,
                 "records": [record.convert_json() for record in self.records]
             }
@@ -274,7 +295,7 @@ class StudentCallingInfo(db.Model):
             "surname": self.student.user.surname,
             "to_date": self.day.strftime("%Y-%m-%d"),
             "added_date": self.date.strftime("%Y-%m-%d"),
-            "audio_url": self.audio_url,
+            "audio_url": audio_url,
             "duration": self.records[len(self.records) - 1].duration
         }
 
@@ -294,10 +315,17 @@ class StudentCallingInfoAudio(db.Model):
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         info = {
             'id': self.id,
             'student_calling_info_id': self.student_calling_info_id,
-            'audio_url': self.audio_url,
+            'audio_url': audio_url,
             'client_number': self.client_number,
             'diversion': self.diversion,
             'duration': self.duration,

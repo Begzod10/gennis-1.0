@@ -15,6 +15,13 @@ class LeadInfos(db.Model):
     records = relationship("LeadInfosRecord", backref="lead_infos", order_by="LeadInfosRecord.id")
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         if entire:
             return {
                 "id": self.id,
@@ -24,7 +31,7 @@ class LeadInfos(db.Model):
                 "phone": self.lead.phone,
                 "added_date": self.added_date.strftime("%Y-%m-%d"),
                 "date": self.day.strftime("%Y-%m-%d") if self.day else None,
-                "audio_url": self.audio_url,
+                "audio_url": audio_url,
                 "audios_list": [record.convert_json() for record in self.records],
                 "duration": self.records[len(self.records) - 1].duration
             }
@@ -36,7 +43,7 @@ class LeadInfos(db.Model):
             "phone": self.lead.phone,
             "added_date": self.added_date.strftime("%Y-%m-%d"),
             "date": self.day.strftime("%Y-%m-%d") if self.day else None,
-            "audio_url": self.audio_url,
+            "audio_url": audio_url,
             "duration": self.records[len(self.records) - 1].duration if self.records else None
         }
 
@@ -64,9 +71,16 @@ class LeadInfosRecord(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         return {
             "id": self.id,
-            "audio_url": self.audio_url,
+            "audio_url": audio_url,
             "client_number": self.client_number,
             "diversion": self.diversion,
             "duration": self.duration,
