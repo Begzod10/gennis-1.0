@@ -258,10 +258,10 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
         # Save to database
         start_time = datetime.fromisoformat(final_info['start'].replace('Z', ''))
         end_time = start_time + timedelta(seconds=final_info.get('duration', 0))
-
+        relative_path = os.path.relpath(local_audio_path, os.path.join(app.root_path, 'media'))
         audio_record = StudentExcusesAudio(
             student_excuse_id=student_excuse.id,
-            audio_url=local_audio_path,
+            audio_url=relative_path,
             client_number=final_info.get('client'),
             diversion=final_info.get('diversion', ''),
             duration=str(final_info.get('duration', 0)),
