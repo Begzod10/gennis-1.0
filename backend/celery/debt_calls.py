@@ -233,14 +233,18 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
             return handle_unanswered_call(student_excuse, calendar_day, 'download-failed')
 
         local_audio_path = download_result['filepath']
+        media_root = get_media_path()
+        relative_path = os.path.relpath(local_audio_path, media_root)
 
+        logger.info(f"Absolute path: {local_audio_path}")
+        logger.info(f"Relative path: {relative_path}")
         # Save to database
         start_time = datetime.fromisoformat(final_info['start'].replace('Z', ''))
         end_time = start_time + timedelta(seconds=final_info.get('duration', 0))
 
         audio_record = StudentExcusesAudio(
             student_excuse_id=student_excuse.id,
-            audio_url=local_audio_path,
+            audio_url=relative_path,
             client_number=final_info.get('client'),
             diversion=final_info.get('diversion', ''),
             duration=str(final_info.get('duration', 0)),
@@ -250,14 +254,14 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
         )
         db.session.add(audio_record)
 
-        student_excuse.audio_url = local_audio_path
+        student_excuse.audio_url = relative_path
         db.session.commit()
 
         logger.info(f"Saved call record for student {student_id}")
 
         final_info.update({
             'success': True,
-            'local_record_path': local_audio_path,
+            'local_record_path': relative_path,
             'record_saved': True,
             'db_saved': True,
             'audio_record_id': audio_record.id,
