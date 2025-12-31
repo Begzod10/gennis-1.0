@@ -87,10 +87,6 @@ def create_app(config_name='backend.models.config'):
     )
 
     # Route to serve media files
-    @app.route('/media/<path:filename>')
-    def serve_media(filename):
-        """Serve media files (audio recordings, etc.)"""
-        return send_from_directory(app.config['MEDIA_FOLDER'], filename)
 
     # Register CLI commands
     register_commands(app)
