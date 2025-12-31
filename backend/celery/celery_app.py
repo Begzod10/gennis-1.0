@@ -44,7 +44,6 @@ celery.conf.beat_schedule = {
 }
 
 
-# ✅ DEFINE get_flask_app BEFORE using it
 def get_flask_app():
     """Lazy import Flask app to avoid circular imports"""
     import sys
@@ -55,11 +54,18 @@ def get_flask_app():
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    # Import Flask app
+    # ✅ Import create_app function directly, not the app variable
     from app import create_app
 
-    # Create and return app instance
-    return create_app()
+    # ✅ Call create_app() to get Flask app
+    flask_app = create_app()
+
+    # ✅ Verify we got a Flask app, not Celery
+    from flask import Flask
+    if not isinstance(flask_app, Flask):
+        raise TypeError(f"Expected Flask app, got {type(flask_app)}")
+
+    return flask_app
 
 
 class ContextTask(celery.Task):
@@ -74,10 +80,17 @@ class ContextTask(celery.Task):
         """Lazy load Flask app (only create once)"""
         if self._app is None:
             self._app = get_flask_app()
+            print(f"✅ Flask app loaded: {type(self._app)}")  # Debug
         return self._app
 
     def __call__(self, *args, **kwargs):
-        with self.flask_app.app_context():
+        # ✅ Add error checking
+        flask_app = self.flask_app
+
+        if not hasattr(flask_app, 'app_context'):
+            raise AttributeError(f"Object {type(flask_app)} doesn't have app_context. Expected Flask app.")
+
+        with flask_app.app_context():
             return self.run(*args, **kwargs)
 
 
@@ -86,19 +99,6 @@ celery.Task = ContextTask
 
 
 # For Flask app initialization (when calling tasks from routes)
-def init_celery(app):
-    """
-    Initialize Celery with Flask app config (only needed in Flask app)
-    This is for when you call celery tasks from Flask routes
-    """
-    celery.conf.update(app.config)
-    return celery
-
-
-celery.Task = ContextTask
-
-
-# Optional: Keep init_celery for Flask app initialization
 def init_celery(app):
     """
     Initialize Celery with Flask app config (only needed in Flask app)
