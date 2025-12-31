@@ -9,6 +9,7 @@ import os
 import aiohttp
 from datetime import datetime, timedelta
 import logging
+from backend.celery.utils import get_media_path
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +214,7 @@ def handle_successful_call(student_excuse, final_info, calendar_day, student_id)
 
     # Download recording
     try:
-        save_dir = "media/call_records/debtors"
+        save_dir = get_media_path('call_records', 'debtors')
         os.makedirs(save_dir, exist_ok=True)
 
         loop = asyncio.new_event_loop()

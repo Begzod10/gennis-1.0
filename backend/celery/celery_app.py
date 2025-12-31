@@ -17,11 +17,10 @@ celery = Celery(
         'backend.celery.lead_calls',
         'backend.celery.debt_calls',
         'backend.celery.new_students'
-    ]  # ✅ Changed from 'tasks' to 'backend.celery.tasks'
+    ]
 )
 
 # Configure Celery
-# celery_app.py
 celery.conf.update(
     task_serializer='json',
     accept_content=['json'],
@@ -29,8 +28,8 @@ celery.conf.update(
     timezone='Asia/Tashkent',
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=30 * 60,  # ✅ 30 minutes hard limit (buffer above 20 min calls)
-    task_soft_time_limit=25 * 60,  # ✅ 25 minutes soft limit
+    task_time_limit=30 * 60,
+    task_soft_time_limit=25 * 60,
     worker_pool='solo' if sys.platform == 'win32' else 'prefork',
     worker_concurrency=1 if sys.platform == 'win32' else None,
 )
@@ -45,35 +44,55 @@ celery.conf.beat_schedule = {
 }
 
 
-# def init_celery(app):
-#     """Initialize Celery with Flask app context"""
-#     celery.conf.update(app.config)
-#
-#     class ContextTask(celery.Task):
-#         def __call__(self, *args, **kwargs):
-#             with app.app_context():
-#                 return self.run(*args, **kwargs)
-#
-#     celery.Task = ContextTask
-#     return celery
+# ✅ DEFINE get_flask_app BEFORE using it
+def get_flask_app():
+    """Lazy import Flask app to avoid circular imports"""
+    import sys
+    import os
+
+    # Add project root to path
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    # Import Flask app
+    from app import create_app
+
+    # Create and return app instance
+    return create_app()
+
 
 class ContextTask(celery.Task):
     """
     Custom task class that ensures Flask app context is available
     in all Celery task executions
     """
+    _app = None
+
+    @property
+    def flask_app(self):
+        """Lazy load Flask app (only create once)"""
+        if self._app is None:
+            self._app = get_flask_app()
+        return self._app
 
     def __call__(self, *args, **kwargs):
-        app = get_flask_app()
-        with app.app_context():
+        with self.flask_app.app_context():
             return self.run(*args, **kwargs)
 
 
-def get_flask_app():
-    """Lazy import Flask app to avoid circular imports"""
-    # Import here to avoid circular dependency
-    from app import app
-    return app
+# Set the default task class
+celery.Task = ContextTask
+
+
+# For Flask app initialization (when calling tasks from routes)
+def init_celery(app):
+    """
+    Initialize Celery with Flask app config (only needed in Flask app)
+    This is for when you call celery tasks from Flask routes
+    """
+    celery.conf.update(app.config)
+    return celery
 
 
 celery.Task = ContextTask
