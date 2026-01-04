@@ -232,7 +232,7 @@ def certificate():
     subjects = Subjects.query.order_by(Subjects.id).all()
     locations = Locations.query.order_by(Locations.id).all()
     certificate_levels = CertificateLevels.query.order_by(CertificateLevels.id).all()
-    refreshdatas()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
 
     calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month(),

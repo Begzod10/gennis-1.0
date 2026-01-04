@@ -166,7 +166,7 @@ def delete_camp_staff_salary(salary_id):
 @jwt_required()
 def register_camp_staff():
     if request.method == 'POST':
-        refreshdatas()
+        calendar_year, calendar_month, calendar_day = find_calendar_date()
         data = request.get_json()
         name = data['name']
         surname = data['surname']

@@ -22,121 +22,122 @@ task_debts = Blueprint('task_debts', __name__)
 @task_debts.route(f'/student_debts_progress/<int:location_id>/<date>')
 @jwt_required()
 def student_debts_progress(location_id, date):
-    try:
-        # Parse and validate date
-        if not date:
-            return jsonify({
-                "error": "Date is required",
-                "students": [],
-                "task_statistics": None,
-                "task_daily_statistics": None,
-                "table": False
-            }), 400
-
-        date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-        calendar_year, calendar_month, calendar_day = find_calendar_date()
-        current_date = calendar_day.date.date() if isinstance(calendar_day.date,
-                                                              datetime.datetime) else calendar_day.date
-
-        # Get task (consider caching this)
-        task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
-        if not task:
-            return jsonify({
-                "error": "Excuses task not found",
-                "students": [],
-                "task_statistics": None,
-                "task_daily_statistics": None,
-                "table": False
-            }), 404
-
-        # Check date type
-        is_current = date_obj == current_date
-        is_past = date_obj < current_date
-        is_future = date_obj > current_date
-
-        # Future dates are not allowed
-        if is_future:
-            return jsonify({
-                "students": [],
-                "task_statistics": None,
-                "task_daily_statistics": None,
-                "table": False,
-                "message": "Future date not allowed"
-            }), 200
-
-        # Current day - use live data
-        if is_current:
-            students, task_statistics = update_debt_progress(location_id)
-            task_daily_statistics = update_all_ratings(location_id)
-
-            return jsonify({
-                "students": iterate_models(students) if students else [],
-                "task_statistics": task_statistics.convert_json() if task_statistics else None,
-                "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
-                "table": False
-            }), 200
-
-        # Past day - query historical data
-        past_calendar_day = CalendarDay.query.filter(
-            func.date(CalendarDay.date) == date_obj
-        ).first()
-
-        if not past_calendar_day:
-            return jsonify({
-                "students": [],
-                "task_statistics": None,
-                "task_daily_statistics": None,
-                "table": True,
-                "message": "No data for this date"
-            }), 200
-
-        # Query students with incomplete tasks
-        students = db.session.query(Students).join(
-            Students.user
-        ).join(
-            Students.students_tasks
-        ).filter(
-            Users.location_id == location_id,
-            TaskStudents.status == False,
-            TaskStudents.calendar_day == past_calendar_day.id
-        ).order_by(desc(Students.id)).all()
-
-        # Query statistics efficiently
-        task_statistics = TasksStatistics.query.filter(
-            TasksStatistics.location_id == location_id,
-            TasksStatistics.task_id == task.id,
-            TasksStatistics.calendar_day == past_calendar_day.id
-        ).first()
-
-        task_daily_statistics = TaskDailyStatistics.query.filter(
-            TaskDailyStatistics.location_id == location_id,
-            TaskDailyStatistics.calendar_day == past_calendar_day.id
-        ).first()
-
+    # try:
+    #     # Parse and validate date
+    if not date:
         return jsonify({
-            "students": iterate_models(students) if students else [],
-            "task_statistics": task_statistics.convert_json() if task_statistics else None,
-            "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
-            "table": True
-        }), 200
-
-    except ValueError as e:
-        return jsonify({
-            "error": f"Invalid date format. Expected YYYY-MM-DD: {str(e)}",
+            "error": "Date is required",
             "students": [],
             "task_statistics": None,
             "task_daily_statistics": None,
             "table": False
         }), 400
-    except Exception as e:
-        db.session.rollback()
+
+    date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    current_date = calendar_day.date.date() if isinstance(calendar_day.date,
+                                                          datetime.datetime) else calendar_day.date
+
+    # Get task (consider caching this)
+    task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
+    if not task:
         return jsonify({
-            "error": f"Server error: {str(e)}",
+            "error": "Excuses task not found",
             "students": [],
             "task_statistics": None,
             "task_daily_statistics": None,
             "table": False
-        }), 500
+        }), 404
+
+    # Check date type
+    is_current = date_obj == current_date
+    is_past = date_obj < current_date
+    is_future = date_obj > current_date
+
+    # Future dates are not allowed
+    if is_future:
+        return jsonify({
+            "students": [],
+            "task_statistics": None,
+            "task_daily_statistics": None,
+            "table": False,
+            "message": "Future date not allowed"
+        }), 200
+
+    # Current day - use live data
+    if is_current:
+        students, task_statistics = update_debt_progress(location_id)
+        task_daily_statistics = update_all_ratings(location_id)
+
+        return jsonify({
+            "students": iterate_models(students) if students else [],
+            "task_statistics": task_statistics.convert_json() if task_statistics else None,
+            "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
+            "table": False
+        }), 200
+
+    # Past day - query historical data
+    past_calendar_day = CalendarDay.query.filter(
+        func.date(CalendarDay.date) == date_obj
+    ).first()
+
+    if not past_calendar_day:
+        return jsonify({
+            "students": [],
+            "task_statistics": None,
+            "task_daily_statistics": None,
+            "table": True,
+            "message": "No data for this date"
+        }), 200
+
+    # Query students with incomplete tasks
+    students = db.session.query(Students).join(
+        Students.user
+    ).join(
+        Students.students_tasks
+    ).filter(
+        Users.location_id == location_id,
+        TaskStudents.status == False,
+        TaskStudents.calendar_day == past_calendar_day.id
+    ).order_by(desc(Students.id)).all()
+
+    # Query statistics efficiently
+    task_statistics = TasksStatistics.query.filter(
+        TasksStatistics.location_id == location_id,
+        TasksStatistics.task_id == task.id,
+        TasksStatistics.calendar_day == past_calendar_day.id
+    ).first()
+
+    task_daily_statistics = TaskDailyStatistics.query.filter(
+        TaskDailyStatistics.location_id == location_id,
+        TaskDailyStatistics.calendar_day == past_calendar_day.id
+    ).first()
+
+    return jsonify({
+        "students": iterate_models(students) if students else [],
+        "task_statistics": task_statistics.convert_json() if task_statistics else None,
+        "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
+        "table": True
+    }), 200
+
+
+# except ValueError as e:
+#     return jsonify({
+#         "error": f"Invalid date format. Expected YYYY-MM-DD: {str(e)}",
+#         "students": [],
+#         "task_statistics": None,
+#         "task_daily_statistics": None,
+#         "table": False
+#     }), 400
+# except Exception as e:
+#     db.session.rollback()
+#     return jsonify({
+#         "error": f"Server error: {str(e)}",
+#         "students": [],
+#         "task_statistics": None,
+#         "task_daily_statistics": None,
+#         "table": False
+#     }), 500
 
 
 @task_debts.route(f'/student_debts_completed/<int:location_id>', defaults={"date": None})
@@ -306,7 +307,7 @@ def call_to_debt():
         return jsonify({"error": "CRM username is required"}), 400
     else:
         if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
-                                     'gennis_nurafshon','admin']:
+                                     'gennis_nurafshon', 'admin']:
             return jsonify({"error": "CRM username is invalid"}), 400
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.calendar_day == calendar_day.id,
@@ -371,7 +372,6 @@ def check_student_call_status(task_id):
 @jwt_required()
 def call_to_debts():
     try:
-        refreshdatas()
         calendar_year, calendar_month, calendar_day = find_calendar_date()
 
         # Setup timezone
@@ -429,7 +429,8 @@ def call_to_debts():
         task_students = TaskStudents.query.filter(
             TaskStudents.task_id == task_type.id,
             TaskStudents.tasksstatistics_id == task_statistics.id,
-            TaskStudents.student_id == student.id
+            TaskStudents.student_id == student.id,
+            TaskStudents.calendar_day == calendar_day.id
         ).order_by(TaskStudents.id).all()
 
         if not task_students:
@@ -440,7 +441,8 @@ def call_to_debts():
         if len(task_students) > 1:
             for duplicate in task_students[1:]:
                 db.session.delete(duplicate)
-
+        print("task_student", task_student.id)
+        print("student_id", task_student.student_id)
         # Process excuse if future date
         if to_date > calendar_dt:
             # Check for existing excuse
@@ -478,7 +480,6 @@ def call_to_debts():
 @task_debts.route(f'/add_blacklist/<int:user_id>', methods=["GET", "POST"])
 @jwt_required()
 def add_blacklist2(user_id):
-    refreshdatas()
     user_get = Users.query.filter(Users.user_id == get_jwt_identity()).first()
     user = Users.query.filter(Users.id == user_id).first()
     calendar_year, calendar_month, calendar_day = find_calendar_date()

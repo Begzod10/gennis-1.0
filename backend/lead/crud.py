@@ -19,7 +19,6 @@ lead_bp = Blueprint('lead', __name__)
 
 @lead_bp.route(f'/register_lead', methods=['POST'])
 def register_lead():
-    refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     name = get_json_field('name')
@@ -54,18 +53,18 @@ def register_lead():
 @jwt_required()
 def get_leads_location(status, location_id):
     if status == "news":
-        change_statistics(location_id)
+        # change_statistics(location_id)
 
         leads = Lead.query.filter(Lead.location_id == location_id, Lead.deleted == False).order_by(desc(Lead.id)).all()
         leads_info = []
         completed_tasks = []
-        for lead in leads:
-            if get_lead_tasks(lead) != None:
-                leads_info.append(get_lead_tasks(lead))
-            if get_completed_lead_tasks(lead) != None:
-                completed_tasks.append(get_completed_lead_tasks(lead))
+        # for lead in leads:
+        #     if get_lead_tasks(lead) != None:
+        #         leads_info.append(get_lead_tasks(lead))
+        #     if get_completed_lead_tasks(lead) != None:
+        #         completed_tasks.append(get_completed_lead_tasks(lead))
         return jsonify({
-            "leads": leads_info,
+            "leads": leads,
             'completed_tasks': completed_tasks
         })
     else:
@@ -163,7 +162,6 @@ def crud_lead(pm):
 @lead_bp.route(f'/register_lead/recommend', methods=['POST'])
 @jwt_required()
 def register_lead_recommend():
-    refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
 

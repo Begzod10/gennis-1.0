@@ -231,7 +231,7 @@ def process_call_and_save_record(lead_id: int, user: str = "admin", max_call_dur
             if final_info.get('error') == 'no_response':
                 lead_info.comment = "API javob bermadi"
                 db.session.commit()
-                attempts = handle_failed_call_attempt(lead_info, calendar_day)
+                # attempts = handle_failed_call_attempt(lead_info, calendar_day)
                 return {
                     "error": "no_response",
                     "callid": final_info.get('callid'),
@@ -250,6 +250,7 @@ def process_call_and_save_record(lead_id: int, user: str = "admin", max_call_dur
                 return final_info
 
             # Handle any other non-success status
+            print(f"Call status: {status}")
             if status != 'success':
                 attempts = handle_failed_call_attempt(lead_info, calendar_day)
                 return {

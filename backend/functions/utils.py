@@ -67,32 +67,32 @@ def refreshdatas(location_id=0):
     :return:
     """
 
-    calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-    if not calendar_year:
-        calendar_year = CalendarYear(date=new_year())
-        db.session.add(calendar_year)
-        db.session.commit()
-
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month(),
-                                                CalendarMonth.year_id == calendar_year.id).first()
-
-    if not calendar_month:
-        calendar_month = CalendarMonth(date=new_month(), year_id=calendar_year.id)
-        db.session.add(calendar_month)
-        db.session.commit()
-
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
-                                            CalendarDay.month_id == calendar_month.id).first()
-
-    if not calendar_day:
-        calendar_day = CalendarDay(date=new_today(), month_id=calendar_month.id)
-        db.session.add(calendar_day)
-        db.session.commit()
+    # calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
+    # if not calendar_year:
+    #     calendar_year = CalendarYear(date=new_year())
+    #     db.session.add(calendar_year)
+    #     db.session.commit()
+    #
+    # calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month(),
+    #                                             CalendarMonth.year_id == calendar_year.id).first()
+    #
+    # if not calendar_month:
+    #     calendar_month = CalendarMonth(date=new_month(), year_id=calendar_year.id)
+    #     db.session.add(calendar_month)
+    #     db.session.commit()
+    #
+    # calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
+    #                                         CalendarDay.month_id == calendar_month.id).first()
+    #
+    # if not calendar_day:
+    #     calendar_day = CalendarDay(date=new_today(), month_id=calendar_month.id)
+    #     db.session.add(calendar_day)
+    #     db.session.commit()
     update_all_datas()
     # update_period(location_id)
-    account_period = AccountingPeriod.query.order_by(desc(AccountingPeriod.id)).first()
-    CalendarDay.query.filter(CalendarDay.id == calendar_day.id).update({'account_period_id': account_period.id})
-    db.session.commit()
+    # account_period = AccountingPeriod.query.order_by(desc(AccountingPeriod.id)).first()
+    # CalendarDay.query.filter(CalendarDay.id == calendar_day.id).update({'account_period_id': account_period.id})
+    # db.session.commit()
 
 
 def update_period(location_id):
@@ -162,18 +162,18 @@ def update_period(location_id):
 
 
 def update_all_datas():
-    new_month = datetime.strftime(today(), "%Y-%m")
-    new_month = datetime.strptime(new_month, "%Y-%m")
-    calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month,
-                                                CalendarMonth.year_id == calendar_year.id).first()
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
-                                            CalendarDay.month_id == calendar_month.id).first()
-    current_month = datetime.strftime(today(), "%Y-%m")
-
-    new_month = datetime.strptime(current_month, "%Y-%m")
-    old_month = new_month - relativedelta(month=1)
+    # new_month = datetime.strftime(today(), "%Y-%m")
+    # new_month = datetime.strptime(new_month, "%Y-%m")
+    # calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
+    #
+    # calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month,
+    #                                             CalendarMonth.year_id == calendar_year.id).first()
+    # calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
+    #                                         CalendarDay.month_id == calendar_month.id).first()
+    # current_month = datetime.strftime(today(), "%Y-%m")
+    #
+    # new_month = datetime.strptime(current_month, "%Y-%m")
+    # old_month = new_month - relativedelta(month=1)
 
     # location1 = "Xo'jakent"
     # location2 = "Gazalkent"
@@ -376,6 +376,7 @@ def find_calendar_date(date_day=None, date_month=None, date_year=None):
         year = CalendarYear.query.filter_by(date=new_year()).first()
         month = CalendarMonth.query.filter_by(date=new_month(), year_id=year.id).first()
         day = CalendarDay.query.filter_by(date=new_today(), month_id=month.id).first()
+
         return year, month, day
 
 
@@ -413,7 +414,6 @@ def number_of_days_in_month(year, month):
 
 
 def update_account(account_id):
-    refreshdatas()
     accounting_info = AccountingInfo.query.filter(AccountingInfo.id == account_id).first()
     old_cash = 0
     old_account_period = AccountingPeriod.query.filter(
@@ -451,7 +451,6 @@ def update_account(account_id):
 
 
 def update_salary(teacher_id):
-    refreshdatas()
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
     attendance_history = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id).filter(
         or_(TeacherSalary.status == False, TeacherSalary.status == None)).all()

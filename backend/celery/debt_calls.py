@@ -99,8 +99,11 @@ def process_student_call(student_id, phone, task_statistics_id, user="admin", ma
             # Handle call status
             status = final_info.get('status')
 
-            # Failed call statuses
-            if status in ['missed', 'cancelled', 'failed', 'busy', 'no-answer']:
+            # # Failed call statuses
+            # if status in ['missed', 'cancelled', 'failed', 'busy', 'no-answer']:
+            #     return handle_failed_call(student_excuse, final_info, status, calendar_day)
+
+            if status in ['missed', 'cancelled', 'failed', 'busy']:
                 return handle_failed_call(student_excuse, final_info, status, calendar_day)
 
             # Call not successful
@@ -113,6 +116,7 @@ def process_student_call(student_id, phone, task_statistics_id, user="admin", ma
                 final_info,
                 calendar_day,
                 student_id,
+
             )
 
         except Exception as e:

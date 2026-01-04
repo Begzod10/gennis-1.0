@@ -480,7 +480,7 @@ def update_debt_progress(location_id):
     - Uses IDs instead of detached objects
     - All session operations are safe
     """
-    refreshdatas()
+
 
     # Get calendar IDs (not objects that can detach)
     calendar = get_cached_calendar_ids()

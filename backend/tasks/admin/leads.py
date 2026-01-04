@@ -30,12 +30,11 @@ async def test_call():
         return jsonify({"error": "Missing 'crm_username'"}), 400
     else:
         if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
-                                     'gennis_nurafshon','admin']:
+                                     'gennis_nurafshon', 'admin']:
             return jsonify({"error": "CRM username is invalid"}), 400
     # Queue the task
 
     task = process_call_and_save_record.delay(lead_id, user.crm_username)
-    print(user.crm_username)
     return jsonify({
         "message": "Call processing started",
         "task_id": task.id,
@@ -171,7 +170,7 @@ def task_leads_update(pk):
         leads, task_statistics, _ = filter_new_leads(lead_infos.lead.location_id)
         daily_statistics = update_all_ratings(lead_infos.lead.location_id)
         return jsonify({
-            "msg": "Komment belgilandi",
+            "message": "Komment belgilandi",
             "success": True,
             "lead_id": lead_infos.lead.id,
             "task_statistics": task_statistics.convert_json(),

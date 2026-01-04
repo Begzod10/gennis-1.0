@@ -2,7 +2,7 @@ import os
 import logging
 from functools import wraps
 from dotenv import load_dotenv
-
+from backend.functions.utils import find_calendar_date
 from flask import Flask, send_from_directory, jsonify, request, Response
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -249,7 +249,7 @@ def index():
     # Only refresh data on POST or based on specific conditions
     if request.method == 'POST':
         try:
-            refreshdatas()
+            calendar_year, calendar_month, calendar_day = find_calendar_date()
         except Exception as e:
             logger.error(f"Failed to refresh data: {e}")
 

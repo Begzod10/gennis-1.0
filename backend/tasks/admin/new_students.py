@@ -129,7 +129,7 @@ def call_to_new_student():
         return jsonify({"error": "Missing 'crm_username'"}), 400
     else:
         if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
-                                     'gennis_nurafshon','admin']:
+                                     'gennis_nurafshon', 'admin']:
             return jsonify({"error": "CRM username is invalid"}), 400
     # Validate input
     if not student_id:
@@ -212,10 +212,10 @@ def call_to_new_students():
         students, task_statistics, _ = filter_new_students(student.user.location_id)
         task_daily_statistics = update_all_ratings(student.user.location_id)
         return jsonify({
-            "student": {
-                'msg': "Comment muvaffaqiyatli qo'shildi",
-                "student_id": student.user.id,
-            },
+
+            "student_id": student.user.id,
+
+            'message': "Comment muvaffaqiyatli qo'shildi",
             "task_statistics": task_statistics.convert_json(),
             "task_daily_statistics": task_daily_statistics.convert_json()
         })

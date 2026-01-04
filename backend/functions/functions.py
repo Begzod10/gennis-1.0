@@ -230,7 +230,7 @@ def number_of_days_in_month(year, month):
 
 
 def update_account(account_id):
-    refreshdatas()
+
     accounting_info = AccountingInfo.query.filter(AccountingInfo.id == account_id).first()
     old_cash = 0
     old_account_period = AccountingPeriod.query.filter(
@@ -268,7 +268,7 @@ def update_account(account_id):
 
 
 def update_salary(teacher_id):
-    refreshdatas()
+
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
     attendance_history = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id).filter(
         or_(TeacherSalary.status == False, TeacherSalary.status == None)).all()

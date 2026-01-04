@@ -12,7 +12,6 @@ class Group_Functions:
         self.group_id = group_id
 
     def update_list_balance(self):
-        refreshdatas()
         calendar_year, calendar_month, calendar_day = find_calendar_date()
         students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
             Groups.id == self.group_id).order_by('id').all()

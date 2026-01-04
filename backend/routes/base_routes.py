@@ -293,7 +293,6 @@ def logout():
 
 @base_bp.route(f'/register', methods=['POST', 'GET'])
 def register():
-    refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     if request.method == 'POST':
@@ -558,7 +557,6 @@ def register_staff():
 @jwt_required()
 def my_profile(user_id):
     links = []
-    refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     user = Users.query.filter(Users.id == user_id).first()
     role = Roles.query.filter(Roles.id == user.role_id).first()
@@ -690,59 +688,64 @@ def my_profile(user_id):
         "location_id": user.location_id,
         "balance": user.balance,
         "extraInfo": {
+            "crm_username": {
+                "name": "CRM",
+                "value": user.crm_username,
+                "order": 0
+            },
             "username": {
                 "name": "Foydalanuvchi",
                 "value": user.username,
-                "order": 0
+                "order": 1
             },
             "name": {
                 "name": "Ism",
                 "value": user.name.title(),
-                "order": 1
+                "order": 2
             },
             "surname": {
                 "name": "Familya",
                 "value": user.surname.title(),
-                "order": 2
+                "order": 3
             },
             "fathersName": {
                 "name": "Otasining Ismi",
                 "value": user.father_name.title(),
-                "order": 3
+                "order": 4
             },
             "age": {
                 "name": "age",
                 "value": user.age,
-                "order": 4
+                "order": 5
             },
             "birthDate": {
                 "name": "Tug'ulgan kun",
                 "value": str(user.born_year) + "-" + str(user.born_month) + "-" + str(user.born_day),
-                "order": 7,
+                "order": 6,
             },
             "birthDay": {
                 "name": "Tug'ulgan kun",
                 "value": user.born_day,
-                "order": 8,
+                "order": 7,
                 "display": "none"
             },
             "birthMonth": {
                 "name": "Tug'ulgan oy",
                 "value": user.born_month,
-                "order": 9,
+                "order": 8,
                 "display": "none"
             },
 
             "birthYear": {
                 "name": "Tug'ulgan yil",
                 "value": user.born_year,
-                "order": 10,
+                "order": 9,
                 "display": "none"
             },
             "address": {
                 "name": "Manzili",
                 "value": user.address,
-                "order": 13
+                "order": 10
             },
             "combined_payment": combined_payment,
             'balance': balance_info,
@@ -770,7 +773,6 @@ def get_price_course():
 @base_bp.route(f'/profile/<int:user_id>')
 @jwt_required()
 def profile(user_id):
-    refreshdatas()
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     user_get = Users.query.filter(Users.id == user_id).first()
     student_get = Students.query.filter(Students.user_id == user_id).first()
@@ -1213,16 +1215,22 @@ def profile(user_id):
                     "value": username,
                     "order": 0
                 },
-
+                "crm_username": {
+                    "name": "CRM",
+                    "value": user_get.crm_username,
+                    "order": 0
+                },
                 "birthDay": {
                     "name": "Tug'ilgan kun",
                     "value": user_get.born_day,
-                    "display": "none"
+                    "display": "none",
+                    "order": 6
                 },
                 "birthMonth": {
                     "name": "Tug'ilgan oy",
                     "value": user_get.born_month,
-                    "display": "none"
+                    "display": "none",
+                    "order": 5
                 },
                 "birthYear": {
                     "name": "Tug'ilgan yil",
