@@ -1186,34 +1186,34 @@ def profile(user_id):
                 "name": {
                     "name": "Ism",
                     "value": user_get.name.title(),
-                    "order": 1
+                    "order": 2
                 },
                 "surname": {
                     "name": "Familya",
                     "value": user_get.surname.title(),
-                    "order": 2
+                    "order": 3
                 },
                 "fathersName": {
                     "name": "Otasining Ismi",
                     "value": user_get.father_name,
-                    "order": 3
+                    "order": 4
                 },
                 "age": {
                     "name": "Yosh",
                     "value": user_get.age,
-                    "order": 4
+                    "order": 5
                 },
                 "phone": phone_list,
 
                 "birthDate": {
                     "name": "Tug'ulgan kun",
                     "value": str(user_get.born_year) + "-" + str(user_get.born_month) + "-" + str(user_get.born_day),
-                    "order": 7
+                    "order": 8
                 },
                 "username": {
                     "name": "Foydalanuvchi",
                     "value": username,
-                    "order": 0
+                    "order": 1
                 },
                 "crm_username": {
                     "name": "CRM",
@@ -1224,13 +1224,13 @@ def profile(user_id):
                     "name": "Tug'ilgan kun",
                     "value": user_get.born_day,
                     "display": "none",
-                    "order": 6
+                    "order": 7
                 },
                 "birthMonth": {
                     "name": "Tug'ilgan oy",
                     "value": user_get.born_month,
                     "display": "none",
-                    "order": 5
+                    "order": 6
                 },
                 "birthYear": {
                     "name": "Tug'ilgan yil",
@@ -1240,7 +1240,7 @@ def profile(user_id):
                 "subject": {
                     "name": "Fan",
                     "value": subject_list,
-                    "order": 8
+                    "order": 9
                 },
 
             },
