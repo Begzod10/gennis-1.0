@@ -44,9 +44,9 @@ class Group_Functions:
 
             # if result == 0:
             #     result = student.extra_payment
-            student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == student_get.id,
-                                                         StudentExcuses.to_date > calendar_day.date).order_by(
-                desc(StudentExcuses.id)).first()
+            # student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == student_get.id,
+            #                                              StudentExcuses.to_date > calendar_day.date).order_by(
+            #     desc(StudentExcuses.id)).first()
             if result == None:
                 result = 0
             Users.query.filter(Users.id == student.user_id).update({'balance': result})
