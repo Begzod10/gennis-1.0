@@ -194,19 +194,9 @@ load_dotenv()
 async def wait_until_call_finished(vats, callid, timeout=1200):
     """
     Wait for call to finish - handles the fact that calls don't appear in history until complete
-
-    Args:
-        vats: VatsProcess instance
-        callid: Call ID to monitor
-        timeout: Maximum wait time in seconds (default: 1200 = 20 minutes)
-
-    Returns:
-        Call info dict or error dict
     """
     import time
     start = time.time()
-    retry_count = 0
-    max_consecutive_failures = 30  # 30 failed checks = ~60 seconds with no response
     check_count = 0
 
     logger.info(f"Starting call monitoring for {callid} (timeout: {timeout}s)")
@@ -217,56 +207,35 @@ async def wait_until_call_finished(vats, callid, timeout=1200):
         try:
             info = await vats.get_call_info_by_id(callid)
 
-            # Log status every 10 checks (every ~20 seconds)
-            if check_count % 10 == 0:
+            # Log status every 30 checks (every ~60 seconds)
+            if check_count % 30 == 0:
                 elapsed = int(time.time() - start)
-                logger.info(
-                    f"Call {callid} still in progress... ({elapsed}s elapsed, {retry_count} consecutive None responses)")
+                logger.info(f"Call {callid} still in progress... ({elapsed}s elapsed)")
 
-            # None means call is still in progress (not in history yet)
+            # None means call is still in progress - THIS IS NORMAL!
             if info is None:
-                retry_count += 1
-
-                # This is NORMAL for the first 30-60 seconds of a call
-                # But if it continues too long, something is wrong
-                if retry_count >= max_consecutive_failures:
-                    logger.error(
-                        f"Call {callid} failed - no response after {max_consecutive_failures} checks (~{max_consecutive_failures * 2}s)")
-                    return {
-                        "error": "no_response",
-                        "callid": callid,
-                        "status": "failed",
-                        "message": f"Call did not appear in history after {max_consecutive_failures * 2} seconds"
-                    }
-
-                # Wait 2 seconds between checks
                 await asyncio.sleep(2)
                 continue
-
-            # Got a response! Reset retry counter
-            if retry_count > 5:  # Only log if we were waiting a while
-                logger.info(f"Call {callid} appeared in history after {retry_count} checks")
-            retry_count = 0
 
             # We have call info - check if it's complete
             status = info.get("status", "").lower()
 
-            # These are terminal states - call is definitely finished
+            # Terminal states - call is finished
             terminal_states = {
-                "success", "answer", "answered",  # Call was answered
-                "missed", "noanswer", "no-answer",  # No answer
-                "cancelled", "cancel",  # Cancelled
-                "failed", "failure",  # Failed
-                "busy",  # Line busy
+                "success", "answer", "answered",
+                "missed", "noanswer", "no-answer",
+                "cancelled", "cancel",
+                "failed", "failure",
+                "busy",
             }
 
             if status in terminal_states:
                 logger.info(f"Call {callid} completed with status: {status}, duration: {info.get('duration')}s")
                 return info
 
-            # Has duration means call happened (even if status unclear)
+            # Has duration means call happened
             if info.get("duration") and int(info.get("duration", 0)) > 0:
-                logger.info(f"Call {callid} completed (has duration: {info.get('duration')}s)")
+                logger.info(f"Call {callid} completed (duration: {info.get('duration')}s)")
                 return info
 
             # Unknown status but call exists - wait a bit more
