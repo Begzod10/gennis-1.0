@@ -8,7 +8,7 @@ from backend.functions.utils import update_school_salary
 from backend.functions.utils import iterate_models
 from datetime import timedelta
 from backend.teacher.utils import send_telegram_message
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, func
 from backend.functions.functions import get_dates_for_weekdays
 from sqlalchemy.orm import contains_eager, joinedload
 from datetime import datetime
