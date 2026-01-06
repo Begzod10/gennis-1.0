@@ -312,7 +312,7 @@ def call_to_debt():
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.calendar_day == calendar_day.id,
         TasksStatistics.task_id == task_type.id,
-        TasksStatistics.location_id == student.user.location_id
+        TasksStatistics.location_id == user.location_id
     ).first()
     # Queue the call task
     task = process_student_call.delay(student_id, phone, task_statistics.id, user.crm_username)
