@@ -738,7 +738,7 @@ def make_attendance_classroom_mobile():
             }]
         }), 404
 
-    teacher = group.teacher
+    teacher = group.teacher[0]
     subject = group.subject
 
     # Get or create calendar entries (optimized with single transaction)
