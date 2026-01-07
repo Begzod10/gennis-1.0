@@ -144,115 +144,115 @@ def student_debts_progress(location_id, date):
 @task_debts.route(f'/student_debts_completed/<int:location_id>/<date>')
 @jwt_required()
 def student_debts_completed(location_id, date):
-    try:
-        # Parse date
-        date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date() if date else None
-        calendar_year, calendar_month, calendar_day = find_calendar_date()
-        current_date = calendar_day.date.date() if isinstance(calendar_day.date,
-                                                              datetime.datetime) else calendar_day.date
 
-        # Get task once (cached if possible)
-        task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
-        if not task:
-            return jsonify({
-                "students": [],
-                "task_statistics": None,
-                "task_daily_statistics": None,
-                "table": True,
-                "records": []
-            }), 404
+    # Parse date
+    date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date() if date else None
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    current_date = calendar_day.date.date() if isinstance(calendar_day.date,
+                                                          datetime.datetime) else calendar_day.date
 
-        # Base student query
-        base_student_query = db.session.query(Students).join(Students.user).filter(
-            Users.location_id == location_id
-        )
-
-        # Determine date relationship
-        is_current = date_obj == current_date
-        is_future = date_obj > current_date
-
-        if is_current:
-            # Current day logic
-            _, task_statistics = update_debt_progress(location_id)
-            task_daily_statistics = update_all_ratings(location_id)
-
-            students = base_student_query.join(Students.students_tasks).filter(
-                TaskStudents.status == True,
-                TaskStudents.tasksstatistics_id == task_statistics.id,
-                TaskStudents.calendar_day == calendar_day.id,
-                Students.debtor != 4,
-                TaskStudents.task_id == task.id
-            ).order_by(desc(Students.id)).all()
-
-            excuse_date_filter = func.date(StudentExcuses.added_date) == date_obj
-
-        elif is_future:
-            # Future date logic
-            students = base_student_query.join(Students.excuses).filter(
-                func.date(StudentExcuses.to_date) == date_obj
-            ).distinct().order_by(Students.id).all()
-
-            task_statistics = None
-            task_daily_statistics = None
-            excuse_date_filter = func.date(StudentExcuses.to_date) == date_obj
-
-        else:
-            # Past date logic
-            target_calendar_day = CalendarDay.query.filter(
-                func.date(CalendarDay.date) == date_obj
-            ).first()
-
-            students = base_student_query.join(Students.excuses).filter(
-                func.date(StudentExcuses.added_date) == date_obj
-            ).distinct().order_by(Students.id).all()
-
-            if target_calendar_day:
-                task_statistics = TasksStatistics.query.filter(
-                    TasksStatistics.location_id == location_id,
-                    TasksStatistics.calendar_day == target_calendar_day.id,
-                    TasksStatistics.task_id == task.id
-                ).first()
-
-                task_daily_statistics = TaskDailyStatistics.query.filter(
-                    TaskDailyStatistics.location_id == location_id,
-                    TaskDailyStatistics.calendar_day == target_calendar_day.id
-                ).first()
-            else:
-                task_statistics = None
-                task_daily_statistics = None
-
-            excuse_date_filter = func.date(StudentExcuses.added_date) == date_obj
-
-        # Get records efficiently
-        records = []
-        if students:
-            records = db.session.query(StudentExcuses).join(
-                StudentExcuses.student
-            ).filter(
-                StudentExcuses.student_id.in_([s.id for s in students]),
-                excuse_date_filter
-            ).all()
-
+    # Get task once (cached if possible)
+    task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
+    if not task:
         return jsonify({
-            # "students": iterate_models(students),
-            "task_statistics": task_statistics.convert_json() if task_statistics else None,
-            "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
-            "table": True,
-            "records": iterate_models(records)
-        }), 200
-
-    except ValueError:
-        return jsonify({
-            "error": "Invalid date format",
-            # "students": [],
+            "students": [],
             "task_statistics": None,
             "task_daily_statistics": None,
             "table": True,
             "records": []
-        }), 400
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        }), 404
+
+    # Base student query
+    base_student_query = db.session.query(Students).join(Students.user).filter(
+        Users.location_id == location_id
+    )
+
+    # Determine date relationship
+    is_current = date_obj == current_date
+    is_future = date_obj > current_date
+
+    if is_current:
+        # Current day logic
+        _, task_statistics = update_debt_progress(location_id)
+        task_daily_statistics = update_all_ratings(location_id)
+
+        students = base_student_query.join(Students.students_tasks).filter(
+            TaskStudents.status == True,
+            TaskStudents.tasksstatistics_id == task_statistics.id,
+            TaskStudents.calendar_day == calendar_day.id,
+            Students.debtor != 4,
+            TaskStudents.task_id == task.id
+        ).order_by(desc(Students.id)).all()
+
+        excuse_date_filter = func.date(StudentExcuses.added_date) == date_obj
+
+    elif is_future:
+        # Future date logic
+        students = base_student_query.join(Students.excuses).filter(
+            func.date(StudentExcuses.to_date) == date_obj
+        ).distinct().order_by(Students.id).all()
+
+        task_statistics = None
+        task_daily_statistics = None
+        excuse_date_filter = func.date(StudentExcuses.to_date) == date_obj
+
+    else:
+        # Past date logic
+        target_calendar_day = CalendarDay.query.filter(
+            func.date(CalendarDay.date) == date_obj
+        ).first()
+
+        students = base_student_query.join(Students.excuses).filter(
+            func.date(StudentExcuses.added_date) == date_obj
+        ).distinct().order_by(Students.id).all()
+
+        if target_calendar_day:
+            task_statistics = TasksStatistics.query.filter(
+                TasksStatistics.location_id == location_id,
+                TasksStatistics.calendar_day == target_calendar_day.id,
+                TasksStatistics.task_id == task.id
+            ).first()
+
+            task_daily_statistics = TaskDailyStatistics.query.filter(
+                TaskDailyStatistics.location_id == location_id,
+                TaskDailyStatistics.calendar_day == target_calendar_day.id
+            ).first()
+        else:
+            task_statistics = None
+            task_daily_statistics = None
+
+        excuse_date_filter = func.date(StudentExcuses.added_date) == date_obj
+
+    # Get records efficiently
+    records = []
+    if students:
+        records = db.session.query(StudentExcuses).join(
+            StudentExcuses.student
+        ).filter(
+            StudentExcuses.student_id.in_([s.id for s in students]),
+            excuse_date_filter
+        ).all()
+
+    return jsonify({
+        # "students": iterate_models(students),
+        "task_statistics": task_statistics.convert_json() if task_statistics else None,
+        "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
+        "table": True,
+        "records": iterate_models(records)
+    }), 200
+
+    # except ValueError:
+    #     return jsonify({
+    #         "error": "Invalid date format",
+    #         # "students": [],
+    #         "task_statistics": None,
+    #         "task_daily_statistics": None,
+    #         "table": True,
+    #         "records": []
+    #     }), 400
+    # except Exception as e:
+    #     db.session.rollback()
+    #     return jsonify({"error": str(e)}), 500
 
 
 @task_debts.route('/get_phones/<int:student_id>/')

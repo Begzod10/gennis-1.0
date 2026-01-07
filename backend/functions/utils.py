@@ -373,9 +373,9 @@ def find_calendar_date(date_day=None, date_month=None, date_year=None):
             db.session.add(day)
             db.session.commit()
 
-        year = CalendarYear.query.filter_by(date=new_year()).first()
-        month = CalendarMonth.query.filter_by(date=new_month(), year_id=year.id).first()
-        day = CalendarDay.query.filter_by(date=new_today(), month_id=month.id).first()
+        # year = CalendarYear.query.filter_by(date=new_year()).first()
+        # month = CalendarMonth.query.filter_by(date=new_month(), year_id=year.id).first()
+        # day = CalendarDay.query.filter_by(date=new_today(), month_id=month.id).first()
 
         return year, month, day
 
