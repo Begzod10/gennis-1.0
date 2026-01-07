@@ -760,6 +760,9 @@ def old_current_dates(group_id=0, observation=False):
 
 # Instead of checking each day individually, bulk check:
 def update_lesson_plan(group_id):
+    from sqlalchemy import func
+    from sqlalchemy.exc import IntegrityError
+
     time_table_group = Group_Room_Week.query.filter(
         Group_Room_Week.group_id == group_id
     ).order_by(Group_Room_Week.id).all()
@@ -776,39 +779,37 @@ def update_lesson_plan(group_id):
     today = datetime.now().date()
     future_day = today + timedelta(days=7)
 
-    # Get all existing lesson plans for this period at once
-    existing_plans = LessonPlan.query.filter(
-        LessonPlan.date.between(today, future_day),
-        LessonPlan.group_id == group_id,
-        LessonPlan.teacher_id == group.teacher_id
-    ).all()
-
-    existing_dates = {plan.date for plan in existing_plans}
-
-    # Create lesson plans for matching weekdays
-    plans_to_add = []
+    created = 0
     current_day = today
 
     while current_day <= future_day:
         weekday_name = current_day.strftime("%A")
 
-        if weekday_name in week_list and current_day not in existing_dates:
-            plans_to_add.append(
-                LessonPlan(
-                    group_id=group_id,
-                    teacher_id=group.teacher_id,
-                    date=current_day
-                )
-            )
+        if weekday_name in week_list:
+            # Check if already exists
+            exists = LessonPlan.query.filter(
+                func.date(LessonPlan.date) == current_day,
+                LessonPlan.group_id == group_id,
+                LessonPlan.teacher_id == group.teacher_id
+            ).first()
+
+            if not exists:
+                try:
+                    lesson_plan = LessonPlan(
+                        group_id=group_id,
+                        teacher_id=group.teacher_id,
+                        date=current_day
+                    )
+                    db.session.add(lesson_plan)
+                    db.session.commit()
+                    created += 1
+                except IntegrityError:
+                    db.session.rollback()
+                    # Race condition - another process created it
 
         current_day += timedelta(days=1)
 
-    # Bulk insert
-    if plans_to_add:
-        db.session.bulk_save_objects(plans_to_add)
-        db.session.commit()
-
-    return len(plans_to_add)
+    return created
 
 
 def weekday_from_date(day_list, month, year, week_list):
