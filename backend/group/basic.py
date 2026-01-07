@@ -361,7 +361,7 @@ def group_profile(group_id):
     ).all()
 
     for lesson_plan in lesson_plans:
-        errors.append(f"{lesson_plan.date} shu kunda lesson plan qilinmagan.")
+        errors.append(f"{lesson_plan.date.strftime('%d.%m.%Y')} shu kunda lesson plan qilinmagan.")
 
     return jsonify({
         "locationId": group.location_id,
