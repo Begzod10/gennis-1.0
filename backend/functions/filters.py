@@ -776,14 +776,34 @@ def update_lesson_plan(group_id):
     today = datetime.now().date()
     future_day = today + timedelta(days=7)
 
-    # Get all existing lesson plans for this period at once
+    # Get all existing lesson plans for this period
     existing_plans = LessonPlan.query.filter(
         LessonPlan.date.between(today, future_day),
         LessonPlan.group_id == group_id,
         LessonPlan.teacher_id == group.teacher_id
     ).all()
 
-    existing_dates = {plan.date for plan in existing_plans}
+    # Find and remove duplicates (keep the oldest one)
+    seen_dates = {}
+    duplicates_to_delete = []
+
+    for plan in existing_plans:
+        if plan.date in seen_dates:
+            # Duplicate found - mark for deletion
+            duplicates_to_delete.append(plan)
+        else:
+            # First occurrence - keep it
+            seen_dates[plan.date] = plan
+
+    # Delete duplicates
+    if duplicates_to_delete:
+        for duplicate in duplicates_to_delete:
+            db.session.delete(duplicate)
+        db.session.commit()
+        print(f"Deleted {len(duplicates_to_delete)} duplicate lesson plans")
+
+    # Get remaining dates after cleanup
+    existing_dates = set(seen_dates.keys())
 
     # Create lesson plans for matching weekdays
     plans_to_add = []
