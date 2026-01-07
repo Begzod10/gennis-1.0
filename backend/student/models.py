@@ -50,7 +50,7 @@ class StudentExcuses(db.Model):
                 'old_id': self.old_id,
                 'audio_url': audio_url,
                 "records": [record.convert_json() for record in self.records],
-                "duration": self.records[len(self.records) - 1].duration
+                "duration": self.records[len(self.records) - 1].duration if self.records else None
             }
         else:
             info = {
@@ -64,7 +64,7 @@ class StudentExcuses(db.Model):
                 'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
                 'old_id': self.old_id,
                 'audio_url': audio_url,
-                "duration": self.records[len(self.records) - 1].duration
+                "duration": self.records[len(self.records) - 1].duration if self.records else None
 
             }
         return info
