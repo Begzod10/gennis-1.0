@@ -71,11 +71,14 @@ def lesson_plan_list(group_id, date):
         extract('year', LessonPlan.date) == int(date.strftime("%Y")), LessonPlan.group_id == group_id).all()
     for data in plan_list_month:
         days_list.append(data.date.strftime("%d"))
+    days_list = list(dict.fromkeys(days_list))
     days_list.sort()
     for plan in plan_list:
         if plan.date:
             month_list.append(plan.date.strftime("%m"))
             years_list.append(plan.date.strftime("%Y"))
+    month_list = list(dict.fromkeys(month_list))
+    years_list = list(dict.fromkeys(years_list))
     month_list = list(dict.fromkeys(month_list))
     years_list = list(dict.fromkeys(years_list))
     month_list.sort()
