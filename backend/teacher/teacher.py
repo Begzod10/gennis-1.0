@@ -342,7 +342,6 @@ def make_attendance():
     month_date = student['date'].get('month', current_month)
     if month_date == "12" and current_month == "01":
         current_year = old_year
-    print(current_year, month_date, current_month)
     full_date = f"{current_year}-{month_date}-{day}"
     date_day = datetime.strptime(full_date, "%Y-%m-%d")
     date_month = datetime.strptime(f"{current_year}-{month_date}", "%Y-%m")

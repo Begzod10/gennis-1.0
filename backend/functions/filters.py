@@ -758,33 +758,57 @@ def old_current_dates(group_id=0, observation=False):
     return data
 
 
+# Instead of checking each day individually, bulk check:
 def update_lesson_plan(group_id):
-    time_table_group = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
-        Group_Room_Week.id).all()
+    time_table_group = Group_Room_Week.query.filter(
+        Group_Room_Week.group_id == group_id
+    ).order_by(Group_Room_Week.id).all()
+
+    if not time_table_group:
+        return 0
 
     week_list = [timetable.week.eng_name for timetable in time_table_group]
 
     group = Groups.query.filter(Groups.id == group_id).first()
+    if not group or not group.teacher_id:
+        return 0
+
     today = datetime.now().date()
     future_day = today + timedelta(days=7)
 
+    # Get all existing lesson plans for this period at once
+    existing_plans = LessonPlan.query.filter(
+        LessonPlan.date.between(today, future_day),
+        LessonPlan.group_id == group_id,
+        LessonPlan.teacher_id == group.teacher_id
+    ).all()
+
+    existing_dates = {plan.date for plan in existing_plans}
+
+    # Create lesson plans for matching weekdays
+    plans_to_add = []
     current_day = today
+
     while current_day <= future_day:
         weekday_name = current_day.strftime("%A")
-        if weekday_name in week_list:
-            exist = LessonPlan.query.filter(
-                LessonPlan.date == current_day,
-                LessonPlan.group_id == group_id,
-                LessonPlan.teacher_id == group.teacher_id
-            ).first()
-            if not exist:
-                lesson_plan_add = LessonPlan(
+
+        if weekday_name in week_list and current_day not in existing_dates:
+            plans_to_add.append(
+                LessonPlan(
                     group_id=group_id,
                     teacher_id=group.teacher_id,
                     date=current_day
                 )
-                lesson_plan_add.add()
+            )
+
         current_day += timedelta(days=1)
+
+    # Bulk insert
+    if plans_to_add:
+        db.session.bulk_save_objects(plans_to_add)
+        db.session.commit()
+
+    return len(plans_to_add)
 
 
 def weekday_from_date(day_list, month, year, week_list):
