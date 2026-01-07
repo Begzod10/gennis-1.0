@@ -101,10 +101,10 @@ class LessonPlan(db.Model):
     students = relationship("LessonPlanStudents", backref="lesson_plan", order_by="LessonPlanStudents.id",
                             lazy="select")
 
-    # __table_args__ = (
-    #     db.UniqueConstraint('group_id', 'teacher_id', 'date',
-    #                         name='uq_lesson_plan_unique'),
-    # )
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'teacher_id', 'date',
+                            name='uq_lesson_plan_unique'),
+    )
 
     def add(self):
         db.session.add(self)
