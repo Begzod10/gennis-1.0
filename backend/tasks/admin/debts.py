@@ -144,14 +144,13 @@ def student_debts_progress(location_id, date):
 @task_debts.route(f'/student_debts_completed/<int:location_id>/<date>')
 @jwt_required()
 def student_debts_completed(location_id, date):
-
-    # Parse date
-    date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date() if date else None
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    current_date = calendar_day.date.date() if isinstance(calendar_day.date,
-                                                          datetime.datetime) else calendar_day.date
+    current_date = calendar_day.date.date() if isinstance(calendar_day.date, datetime.datetime) else calendar_day.date
 
-    # Get task once (cached if possible)
+    # Parse date - use current_date if date is None
+    date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date() if date else current_date
+
+    # Get task once
     task = Tasks.query.filter(Tasks.role == "admin", Tasks.name == "excuses").first()
     if not task:
         return jsonify({
@@ -226,10 +225,9 @@ def student_debts_completed(location_id, date):
     # Get records efficiently
     records = []
     if students:
-        records = db.session.query(StudentExcuses).join(
-            StudentExcuses.student
-        ).filter(
-            StudentExcuses.student_id.in_([s.id for s in students]),
+        student_ids = [s.id for s in students]
+        records = db.session.query(StudentExcuses).filter(
+            StudentExcuses.student_id.in_(student_ids),
             excuse_date_filter
         ).all()
 
@@ -241,18 +239,6 @@ def student_debts_completed(location_id, date):
         "records": iterate_models(records)
     }), 200
 
-    # except ValueError:
-    #     return jsonify({
-    #         "error": "Invalid date format",
-    #         # "students": [],
-    #         "task_statistics": None,
-    #         "task_daily_statistics": None,
-    #         "table": True,
-    #         "records": []
-    #     }), 400
-    # except Exception as e:
-    #     db.session.rollback()
-    #     return jsonify({"error": str(e)}), 500
 
 
 @task_debts.route('/get_phones/<int:student_id>/')
