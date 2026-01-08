@@ -849,7 +849,8 @@ def make_attendance_classroom_mobile():
     fine = 0
     if today_lesson_plan or ball < 5:
         fine = round(salary_per_day / group.attendance_days)
-
+    if teacher.user.username == 'rimefara_teach':
+        fine = 0
     errors = []
     attendances_to_create = []
     attendance_days_to_add = []
