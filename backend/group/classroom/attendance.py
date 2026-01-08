@@ -1032,6 +1032,20 @@ def make_attendance_classroom_mobile():
                     "ball_percentage": result
                 })
 
+            year_date = attendance.year.date
+            month_date = attendance.month.date
+            group_attendance = db.session.query(GroupAttendance).join(
+                CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
+            ).join(
+                CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
+            ).filter(
+                GroupAttendance.group_id == group_id,
+                CalendarYear.date == year_date,
+                CalendarMonth.date == month_date
+            ).first()
+
+            if group_attendance:
+                group_attendance.status = False
         # Commit all changes at once
         db.session.commit()
 
