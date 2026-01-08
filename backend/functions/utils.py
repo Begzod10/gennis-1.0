@@ -338,46 +338,59 @@ def filter_month_day():
 
 
 def find_calendar_date(date_day=None, date_month=None, date_year=None):
-    """Find or parse calendar date entities."""
-    if date_day:
-        day = CalendarDay.query.filter(CalendarDay.date == date_day).first()
-        month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
-        year = CalendarYear.query.filter(CalendarYear.date == date_year).first()
-        if not year:
-            year = CalendarYear(date=date_year)
-            db.session.add(year)
-            db.session.commit()
-        if not month:
-            month = CalendarMonth(date=date_month, year_id=year.id)
-            db.session.add(month)
-            db.session.commit()
-        if not day:
-            day = CalendarDay(date=date_day, month_id=month.id)
-            db.session.add(day)
-            db.session.commit()
-        return year, month, day
+    """
+    Find or create calendar date entities.
+
+    Args:
+        date_day: Date object for the day
+        date_month: Date object for the month
+        date_year: Date object for the year
+
+    Returns:
+        tuple: (year, month, day) CalendarYear, CalendarMonth, CalendarDay objects
+    """
+    # Determine which dates to use
+    if date_day and date_month and date_year:
+        target_day = date_day
+        target_month = date_month
+        target_year = date_year
     else:
-        day = CalendarDay.query.filter(CalendarDay.date == new_today()).first()
-        month = CalendarMonth.query.filter(CalendarMonth.date == new_month()).first()
-        year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-        if not year:
-            year = CalendarYear(date=new_year())
-            db.session.add(year)
-            db.session.commit()
-        if not month:
-            month = CalendarMonth(date=new_month(), year_id=year.id)
-            db.session.add(month)
-            db.session.commit()
-        if not day:
-            day = CalendarDay(date=new_today(), month_id=month.id)
-            db.session.add(day)
-            db.session.commit()
+        # Use current date
+        target_day = new_today()
+        target_month = new_month()
+        target_year = new_year()
 
-        # year = CalendarYear.query.filter_by(date=new_year()).first()
-        # month = CalendarMonth.query.filter_by(date=new_month(), year_id=year.id).first()
-        # day = CalendarDay.query.filter_by(date=new_today(), month_id=month.id).first()
+    # Get or create year
+    year = CalendarYear.query.filter(CalendarYear.date == target_year).first()
+    if not year:
+        year = CalendarYear(date=target_year)
+        db.session.add(year)
+        db.session.flush()  # Get the ID without committing
 
-        return year, month, day
+    # Get or create month
+    month = CalendarMonth.query.filter(
+        CalendarMonth.date == target_month,
+        CalendarMonth.year_id == year.id
+    ).first()
+    if not month:
+        month = CalendarMonth(date=target_month, year_id=year.id)
+        db.session.add(month)
+        db.session.flush()
+
+    # Get or create day
+    day = CalendarDay.query.filter(
+        CalendarDay.date == target_day,
+        CalendarDay.month_id == month.id
+    ).first()
+    if not day:
+        day = CalendarDay(date=target_day, month_id=month.id)
+        db.session.add(day)
+        db.session.flush()
+
+    # Commit all at once
+    db.session.commit()
+
+    return year, month, day
 
 
 def get_json_field(field_name):
