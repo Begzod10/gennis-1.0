@@ -687,6 +687,7 @@ def my_profile(user_id):
         "contract_url": contract_url,
         "location_id": user.location_id,
         "balance": user.balance,
+        "level": user.level,
         "extraInfo": {
             "crm_username": {
                 "name": "CRM",
