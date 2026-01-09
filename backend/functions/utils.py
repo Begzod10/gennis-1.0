@@ -337,7 +337,7 @@ def filter_month_day():
     return date_year, date_month, date_day
 
 
-def find_calendar_date(date_day=None, date_month=None, date_year=None):
+def find_calendar_date(date_day=None, date_month=None, date_year=None, timezone='Asia/Tashkent'):
     """
     Find or create calendar date entities.
 
@@ -345,27 +345,34 @@ def find_calendar_date(date_day=None, date_month=None, date_year=None):
         date_day: Date object for the day
         date_month: Date object for the month
         date_year: Date object for the year
+        timezone: Timezone string (default: 'Asia/Tashkent')
 
     Returns:
         tuple: (year, month, day) CalendarYear, CalendarMonth, CalendarDay objects
     """
+    # Get timezone object
+    tz = pytz.timezone(timezone)
+
+    # Get current time in specified timezone
+    now = datetime.now(tz)
+
     # Determine which dates to use
     if date_day and date_month and date_year:
         target_day = date_day
         target_month = date_month
         target_year = date_year
     else:
-        # Use current date
-        target_day = new_today()
-        target_month = new_month()
-        target_year = new_year()
+        # Use current date from timezone
+        target_day = now.date()  # Full current date: 2026-01-09
+        target_month = now.date().replace(day=1)  # First day of month: 2026-01-01
+        target_year = now.date().replace(month=1, day=1)  # First day of year: 2026-01-01
 
     # Get or create year
     year = CalendarYear.query.filter(CalendarYear.date == target_year).first()
     if not year:
         year = CalendarYear(date=target_year)
         db.session.add(year)
-        db.session.flush()  # Get the ID without committing
+        db.session.flush()
 
     # Get or create month
     month = CalendarMonth.query.filter(
