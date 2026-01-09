@@ -429,8 +429,6 @@ def call_to_debts():
         if len(task_students) > 1:
             for duplicate in task_students[1:]:
                 db.session.delete(duplicate)
-        print("task_student", task_student.id)
-        print("student_id", task_student.student_id)
         # Process excuse if future date
         if to_date > calendar_dt:
             # Check for existing excuse
