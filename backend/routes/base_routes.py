@@ -646,7 +646,8 @@ def my_profile(user_id):
             "birth": True,
             "phone": True,
             "birthDate": True,
-            "crm_username": True
+            "crm_username": True,
+            "level": True
         }
         changes = info
     phone_list = {}
