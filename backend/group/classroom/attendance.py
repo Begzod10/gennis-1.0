@@ -1031,7 +1031,6 @@ def make_attendance_classroom_mobile():
                 Attendance.query.filter(Attendance.id == attendance_id).update({
                     "ball_percentage": result
                 })
-
             year_date = attendance.year.date
             month_date = attendance.month.date
             group_attendance = db.session.query(GroupAttendance).join(
