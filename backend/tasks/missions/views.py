@@ -9,7 +9,7 @@ from backend.tasks.missions.notifications import notif_bp
 
 def register_missions_views(api, app):
     app.register_blueprint(missions_bp, url_prefix=f"/{api}missions")
-    app.register_blueprint(comments_bp, url_prefix=f"/{api}comment")
+    app.register_blueprint(comments_bp, url_prefix=f"/{api}comments")
     app.register_blueprint(proofs_bp, url_prefix=f"/{api}proofs")
     app.register_blueprint(attachments_bp, url_prefix=f"/{api}attachments")
     app.register_blueprint(subtasks_bp, url_prefix=f"/{api}subtasks")
