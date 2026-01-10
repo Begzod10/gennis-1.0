@@ -16,3 +16,5 @@ def register_missions_views(api, app):
     app.register_blueprint(tags_bp, url_prefix=f"/api/tags")
     app.register_blueprint(up_bp, url_prefix=f"/api/uploads")
     app.register_blueprint(notif_bp, url_prefix=f"/api/notifications")
+
+
