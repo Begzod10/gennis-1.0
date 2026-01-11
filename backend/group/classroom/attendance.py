@@ -544,7 +544,8 @@ def make_attendance_classroom():
     fine = 0
     if today_lesson_plan or ball < 5:
         fine = round(salary_per_day / group.attendance_days)
-
+    if teacher.user.username == "rimefara_teach":
+        fine = 0
     # Update student ball_time
     ball_time = now + timedelta(minutes=0)
     student.ball_time = ball_time
