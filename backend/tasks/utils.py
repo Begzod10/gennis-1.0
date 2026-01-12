@@ -4,7 +4,7 @@ from sqlalchemy.sql import func, and_, or_
 
 from datetime import datetime
 import pytz
-from backend.functions.utils import find_calendar_date, refreshdatas
+from backend.functions.utils import find_calendar_date
 from backend.models.models import (
     Users, Students, BlackStudentsStatistics, BlackStudents, StudentExcuses,
     TaskStudents, TasksStatistics, Tasks, TaskDailyStatistics, StudentCallingInfo,
