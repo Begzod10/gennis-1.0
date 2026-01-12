@@ -240,7 +240,6 @@ def student_debts_completed(location_id, date):
     }), 200
 
 
-
 @task_debts.route('/get_phones/<int:student_id>/')
 def get_phones(student_id):
     student = Students.query.filter(Students.id == student_id).first()

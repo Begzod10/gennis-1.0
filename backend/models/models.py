@@ -231,7 +231,7 @@ class AccountingPeriod(db.Model):
 class CalendarDay(db.Model):
     __tablename__ = "calendarday"
     id = Column(Integer, primary_key=True)
-    date = Column(DateTime)
+    date = Column(DateTime, )
     month_id = Column(Integer, ForeignKey('calendarmonth.id'))
     users = db.relationship("Users", backref="day", order_by="Users.id")
     groups = db.relationship("Groups", backref="day", order_by="Groups.id")

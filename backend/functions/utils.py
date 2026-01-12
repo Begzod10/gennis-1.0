@@ -10,7 +10,7 @@ from calendar import monthrange
 import uuid
 from datetime import datetime
 import pytz
-
+from sqlalchemy.exc import IntegrityError
 api = '/api'
 
 
@@ -337,64 +337,47 @@ def filter_month_day():
     return date_year, date_month, date_day
 
 
+def get_or_create(session, model, **kwargs):
+    """Generic get_or_create function with proper locking"""
+    instance = session.query(model).filter_by(**kwargs).first()
+    if instance:
+        return instance, False
+    else:
+        instance = model(**kwargs)
+        try:
+            session.add(instance)
+            session.flush()
+            return instance, True
+        except IntegrityError:
+            session.rollback()
+            instance = session.query(model).filter_by(**kwargs).first()
+            return instance, False
+
+
 def find_calendar_date(date_day=None, date_month=None, date_year=None, timezone='Asia/Tashkent'):
-    """
-    Find or create calendar date entities.
-
-    Args:
-        date_day: Date object for the day
-        date_month: Date object for the month
-        date_year: Date object for the year
-        timezone: Timezone string (default: 'Asia/Tashkent')
-
-    Returns:
-        tuple: (year, month, day) CalendarYear, CalendarMonth, CalendarDay objects
-    """
-    # Get timezone object
     tz = pytz.timezone(timezone)
-
-    # Get current time in specified timezone
     now = datetime.now(tz)
 
-    # Determine which dates to use
     if date_day and date_month and date_year:
         target_day = date_day
         target_month = date_month
         target_year = date_year
     else:
-        # Use current date from timezone
-        target_day = now.date()  # Full current date: 2026-01-09
-        target_month = now.date().replace(day=1)  # First day of month: 2026-01-01
-        target_year = now.date().replace(month=1, day=1)  # First day of year: 2026-01-01
+        target_day = now.date()
+        target_month = now.date().replace(day=1)
+        target_year = now.date().replace(month=1, day=1)
 
     # Get or create year
-    year = CalendarYear.query.filter(CalendarYear.date == target_year).first()
-    if not year:
-        year = CalendarYear(date=target_year)
-        db.session.add(year)
-        db.session.flush()
+    year, _ = get_or_create(db.session, CalendarYear, date=target_year)
 
     # Get or create month
-    month = CalendarMonth.query.filter(
-        CalendarMonth.date == target_month,
-        CalendarMonth.year_id == year.id
-    ).first()
-    if not month:
-        month = CalendarMonth(date=target_month, year_id=year.id)
-        db.session.add(month)
-        db.session.flush()
+    month, _ = get_or_create(db.session, CalendarMonth,
+                             date=target_month, year_id=year.id)
 
     # Get or create day
-    day = CalendarDay.query.filter(
-        CalendarDay.date == target_day,
-        CalendarDay.month_id == month.id
-    ).first()
-    if not day:
-        day = CalendarDay(date=target_day, month_id=month.id)
-        db.session.add(day)
-        db.session.flush()
+    day, _ = get_or_create(db.session, CalendarDay,
+                           date=target_day, month_id=month.id)
 
-    # Commit all at once
     db.session.commit()
 
     return year, month, day
