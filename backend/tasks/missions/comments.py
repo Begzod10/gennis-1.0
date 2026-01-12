@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
-from backend.models.models import MissionComment, Mission, db
+from backend.models.models import MissionComment, Mission, db, Users
 from backend.tasks.missions.utils import allowed_file, create_notification
 from backend.tasks.missions.marshmallow import CommentSchema
 from werkzeug.utils import secure_filename
@@ -42,13 +42,10 @@ def create_comment():
 
         db.session.add(comment)
         db.session.commit()
-
-        return jsonify({
-            "id": comment.id,
-            "text": comment.text,
-            "attachment_path": comment.attachment_path,
-            "created_at": comment.created_at.isoformat()
-        }), 201
+        user = Users.query.filter(Users.id == user_id).first()
+        schema = CommentSchema()
+        result = schema.dump(comment)
+        return jsonify(result), 201
 
     except Exception as e:
         db.session.rollback()

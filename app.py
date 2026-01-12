@@ -62,7 +62,7 @@ def create_app(config_name='backend.models.config'):
     CORS(app, resources={
         r"/api/*": {
             "origins": os.getenv('ALLOWED_ORIGINS', '*').split(','),
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             "allow_headers": ["Content-Type", "Authorization"]
         },
         r"/media/*": {  # Add CORS for media files
