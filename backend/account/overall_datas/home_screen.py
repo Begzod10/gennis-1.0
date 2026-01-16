@@ -350,15 +350,14 @@ def home_screen_salaries():
                 StaffSalary.calendar_month == month_id,
                 StaffSalary.calendar_year == year_id,
                 Users.location_id == location_id,
-
-                or_(
-                    Staff.deleted == False,  # Staff not deleted
-                    and_(
-                        Staff.deleted == True,
-                        func.date_trunc('month', Staff.deleted_date) >= month_date_obj
-                        # Deleted on/after the requested month
-                    )
-                )
+                # or_(
+                #     Staff.deleted == False,  # Staff not deleted
+                #     and_(
+                #         Staff.deleted == True,
+                #         func.date_trunc('month', Staff.deleted_date) >= month_date_obj
+                #         # Deleted on/after the requested month
+                #     )
+                # )
             )
         )
 
