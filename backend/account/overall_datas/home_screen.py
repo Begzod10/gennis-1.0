@@ -350,7 +350,7 @@ def home_screen_salaries():
                 StaffSalary.calendar_month == month_id,
                 StaffSalary.calendar_year == year_id,
                 Users.location_id == location_id,
-                Staff.deleted == False,
+                # Staff.deleted == False,
                 # or_(
                 #     Staff.deleted == False,  # Staff not deleted
                 #     and_(
