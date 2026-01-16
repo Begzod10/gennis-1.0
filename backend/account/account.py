@@ -981,7 +981,7 @@ def account_info_debts():
             "status": "Guruh" if student.group else "Guruhsiz",
             "teacher": [],
             "reason": student_excuse.reason if student_excuse else "",
-            "date": student_excuse.added_date.strftime("%Y-%m-%d") if student_excuse else "",
+            "date": student_excuse.added_date.strftime("%Y-%m-%d") if student_excuse and student_excuse.added_date else "",
             "payment_reason": "tel qilinmaganlar",
             "reason_days": ""
         }
