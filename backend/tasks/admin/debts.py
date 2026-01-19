@@ -22,8 +22,6 @@ task_debts = Blueprint('task_debts', __name__)
 @task_debts.route(f'/student_debts_progress/<int:location_id>/<date>')
 @jwt_required()
 def student_debts_progress(location_id, date):
-    # try:
-    #     # Parse and validate date
     if not date:
         return jsonify({
             "error": "Date is required",
@@ -119,25 +117,6 @@ def student_debts_progress(location_id, date):
         "task_daily_statistics": task_daily_statistics.convert_json() if task_daily_statistics else None,
         "table": True
     }), 200
-
-
-# except ValueError as e:
-#     return jsonify({
-#         "error": f"Invalid date format. Expected YYYY-MM-DD: {str(e)}",
-#         "students": [],
-#         "task_statistics": None,
-#         "task_daily_statistics": None,
-#         "table": False
-#     }), 400
-# except Exception as e:
-#     db.session.rollback()
-#     return jsonify({
-#         "error": f"Server error: {str(e)}",
-#         "students": [],
-#         "task_statistics": None,
-#         "task_daily_statistics": None,
-#         "table": False
-#     }), 500
 
 
 @task_debts.route(f'/student_debts_completed/<int:location_id>', defaults={"date": None})
@@ -258,7 +237,7 @@ def call_to_debt():
 
     Request body:
         {
-            "id": 123,
+            "student_id": 123,
             "phone": "998901234567"
         }
 
@@ -267,7 +246,8 @@ def call_to_debt():
             "message": "Call processing started",
             "task_id": "task-uuid",
             "status": "processing",
-            "student_id": 123
+            "student_id": 123,
+            "callid": "vats-call-id"  # NEW: for tracking
         }
     """
     data = request.get_json()
@@ -277,6 +257,7 @@ def call_to_debt():
     task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
     identity = get_jwt_identity()
     user = Users.query.filter(Users.user_id == identity).first()
+
     # Validate input
     if not student_id:
         return jsonify({"error": "Student ID is required"}), 400
@@ -288,27 +269,34 @@ def call_to_debt():
     student = Students.query.filter(Students.id == student_id).first()
     if not student:
         return jsonify({"error": "Student not found"}), 404
+
     if not user.crm_username:
         return jsonify({"error": "CRM username is required"}), 400
     else:
-        if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq', 'gennis_gazalkent',
-                                     'gennis_nurafshon', 'admin']:
+        if user.crm_username not in ['gennis_center', 'gennis_chirchiq', 'gennis_chorvoq',
+                                     'gennis_gazalkent', 'gennis_nurafshon', 'admin']:
             return jsonify({"error": "CRM username is invalid"}), 400
 
-    print(calendar_day)
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.calendar_day == calendar_day.id,
         TasksStatistics.task_id == task_type.id,
         TasksStatistics.location_id == user.location_id
     ).first()
-    # Queue the call task
-    task = process_student_call.delay(student_id, phone, task_statistics.id, user.crm_username)
+    print("student_id", student_id)
+    # Queue the call task - PASS user_id for room targeting
+    task = process_student_call.delay(
+        student_id,
+        phone,
+        task_statistics.id,
+        user.crm_username,
+
+    )
 
     return jsonify({
         "message": "Call processing started",
         "task_id": task.id,
         "status": "processing",
-        "student_id": student_id
+        "student_id": student_id,
     }), 202
 
 

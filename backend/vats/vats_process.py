@@ -9,6 +9,107 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
+async def wait_until_call_finished(vats, callid, timeout=1200, user_id=None, student_id=None):
+    """
+    Wait for call to finish with adaptive polling and real-time socket updates
+    """
+    import time
+    start = time.time()
+    check_count = 0
+
+    logger.info(f"Starting call monitoring for {callid} (timeout: {timeout}s)")
+
+    def emit_to_user(event_data):
+        """Helper to emit events to user's room"""
+        if user_id:
+            from app import socketio
+            socketio.emit('call_status', event_data, room=f'user_{user_id}')
+
+    # Adaptive polling
+    def get_poll_interval(elapsed):
+        if elapsed < 10:
+            return 0.5
+        elif elapsed < 30:
+            return 1
+        elif elapsed < 60:
+            return 2
+        else:
+            return 3
+
+    while time.time() - start < timeout:
+        check_count += 1
+        elapsed = time.time() - start
+
+        try:
+            info = await vats.get_call_info_by_id(callid)
+
+            # Emit periodic progress (every 10 seconds)
+            if check_count % int(10 / get_poll_interval(elapsed)) == 0:
+                logger.info(f"Call {callid} still in progress... ({int(elapsed)}s elapsed)")
+
+                emit_to_user({
+                    'student_id': student_id,
+                    'callid': callid,
+                    'status': 'in_progress',
+                    'elapsed': int(elapsed),
+                    'message': f'Call in progress ({int(elapsed)}s)...',
+                    'timestamp': time.time()
+                })
+
+            # None means call is still in progress
+            if info is None:
+                await asyncio.sleep(get_poll_interval(elapsed))
+                continue
+
+            # Check if call is complete
+            status = info.get("status", "").lower()
+
+            terminal_states = {
+                "success", "answer", "answered",
+                "missed", "noanswer", "no-answer",
+                "cancelled", "cancel",
+                "failed", "failure",
+                "busy",
+            }
+
+            if status in terminal_states:
+                logger.info(f"Call {callid} completed with status: {status}, duration: {info.get('duration')}s")
+                return info
+
+            # Has duration means call happened
+            if info.get("duration") and int(info.get("duration", 0)) > 0:
+                logger.info(f"Call {callid} completed (duration: {info.get('duration')}s)")
+                return info
+
+            # Unknown status - wait more
+            logger.debug(f"Call {callid} in history but status unclear: {status}")
+            await asyncio.sleep(get_poll_interval(elapsed))
+
+        except Exception as e:
+            logger.error(f"Error checking call status for {callid}: {e}", exc_info=True)
+            await asyncio.sleep(get_poll_interval(elapsed))
+
+    # Timeout reached
+    elapsed = int(time.time() - start)
+    logger.warning(f"Call {callid} monitoring timed out after {elapsed}s")
+
+    emit_to_user({
+        'student_id': student_id,
+        'callid': callid,
+        'status': 'timeout',
+        'elapsed': elapsed,
+        'message': f'Call monitoring timed out after {elapsed}s',
+        'timestamp': time.time()
+    })
+
+    return {
+        "error": "timeout",
+        "callid": callid,
+        "status": "timeout",
+        "message": f"Call monitoring exceeded {timeout} seconds"
+    }
+
+
 # async def wait_until_call_finished(vats, callid, timeout=1200):
 #     """
 #     Wait for call to finish - handles the fact that calls don't appear in history until complete
@@ -191,70 +292,83 @@ load_dotenv()
 #     }
 
 
-async def wait_until_call_finished(vats, callid, timeout=1200):
-    """
-    Wait for call to finish - handles the fact that calls don't appear in history until complete
-    """
-    import time
-    start = time.time()
-    check_count = 0
+# eskisi
 
-    logger.info(f"Starting call monitoring for {callid} (timeout: {timeout}s)")
-
-    while time.time() - start < timeout:
-        check_count += 1
-
-        try:
-            info = await vats.get_call_info_by_id(callid)
-
-            # Log status every 30 checks (every ~60 seconds)
-            if check_count % 30 == 0:
-                elapsed = int(time.time() - start)
-                logger.info(f"Call {callid} still in progress... ({elapsed}s elapsed)")
-
-            # None means call is still in progress - THIS IS NORMAL!
-            if info is None:
-                await asyncio.sleep(2)
-                continue
-
-            # We have call info - check if it's complete
-            status = info.get("status", "").lower()
-
-            # Terminal states - call is finished
-            terminal_states = {
-                "success", "answer", "answered",
-                "missed", "noanswer", "no-answer",
-                "cancelled", "cancel",
-                "failed", "failure",
-                "busy",
-            }
-
-            if status in terminal_states:
-                logger.info(f"Call {callid} completed with status: {status}, duration: {info.get('duration')}s")
-                return info
-
-            # Has duration means call happened
-            if info.get("duration") and int(info.get("duration", 0)) > 0:
-                logger.info(f"Call {callid} completed (duration: {info.get('duration')}s)")
-                return info
-
-            # Unknown status but call exists - wait a bit more
-            logger.debug(f"Call {callid} in history but status unclear: {status}")
-            await asyncio.sleep(2)
-
-        except Exception as e:
-            logger.error(f"Error checking call status for {callid}: {e}", exc_info=True)
-            await asyncio.sleep(3)
-
-    # Timeout reached
-    elapsed = int(time.time() - start)
-    logger.warning(f"Call {callid} monitoring timed out after {elapsed}s")
-    return {
-        "error": "timeout",
-        "callid": callid,
-        "status": "timeout",
-        "message": f"Call monitoring exceeded {timeout} seconds"
-    }
+# async def wait_until_call_finished(vats, callid, timeout=1200):
+#     """
+#     Wait for call to finish with adaptive polling intervals
+#     """
+#     import time
+#     start = time.time()
+#     check_count = 0
+#
+#     logger.info(f"Starting call monitoring for {callid} (timeout: {timeout}s)")
+#
+#     # Adaptive polling: start fast, then slow down
+#     def get_poll_interval(elapsed):
+#         if elapsed < 10:
+#             return 0.5  # Check every 0.5s for first 10 seconds
+#         elif elapsed < 30:
+#             return 1  # Then every 1s for next 20 seconds
+#         elif elapsed < 60:
+#             return 2  # Then every 2s for next 30 seconds
+#         else:
+#             return 3  # After 1 min, check every 3s
+#
+#     while time.time() - start < timeout:
+#         check_count += 1
+#         elapsed = time.time() - start
+#
+#         try:
+#             info = await vats.get_call_info_by_id(callid)
+#
+#             # Log status every 20 checks (frequency varies by polling interval)
+#             if check_count % 20 == 0:
+#                 logger.info(f"Call {callid} still in progress... ({int(elapsed)}s elapsed)")
+#
+#             # None means call is still in progress
+#             if info is None:
+#                 await asyncio.sleep(get_poll_interval(elapsed))
+#                 continue
+#
+#             # We have call info - check if it's complete
+#             status = info.get("status", "").lower()
+#
+#             # Terminal states - call is finished
+#             terminal_states = {
+#                 "success", "answer", "answered",
+#                 "missed", "noanswer", "no-answer",
+#                 "cancelled", "cancel",
+#                 "failed", "failure",
+#                 "busy",
+#             }
+#
+#             if status in terminal_states:
+#                 logger.info(f"Call {callid} completed with status: {status}, duration: {info.get('duration')}s")
+#                 return info
+#
+#             # Has duration means call happened
+#             if info.get("duration") and int(info.get("duration", 0)) > 0:
+#                 logger.info(f"Call {callid} completed (duration: {info.get('duration')}s)")
+#                 return info
+#
+#             # Unknown status but call exists - wait a bit more
+#             logger.debug(f"Call {callid} in history but status unclear: {status}")
+#             await asyncio.sleep(get_poll_interval(elapsed))
+#
+#         except Exception as e:
+#             logger.error(f"Error checking call status for {callid}: {e}", exc_info=True)
+#             await asyncio.sleep(get_poll_interval(elapsed))
+#
+#     # Timeout reached
+#     elapsed = int(time.time() - start)
+#     logger.warning(f"Call {callid} monitoring timed out after {elapsed}s")
+#     return {
+#         "error": "timeout",
+#         "callid": callid,
+#         "status": "timeout",
+#         "message": f"Call monitoring exceeded {timeout} seconds"
+#     }
 
 
 class VatsProcess:

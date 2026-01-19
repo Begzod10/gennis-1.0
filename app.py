@@ -13,18 +13,23 @@ from backend.celery.celery_app import init_celery
 from backend.models.models import db_setup
 from backend.school.models import register_commands
 from backend.functions.utils import refreshdatas
-
+from flask_socketio import SocketIO, join_room, leave_room, emit
+import asyncio
 from backend.telegram_bot.views import register_telegram_bot_routes
 import os
 from dotenv import load_dotenv
 from backend.tasks.missions.utils import recurring_check
+import time
+from flask import send_from_directory
+import os
+import redis
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,  # Changed from DEBUG for production
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -35,11 +40,14 @@ ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'top12')
 GITHUB_SECRET = os.getenv('GITHUB_SECRET', '').encode()
 
 classroom_server = os.getenv("CLASSROOM_SERVER_URL")
-
 school_server = os.getenv("SCHOOL_SERVER_URL")
-
-from flask import send_from_directory
-import os
+redis_client = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'localhost'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    db=0
+)
+# ⭐ Initialize socketio OUTSIDE the function as a global variable
+socketio = SocketIO(cors_allowed_origins="*", async_mode='threading', logger=True, engineio_logger=True)
 
 
 def create_app(config_name='backend.models.config'):
@@ -65,12 +73,19 @@ def create_app(config_name='backend.models.config'):
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             "allow_headers": ["Content-Type", "Authorization"]
         },
-        r"/media/*": {  # Add CORS for media files
+        r"/media/*": {
             "origins": os.getenv('ALLOWED_ORIGINS', '*').split(','),
             "methods": ["GET"],
             "allow_headers": ["Content-Type"]
         }
     })
+
+    # ⭐ Initialize socketio with the app (bind it to the Flask app)
+    socketio.init_app(
+        app,
+        message_queue='redis://localhost:6379/0',  # ✅ Add this!
+        cors_allowed_origins="*"
+    )
 
     # Initialize extensions
     db = db_setup(app)
@@ -86,8 +101,6 @@ def create_app(config_name='backend.models.config'):
         static_url_path='/flask_static'
     )
 
-    # Route to serve media files
-
     # Register CLI commands
     register_commands(app)
 
@@ -99,9 +112,51 @@ def create_app(config_name='backend.models.config'):
 
     # Register middleware
     register_middleware(app)
+
+    # ⭐ Register SocketIO event handlers
+    register_socketio_handlers()
+
     init_celery(app)
 
     return app
+
+
+def register_socketio_handlers():
+    """Register SocketIO event handlers"""
+
+    @socketio.on('connect')
+    def handle_connect():
+        logger.info(f'✅ Client connected: {request.sid}')
+        emit('connection_response', {'status': 'connected', 'sid': request.sid})
+
+    @socketio.on('disconnect')
+    def handle_disconnect():
+        logger.info(f'❌ Client disconnected: {request.sid}')
+
+    @socketio.on('join')
+    def handle_join(data):
+        """Client joins their user-specific room"""
+        user_id = data.get('user_id')
+        if user_id:
+            room = f'user_{user_id}'
+            join_room(room)
+            logger.info(f'👤 User {user_id} joined room: {room}')
+            emit('join_response', {'status': 'joined', 'room': room, 'user_id': user_id})
+
+    @socketio.on('leave')
+    def handle_leave(data):
+        """Client leaves their room"""
+        user_id = data.get('user_id')
+        if user_id:
+            room = f'user_{user_id}'
+            leave_room(room)
+            logger.info(f'👋 User {user_id} left room: {room}')
+
+    @socketio.on('test_emit')
+    def handle_test():
+        """Test emission endpoint"""
+        emit('test_response', {'message': 'Test successful!', 'timestamp': time.time()})
+        logger.info('🧪 Test emit received and responded')
 
 
 def register_all_routes(api, app):
@@ -174,7 +229,7 @@ def register_error_handlers(app):
         """Handle file upload size exceeded"""
         return jsonify({
             "success": False,
-            "msg": "Fayl hajmi juda katta"  # File size too large
+            "msg": "Fayl hajmi juda katta"
         }), 413
 
     @app.errorhandler(500)
@@ -183,7 +238,7 @@ def register_error_handlers(app):
         logger.error(f"Internal server error: {e}")
         return jsonify({
             "success": False,
-            "msg": "Ichki server xatosi"  # Internal server error
+            "msg": "Ichki server xatosi"
         }), 500
 
     @app.errorhandler(401)
@@ -191,7 +246,7 @@ def register_error_handlers(app):
         """Handle unauthorized access"""
         return jsonify({
             "success": False,
-            "msg": "Ruxsat berilmagan"  # Unauthorized
+            "msg": "Ruxsat berilmagan"
         }), 401
 
     @app.errorhandler(403)
@@ -199,8 +254,29 @@ def register_error_handlers(app):
         """Handle forbidden access"""
         return jsonify({
             "success": False,
-            "msg": "Taqiqlangan"  # Forbidden
+            "msg": "Taqiqlangan"
         }), 403
+
+    # In app.py or your routes
+    @app.route('/test-call-status/<int:user_id>/')
+    def test_call_status(user_id):
+        """Test call status emission"""
+        from app import socketio
+
+        test_data = {
+            'student_id': "99999",
+            'status': 'validating',
+            'message': 'TEST: Validating call parameters...',
+            'timestamp': time.time()
+        }
+
+        logger.info(f"📡 Test emitting to user_{user_id}: {test_data}")
+        socketio.emit('call_status', test_data, room=f'user_{user_id}')
+
+        return jsonify({
+            'message': f'Emitted test to user_{user_id}',
+            'data': test_data
+        })
 
 
 def register_middleware(app):
@@ -246,7 +322,6 @@ app = create_app()
 @app.route('/', methods=['GET', 'POST'])
 def index():
     """Serve React application"""
-    # Only refresh data on POST or based on specific conditions
     if request.method == 'POST':
         try:
             calendar_year, calendar_month, calendar_day = find_calendar_date()
@@ -278,4 +353,4 @@ def health_check():
 
 
 if __name__ == '__main__':
-    app.run()
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

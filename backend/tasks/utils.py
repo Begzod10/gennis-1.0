@@ -82,7 +82,7 @@ def update_debt_progress(location_id):
     """
 
     # Get calendar IDs (not objects that can detach)
-    calendar = get_cached_calendar_ids()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     # Get task
     task = Tasks.query.filter_by(role="admin", name="excuses").first()
@@ -92,9 +92,9 @@ def update_debt_progress(location_id):
     # Get or create task statistics
     task_statistics = TasksStatistics.query.filter_by(
         location_id=location_id,
-        calendar_day=calendar['day_id'],  # Use ID, not object
-        calendar_month=calendar['month_id'],
-        calendar_year=calendar['year_id'],
+        calendar_day=calendar_day.id,  # Use ID, not object
+        calendar_month=calendar_month.id,
+        calendar_year=calendar_year.id,
         task_id=task.id
     ).first()
 
@@ -108,7 +108,7 @@ def update_debt_progress(location_id):
                 TaskStudents.task_id == task.id,
                 TaskStudents.tasksstatistics_id == task_statistics.id,
                 TaskStudents.status == False,
-                TaskStudents.calendar_day == calendar['day_id']  # Use ID
+                TaskStudents.calendar_day == calendar_day.id  # Use ID
             )
             .join(TaskStudents.student)
             .filter(
@@ -125,9 +125,9 @@ def update_debt_progress(location_id):
         # Create new task statistics
         task_statistics = TasksStatistics(
             task_id=task.id,
-            calendar_year=calendar['year_id'],  # Use ID
-            calendar_month=calendar['month_id'],
-            calendar_day=calendar['day_id'],
+            calendar_year=calendar_year.id,  # Use ID
+            calendar_month=calendar_month.id,
+            calendar_day=calendar_day.id,
             location_id=location_id,
             in_progress_tasks=0,
             total_tasks=0
@@ -141,7 +141,7 @@ def update_debt_progress(location_id):
             for ts in TaskStudents.query.filter_by(
                 task_id=task.id,
                 tasksstatistics_id=task_statistics.id,
-                calendar_day=calendar['day_id']  # Use ID
+                calendar_day=calendar_day.id  # Use ID
             ).with_entities(TaskStudents.student_id).all()
         }
 
@@ -152,7 +152,7 @@ def update_debt_progress(location_id):
                 tasksstatistics_id=task_statistics.id,
                 status=False,
                 student_id=st.id,
-                calendar_day=calendar['day_id']  # Use ID
+                calendar_day=calendar_day.id  # Use ID
             )
             for st in students
             if st.id not in existing_student_ids
@@ -168,7 +168,7 @@ def update_debt_progress(location_id):
                 TaskStudents.task_id == task.id,
                 TaskStudents.tasksstatistics_id == task_statistics.id,
                 TaskStudents.status == True,
-                TaskStudents.calendar_day == calendar['day_id']  # Use ID
+                TaskStudents.calendar_day == calendar_day.id  # Use ID
             )
             .join(TaskStudents.student)
             .filter(Students.debtor != 4)
@@ -204,7 +204,7 @@ def update_debt_progress(location_id):
 # ==================== FIXED: Filter Debts ====================
 def filter_debts(location_id):
     """FIXED: Uses calendar IDs properly"""
-    calendar = get_cached_calendar_ids()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     # Subquery for latest excuse
     latest_excuses_subquery = (
@@ -243,7 +243,7 @@ def filter_debts(location_id):
         .filter(
             or_(
                 StudentExcuses.to_date.is_(None),
-                StudentExcuses.to_date <= calendar['date']  # Use date, not object
+                StudentExcuses.to_date <= calendar_day.date  # Use date, not object
             )
         )
         .order_by(asc(Users.balance))
@@ -257,7 +257,7 @@ def filter_debts(location_id):
 # ==================== FIXED: Filter New Leads ====================
 def filter_new_leads(location_id):
     """FIXED: Uses calendar IDs properly"""
-    calendar = get_cached_calendar_ids()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     # Get task type
     task_type = Tasks.query.filter(Tasks.name == 'leads').first()
@@ -267,16 +267,16 @@ def filter_new_leads(location_id):
     # Get or create task statistics
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.task_id == task_type.id,
-        TasksStatistics.calendar_day == calendar['day_id'],  # Use ID
+        TasksStatistics.calendar_day == calendar_day.id,  # Use ID
         TasksStatistics.location_id == location_id
     ).first()
 
     if not task_statistics:
         task_statistics = TasksStatistics(
             task_id=task_type.id,
-            calendar_year=calendar['year_id'],
-            calendar_month=calendar['month_id'],
-            calendar_day=calendar['day_id'],
+            calendar_year=calendar_year.id,
+            calendar_month=calendar_month.id,
+            calendar_day=calendar_day.id,
             location_id=location_id,
             in_progress_tasks=0,
             total_tasks=0
@@ -292,7 +292,7 @@ def filter_new_leads(location_id):
         .filter(
             Lead.deleted == False,
             Lead.location_id == location_id,
-            LeadInfos.added_date == calendar['date']  # Use date
+            LeadInfos.added_date == calendar_day.date  # Use date
         )
         .all()
     )
@@ -329,7 +329,7 @@ def filter_new_leads(location_id):
         )
         .filter(
             or_(
-                LeadInfos.day <= calendar['date'],  # Use date
+                LeadInfos.day <= calendar_day.date,  # Use date
                 LeadInfos.id == None
             )
         )
@@ -363,7 +363,7 @@ def filter_new_leads(location_id):
 # ==================== FIXED: Filter New Students ====================
 def filter_new_students(location_id):
     """FIXED: Uses calendar IDs properly"""
-    calendar = get_cached_calendar_ids()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     # Subquery for latest calling info
     latest_calling_subquery = (
@@ -401,7 +401,7 @@ def filter_new_students(location_id):
         )
         .filter(
             or_(
-                StudentCallingInfo.date <= calendar['date'],  # Use date
+                StudentCallingInfo.date <= calendar_day.date,  # Use date
                 StudentCallingInfo.id == None
             )
         )
@@ -417,16 +417,16 @@ def filter_new_students(location_id):
     # Get or create task statistics
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.task_id == task_type.id,
-        TasksStatistics.calendar_day == calendar['day_id'],  # Use ID
+        TasksStatistics.calendar_day == calendar_day.id,  # Use ID
         TasksStatistics.location_id == location_id
     ).first()
 
     if not task_statistics:
         task_statistics = TasksStatistics(
             task_id=task_type.id,
-            calendar_year=calendar['year_id'],
-            calendar_month=calendar['month_id'],
-            calendar_day=calendar['day_id'],
+            calendar_year=calendar_year.id,
+            calendar_month=calendar_month.id,
+            calendar_day=calendar_day.id,
             location_id=location_id,
             in_progress_tasks=0,
             total_tasks=0
@@ -442,7 +442,7 @@ def filter_new_students(location_id):
         .options(joinedload(Students.user))
         .filter(
             Users.location_id == location_id,
-            StudentCallingInfo.day == calendar['date']  # Use date
+            StudentCallingInfo.day == calendar_day.date  # Use date
         )
         .distinct()
         .all()
@@ -474,21 +474,21 @@ def filter_new_students(location_id):
 # ==================== FIXED: Update Task Statistics Monthly ====================
 def update_task_statistics_monthly_fixed(task_type, location_id):
     """FIXED: Uses calendar IDs properly"""
-    calendar = get_cached_calendar_ids()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     # Get or create task rating
     task_lead = TaskRatings.query.filter(
         TaskRatings.task_id == task_type.id,
-        TaskRatings.calendar_year == calendar['year_id'],  # Use ID
-        TaskRatings.calendar_month == calendar['month_id'],
+        TaskRatings.calendar_year == calendar_year.id,  # Use ID
+        TaskRatings.calendar_month == calendar_month.id,
         TaskRatings.location_id == location_id
     ).first()
 
     if not task_lead:
         task_lead = TaskRatings(
             task_id=task_type.id,
-            calendar_year=calendar['year_id'],
-            calendar_month=calendar['month_id'],
+            calendar_year=calendar_year.id,
+            calendar_month=calendar_month.id,
             location_id=location_id
         )
         db.session.add(task_lead)
@@ -502,8 +502,8 @@ def update_task_statistics_monthly_fixed(task_type, location_id):
         )
         .filter(
             TasksStatistics.task_id == task_type.id,
-            TasksStatistics.calendar_year == calendar['year_id'],  # Use ID
-            TasksStatistics.calendar_month == calendar['month_id'],
+            TasksStatistics.calendar_year == calendar_year.id,  # Use ID
+            TasksStatistics.calendar_month == calendar_month.id,
             TasksStatistics.location_id == location_id
         )
         .first()
@@ -534,7 +534,7 @@ def update_task_statistics_monthly_fixed(task_type, location_id):
 # ==================== FIXED: Update All Ratings ====================
 def update_all_ratings(location_id):
     """FIXED: Uses calendar IDs properly"""
-    calendar = get_cached_calendar_ids()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
 
     # Aggregate in database using SQL
     daily_totals = (
@@ -543,7 +543,7 @@ def update_all_ratings(location_id):
             func.sum(TasksStatistics.total_tasks).label('total')
         )
         .filter(
-            TasksStatistics.calendar_day == calendar['day_id'],  # Use ID
+            TasksStatistics.calendar_day == calendar_day.id,  # Use ID
             TasksStatistics.location_id == location_id
         )
         .first()
@@ -555,17 +555,17 @@ def update_all_ratings(location_id):
     # Get or create daily statistics
     tasks_daily_statistics = TaskDailyStatistics.query.filter_by(
         location_id=location_id,
-        calendar_day=calendar['day_id'],  # Use ID
-        calendar_month=calendar['month_id'],
-        calendar_year=calendar['year_id']
+        calendar_day=calendar_day.id,  # Use ID
+        calendar_month=calendar_month.id,
+        calendar_year=calendar_year.id
     ).first()
 
     if not tasks_daily_statistics:
         tasks_daily_statistics = TaskDailyStatistics(
-            calendar_day=calendar['day_id'],
+            calendar_day=calendar_day.id,
             location_id=location_id,
-            calendar_month=calendar['month_id'],
-            calendar_year=calendar['year_id'],
+            calendar_month=calendar_month.id,
+            calendar_year=calendar_year.id,
             total_tasks=total_tasks
         )
         db.session.add(tasks_daily_statistics)
@@ -584,15 +584,15 @@ def update_all_ratings(location_id):
 
     # Get or create monthly rating
     task_rating_monthly = TaskRatingsMonthly.query.filter(
-        TaskRatingsMonthly.calendar_year == calendar['year_id'],  # Use ID
-        TaskRatingsMonthly.calendar_month == calendar['month_id'],
+        TaskRatingsMonthly.calendar_year == calendar_year.id,  # Use ID
+        TaskRatingsMonthly.calendar_month == calendar_month.id,
         TaskRatingsMonthly.location_id == location_id
     ).first()
 
     if not task_rating_monthly:
         task_rating_monthly = TaskRatingsMonthly(
-            calendar_year=calendar['year_id'],
-            calendar_month=calendar['month_id'],
+            calendar_year=calendar_year.id,
+            calendar_month=calendar_month.id,
             location_id=location_id
         )
         db.session.add(task_rating_monthly)
@@ -605,8 +605,8 @@ def update_all_ratings(location_id):
         )
         .filter(
             TaskDailyStatistics.location_id == location_id,
-            TaskDailyStatistics.calendar_month == calendar['month_id'],  # Use ID
-            TaskDailyStatistics.calendar_year == calendar['year_id']
+            TaskDailyStatistics.calendar_month == calendar_month.id,  # Use ID
+            TaskDailyStatistics.calendar_year == calendar_year.id
         )
         .first()
     )

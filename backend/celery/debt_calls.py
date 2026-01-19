@@ -10,6 +10,7 @@ import aiohttp
 from datetime import datetime, timedelta
 import logging
 from backend.celery.utils import get_media_path
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -37,92 +38,214 @@ async def download_audio_file(url, uid, save_dir):
 @celery.task(name='backend.celery.debt_calls.process_student_call')
 def process_student_call(student_id, phone, task_statistics_id, user="admin", max_call_duration=1200):
     """
-    Celery task to handle student debt call processing and recording
+    Celery task to handle student debt call processing and recording with real-time updates
 
     Args:
         student_id: Student ID
         phone: Phone number to call
+        task_statistics_id: Task statistics ID
         user: VATS user making the call (default: "admin")
+        user_id: User ID for socket room (NEW)
         max_call_duration: Maximum call duration in seconds (default: 1200 = 20 minutes)
     """
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from app import app
+    from app import app, socketio
 
-    with app.app_context():
-        try:
-            # Validate inputs
-            if not phone:
-                return {"error": "Phone number required", "success": False}
+    def emit_to_user(event_data):
+        """Helper to emit events to user's room"""
+        if student_id:
+            logger.info(f"📡 Emitting to user_{student_id}: {event_data}")
 
-            # Get calendar info
-            calendar_year, calendar_month, calendar_day = find_calendar_date()
-
-            # Get student
-            student = Students.query.filter(Students.id == student_id).first()
-            if not student:
-                return {"error": "Student not found", "success": False}
-
-            # Get or create student excuse
-            student_excuse = StudentExcuses.query.filter_by(
-                student_id=student_id,
-                added_date=calendar_day.date
-            ).order_by(StudentExcuses.id.desc()).first()
-
-            if not student_excuse:
-                student_excuse = StudentExcuses(
-                    student_id=student_id,
-                    added_date=calendar_day.date
-                )
-                db.session.add(student_excuse)
-                db.session.commit()
-
-            # Make the call
-            logger.info(f"Calling student {student_id} at {phone}")
-            vats = VatsProcess()
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                result = loop.run_until_complete(vats.call_client(user, phone))
-                final_info = loop.run_until_complete(
-                    wait_until_call_finished(vats, result['callid'], timeout=max_call_duration)
-                )
-            finally:
-                loop.close()
-
-            # Handle errors
-            error_type = final_info.get('error')
-            if error_type:
-                return handle_call_error(student_excuse, final_info, error_type, max_call_duration)
-
-            # Handle call status
-            status = final_info.get('status')
-
-            # # Failed call statuses
-            # if status in ['missed', 'cancelled', 'failed', 'busy', 'no-answer']:
-            #     return handle_failed_call(student_excuse, final_info, status, calendar_day)
-
-            if status in ['missed', 'cancelled', 'failed', 'busy']:
-                return handle_failed_call(student_excuse, final_info, status, calendar_day)
-
-            # Call not successful
-            if status != 'success':
-                return handle_unanswered_call(student_excuse, calendar_day, status, task_statistics_id)
-
-            # Process successful call recording
-            return handle_successful_call(
-                student_excuse,
-                final_info,
-                calendar_day,
-                student_id,
-
+            # This will work because socketio is configured with message_queue
+            socketio.emit(
+                'call_status',
+                event_data,
+                room=f'user_{student_id}',
+                namespace='/'
             )
 
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error in process_student_call: {e}", exc_info=True)
-            return {"error": str(e), "success": False}
+    with app.app_context():
+        # try:
+        # Emit initial status
+        emit_to_user({
+            'student_id': student_id,
+            'status': 'validating',
+            'message': 'Validating call parameters...',
+            'timestamp': time.time()
+        })
+
+        # Validate inputs
+        if not phone:
+            emit_to_user({
+                'student_id': student_id,
+                'status': 'error',
+                'error': 'Phone number required',
+                'timestamp': time.time()
+            })
+            return {"error": "Phone number required", "success": False}
+
+        # Get calendar info
+        calendar_year, calendar_month, calendar_day = find_calendar_date()
+
+        # Get student
+        student = Students.query.filter(Students.id == student_id).first()
+        if not student:
+            emit_to_user({
+                'student_id': student_id,
+                'status': 'error',
+                'error': 'Student not found',
+                'timestamp': time.time()
+            })
+            return {"error": "Student not found", "success": False}
+
+        # Emit student found
+        emit_to_user({
+            'student_id': student_id,
+            'student_name': f"{student.user.name} {student.user.surname}",
+            'status': 'preparing',
+            'message': f'Preparing call to {student.user.name}...',
+            'timestamp': time.time()
+        })
+
+        # Get or create student excuse
+        student_excuse = StudentExcuses.query.filter_by(
+            student_id=student_id,
+            added_date=calendar_day.date
+        ).order_by(StudentExcuses.id.desc()).first()
+
+        if not student_excuse:
+            student_excuse = StudentExcuses(
+                student_id=student_id,
+                added_date=calendar_day.date
+            )
+            db.session.add(student_excuse)
+            db.session.commit()
+
+        # Make the call
+        logger.info(f"Calling student {student_id} at {phone}")
+
+        emit_to_user({
+            'student_id': student_id,
+            'status': 'initiating',
+            'message': f'Initiating call to {phone}...',
+            'timestamp': time.time()
+        })
+
+        vats = VatsProcess()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            result = loop.run_until_complete(vats.call_client(user, phone))
+            callid = result.get('callid')
+
+            emit_to_user({
+                'student_id': student_id,
+                'callid': callid,
+                'status': 'calling',
+                'message': 'Call initiated, waiting for answer...',
+                'timestamp': time.time()
+            })
+
+            # Wait for call to finish with socket updates
+            final_info = loop.run_until_complete(
+                wait_until_call_finished(
+                    vats,
+                    callid,
+                    timeout=max_call_duration,
+                    user_id=student_id,
+                    student_id=student_id
+                )
+            )
+        finally:
+            loop.close()
+
+        # Handle errors
+        error_type = final_info.get('error')
+        if error_type:
+            emit_to_user({
+                'student_id': student_id,
+                'callid': callid,
+                'status': 'error',
+                'error': error_type,
+                'message': f'Call error: {error_type}',
+                'timestamp': time.time()
+            })
+            return handle_call_error(student_excuse, final_info, error_type, max_call_duration)
+
+        # Handle call status
+        status = final_info.get('status')
+
+        # Failed call statuses
+        if status in ['missed', 'cancelled', 'failed', 'busy']:
+            emit_to_user({
+                'student_id': student_id,
+                'callid': callid,
+                'status': 'failed',
+                'call_status': status,
+                'message': f'Call {status}',
+                'timestamp': time.time()
+            })
+            return handle_failed_call(student_excuse, final_info, status, calendar_day)
+
+        # Call not successful (no-answer, etc.)
+        if status != 'success':
+            emit_to_user({
+                'student_id': student_id,
+                'callid': callid,
+                'status': 'unanswered',
+                'call_status': status,
+                'message': f'Call not answered: {status}',
+                'timestamp': time.time()
+            })
+            return handle_unanswered_call(student_excuse, calendar_day, status, task_statistics_id)
+
+        # Emit processing status
+        emit_to_user({
+            'student_id': student_id,
+            'callid': callid,
+            'status': 'processing',
+            'message': 'Call completed, processing recording...',
+            'duration': final_info.get('duration'),
+            'timestamp': time.time()
+        })
+
+        # Process successful call recording
+        result = handle_successful_call(
+            student_excuse,
+            final_info,
+            calendar_day,
+            student_id,
+        )
+
+        # Emit final success
+        emit_to_user({
+            'student_id': student_id,
+            'callid': callid,
+            'status': 'completed',
+            'call_status': 'success',
+            'duration': final_info.get('duration'),
+            'message': 'Call completed and recorded successfully',
+            'result': result,
+            'timestamp': time.time()
+        })
+
+        return result
+
+        # except Exception as e:
+        #     db.session.rollback()
+        #     logger.error(f"Error in process_student_call: {e}", exc_info=True)
+        #
+        #     emit_to_user({
+        #         'student_id': student_id,
+        #         'status': 'error',
+        #         'error': str(e),
+        #         'message': f'Unexpected error: {str(e)}',
+        #         'timestamp': time.time()
+        #     })
+        #
+        #     return {"error": str(e), "success": False}
 
 
 def handle_call_error(student_excuse, final_info, error_type, max_call_duration):
