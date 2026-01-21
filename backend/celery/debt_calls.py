@@ -191,15 +191,17 @@ def process_student_call(student_id, phone, task_statistics_id, user="admin", ma
 
         # Call not successful (no-answer, etc.)
         if status != 'success':
+            result = handle_unanswered_call(student_excuse, calendar_day, status, task_statistics_id)
             emit_to_user({
                 'student_id': student_id,
                 'callid': callid,
                 'status': 'unanswered',
                 'call_status': status,
                 'message': f'Call not answered: {status}',
-                'timestamp': time.time()
+                'timestamp': time.time(),
+                "attempt_count": result['attempts']
             })
-            return handle_unanswered_call(student_excuse, calendar_day, status, task_statistics_id)
+            return result
 
         # Emit processing status
         emit_to_user({
@@ -303,10 +305,7 @@ def handle_unanswered_call(student_excuse, calendar_day, status, task_statistics
         attempt_count += 1
 
     # Update excuse based on attempts
-    if attempt_count >= 2:
-        student_excuse.to_date = calendar_day.date + timedelta(days=1)
-    else:
-        student_excuse.day = calendar_day.date + timedelta(days=1)
+
     task_statistics = TasksStatistics.query.filter(
         TasksStatistics.id == task_statistics_id,
     ).first()
@@ -320,10 +319,13 @@ def handle_unanswered_call(student_excuse, calendar_day, status, task_statistics
     if len(task_students) > 1:
         for duplicate in task_students[1:]:
             db.session.delete(duplicate)
-    task_student.status = True
-    student_excuse.reason = "tel kotarilmadi"
-    db.session.commit()
+    if attempt_count >= 2:
+        student_excuse.to_date = calendar_day.date + timedelta(days=1)
+        task_student.status = True
+        student_excuse.reason = "tel kotarilmadi"
 
+    db.session.commit()
+    print("attempt_count", attempt_count)
     return {
         "error": "call_not_completed",
         "status": status,
