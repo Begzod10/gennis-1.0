@@ -23,7 +23,10 @@ import time
 from flask import send_from_directory
 import os
 import redis
+import eventlet
 
+# Patch eventlet first
+eventlet.monkey_patch()
 # Load environment variables
 load_dotenv()
 
@@ -50,8 +53,6 @@ redis_client = redis.Redis(
 socketio = SocketIO(cors_allowed_origins="*", async_mode='threading', logger=True, engineio_logger=True,
                     ping_timeout=60,
                     ping_interval=25)
-
-
 
 
 def create_app(config_name='backend.models.config'):
