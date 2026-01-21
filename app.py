@@ -51,7 +51,7 @@ redis_client = redis.Redis(
 )
 # ⭐ Initialize socketio OUTSIDE the function as a global variable
 socketio = SocketIO(cors_allowed_origins="*",
-                    async_mode='eventlet',
+                    async_mode='gevent',
                     logger=True,
                     engineio_logger=True,
                     ping_timeout=60,
