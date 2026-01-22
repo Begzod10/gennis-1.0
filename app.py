@@ -1,6 +1,3 @@
-from gevent import monkey
-
-monkey.patch_all()
 import os
 import logging
 from functools import wraps
@@ -53,7 +50,7 @@ redis_client = redis.Redis(
 )
 # ⭐ Initialize socketio OUTSIDE the function as a global variable
 socketio = SocketIO(cors_allowed_origins="*",
-                    async_mode='gevent',
+                    async_mode='eventlet',
                     logger=True,
                     engineio_logger=True,
                     ping_timeout=60,
