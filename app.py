@@ -1,3 +1,6 @@
+from gevent import monkey
+
+monkey.patch_all()
 import os
 import logging
 from functools import wraps
@@ -23,10 +26,9 @@ import time
 from flask import send_from_directory
 import os
 import redis
-import eventlet
 
 # Patch eventlet first
-eventlet.monkey_patch()
+
 # Load environment variables
 load_dotenv()
 
@@ -51,7 +53,7 @@ redis_client = redis.Redis(
 )
 # ⭐ Initialize socketio OUTSIDE the function as a global variable
 socketio = SocketIO(cors_allowed_origins="*",
-                    async_mode='eventlet',
+                    async_mode='gevent',
                     logger=True,
                     engineio_logger=True,
                     ping_timeout=60,
