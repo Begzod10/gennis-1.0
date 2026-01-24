@@ -151,12 +151,12 @@ def get_payment(user_id):
         status = get_json_field('type')
         type_payment = get_json_field('typePayment')
         payment_sum = int(get_json_field('payment'))
-        date = get_json_field('date')
-        day = date.split("-")[2]
-        month_get = date.split("-")[1]
-        year = date.split("-")[0]
-        if status == "payment":
-            status = True
+        if 'date' in request.json:
+            date = get_json_field('date')
+            day = date.split("-")[2]
+            month_get = date.split("-")[1]
+            year = date.split("-")[0]
+
             date_day = str(year) + "-" + str(month_get) + "-" + str(day)
             date_month = str(year) + "-" + str(month_get)
             date_year = str(year)
@@ -169,9 +169,11 @@ def get_payment(user_id):
                 date_year=date_year
             )
         else:
-            status = False
-
             calendar_year, calendar_month, calendar_day = find_calendar_date()
+        if status == "payment":
+            status = True
+        else:
+            status = False
 
         accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
             contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
