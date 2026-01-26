@@ -4,10 +4,9 @@ from flask import Blueprint
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app import db
 from backend.functions.utils import find_calendar_date, iterate_models
 from backend.models.models import AccountPayable, CalendarMonth, CalendarYear, Account, \
-    AccountPayableHistory, or_
+    AccountPayableHistory, or_, db
 from .utils import update_account, calculate_history
 
 account_payable = Blueprint('account_payable', __name__)

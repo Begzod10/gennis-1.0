@@ -1,8 +1,8 @@
-from flask import Blueprint,request
+from flask import Blueprint, request
 from flask_restful import Api, Resource, reqparse
 
-from app import db
 from backend.student.register_for_tes.models import Defenation, School, StudentTestBlock
+from backend.models.models import db
 
 student_bp_test_school = Blueprint('student_bp_test_school', __name__)
 api = Api(student_bp_test_school)

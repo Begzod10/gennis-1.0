@@ -1,6 +1,5 @@
-from app import app
 from backend.models.models import Week, Group_Room_Week, Rooms, Groups
-from backend.functions.utils import update_week, api
+from backend.functions.utils import update_week
 
 from flask_jwt_extended import jwt_required
 from flask import Blueprint, jsonify

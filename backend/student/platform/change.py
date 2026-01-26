@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash
 
-from app import db
-from backend.models.models import Users
+from backend.models.models import Users, db
 
 chang_student_bp = Blueprint('change_student', __name__)
 

@@ -150,36 +150,30 @@ def get_payment(user_id):
     if request.method == "POST":
         status = get_json_field('type')
         type_payment = get_json_field('typePayment')
-        print(type_payment)
         payment_sum = int(get_json_field('payment'))
-        current_year = datetime.now().year
-        old_year = datetime.now().year - 1
-        month = str(datetime.now().month)
-        month_get = get_json_field('month')
-        day = get_json_field('day')
-        if month_get == "12" and month == "01":
-            current_year = old_year
-        if not month_get:
-            month_get = month
+        if 'date' in request.json:
+            date = get_json_field('date')
+            day = date.split("-")[2]
+            month_get = date.split("-")[1]
+            year = date.split("-")[0]
 
-        if status == "payment":
-            status = True
-            date_day = str(current_year) + "-" + str(month_get) + "-" + str(day)
-            date_month = str(current_year) + "-" + str(month_get)
-            date_year = str(current_year)
+            date_day = str(year) + "-" + str(month_get) + "-" + str(day)
+            date_month = str(year) + "-" + str(month_get)
+            date_year = str(year)
             date_day = datetime.strptime(date_day, "%Y-%m-%d")
             date_month = datetime.strptime(date_month, "%Y-%m")
             date_year = datetime.strptime(date_year, "%Y")
-
             calendar_year, calendar_month, calendar_day = find_calendar_date(
                 date_day=date_day,
                 date_month=date_month,
                 date_year=date_year
             )
         else:
-            status = False
-
             calendar_year, calendar_month, calendar_day = find_calendar_date()
+        if status == "payment":
+            status = True
+        else:
+            status = False
 
         accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
             contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()

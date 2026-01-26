@@ -64,7 +64,7 @@ def bot_student_balance(platform_id, user_type):
         )
         if last_two_salaries:
             for salary in last_two_salaries:
-                balance += salary.remaining_salary
+                balance += salary.remaining_salary if salary.remaining_salary else salary.total_salary
     pprint(balance)
     return jsonify({"balance": balance})
 

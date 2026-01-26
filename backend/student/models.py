@@ -22,15 +22,90 @@ class StudentExcuses(db.Model):
     to_date = Column(DateTime)
     added_date = Column(DateTime)
     old_id = Column(Integer)
+    audio_url = Column(String)
+    records = relationship("StudentExcusesAudio", backref="student_excuse", order_by="StudentExcusesAudio.id")
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
+        if entire:
+            info = {
+                'id': self.id,
+                'student_id': self.student_id,
+                "user_id": self.student.user_id,
+                "name": self.student.user.name,
+                "surname": self.student.user.surname,
+                'comment': self.reason,
+                'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
+                'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
+                'old_id': self.old_id,
+                'audio_url': audio_url,
+                "records": [record.convert_json() for record in self.records],
+                "duration": self.records[len(self.records) - 1].duration if self.records else None
+            }
+        else:
+            info = {
+                'id': self.id,
+                'student_id': self.student_id,
+                "user_id": self.student.user_id,
+                "name": self.student.user.name,
+                "surname": self.student.user.surname,
+                'comment': self.reason,
+                'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
+                'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
+                'old_id': self.old_id,
+                'audio_url': audio_url,
+                "duration": self.records[len(self.records) - 1].duration if self.records else None
+
+            }
+        return info
+
+
+class StudentExcusesAudio(db.Model):
+    __tablename__ = "studentexcusesaudio"
+    id = Column(Integer, primary_key=True)
+    student_excuse_id = Column(Integer, ForeignKey("studentexcuses.id"))
+    audio_url = Column(String)
+    client_number = Column(String)
+    diversion = Column(String)
+    duration = Column(String)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    wait_time = Column(String)
+    comment = Column(String)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
         info = {
             'id': self.id,
-            'student_id': self.student_id,
-            'comment': self.reason,
-            'to_date': self.to_date.strftime("%Y-%m-%d") if self.to_date else None,
-            'added_date': self.added_date.strftime("%Y-%m-%d") if self.added_date else None,
-            'old_id': self.old_id
+            'student_excuse_id': self.student_excuse_id,
+            'audio_url': audio_url,
+            'client_number': self.client_number,
+            'diversion': self.diversion,
+            'duration': self.duration,
+            'start_time': self.start_time.strftime("%Y-%m-%d %H:%M:%S") if self.start_time else None,
+            'end_time': self.end_time.strftime("%Y-%m-%d %H:%M:%S") if self.end_time else None,
+            'wait_time': self.wait_time
         }
         return info
 
@@ -141,10 +216,8 @@ class Students(db.Model):
             "balance": self.user.balance,
             "moneyType": ["green", "yellow", "red", "navy", "black"][self.debtor] if self.debtor != None else 0,
             'subjects': [subject.name for subject in self.subject],
-            "phone": "",
-            # "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
-            "parent": "",
-            # "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
+            "phone": self.user.phone[0].phone if self.user.phone[0].phone != 0 else 0,
+            "parent": self.user.phone[1].phone if self.user.phone[1].phone != 0 else 0,
             "reason": self.excuses[len(self.excuses) - 1].reason if self.excuses else None,
             "debtor": self.debtor
         }
@@ -183,19 +256,85 @@ class StudentCallingInfo(db.Model):
     comment = Column(String)
     day = Column(DateTime)
     date = Column(DateTime)
+    audio_url = Column(String)
+    records = relationship("StudentCallingInfoAudio", backref="student_calling_info",
+                           order_by="StudentCallingInfoAudio.id")
 
     def add(self):
         db.session.add(self)
         db.session.commit()
 
     def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
+        if entire:
+            return {
+                "id": self.id,
+                "student_id": self.student_id,
+                "user_id": self.student.user_id,
+                "comment": self.comment,
+                "name": self.student.user.name,
+                "surname": self.student.user.surname,
+                "to_date": self.day.strftime("%Y-%m-%d"),
+                "added_date": self.date.strftime("%Y-%m-%d"),
+                "audio_url": audio_url,
+                "duration": self.records[len(self.records) - 1].duration,
+                "records": [record.convert_json() for record in self.records]
+            }
         return {
             "id": self.id,
             "student_id": self.student_id,
+            "user_id": self.student.user_id,
             "comment": self.comment,
+            "name": self.student.user.name,
+            "surname": self.student.user.surname,
             "to_date": self.day.strftime("%Y-%m-%d"),
-            "added_date": self.date.strftime("%Y-%m-%d")
+            "added_date": self.date.strftime("%Y-%m-%d"),
+            "audio_url": audio_url,
+            "duration": self.records[len(self.records) - 1].duration
         }
+
+
+class StudentCallingInfoAudio(db.Model):
+    __tablename__ = "studentcallinginfoaudio"
+    id = Column(Integer, primary_key=True)
+    student_calling_info_id = Column(Integer, ForeignKey('studentcallinginfo.id'))
+    audio_url = Column(String)
+    client_number = Column(String)
+    diversion = Column(String)
+    duration = Column(String)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    wait_time = Column(String)
+    comment = Column(String)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+
+    def convert_json(self, entire=False):
+        audio_url = None
+        if self.audio_url:
+            if not self.audio_url.startswith('/'):
+                audio_url = f"/media/{self.audio_url}"
+            elif 'media/' in self.audio_url:
+                relative_path = self.audio_url.split('media/')[-1]
+                audio_url = f"/media/{relative_path}"
+        info = {
+            'id': self.id,
+            'student_calling_info_id': self.student_calling_info_id,
+            'audio_url': audio_url,
+            'client_number': self.client_number,
+            'diversion': self.diversion,
+            'duration': self.duration,
+            'start_time': self.start_time.strftime("%Y-%m-%d %H:%M:%S") if self.start_time else None,
+            'end_time': self.end_time.strftime("%Y-%m-%d %H:%M:%S") if self.end_time else None,
+            'wait_time': self.wait_time,
+            'comment': self.comment
+        }
+        return info
 
 
 class Contract_Students(db.Model):

@@ -1,12 +1,13 @@
 from backend.models.models import Teachers, Group_Room_Week, Students, Groups, Subjects, Locations, Roles, \
-    EducationLanguage, CourseTypes, Rooms, Week, db
+    EducationLanguage, CourseTypes, Rooms, Week, db, time_table_student, time_table_teacher, student_group
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import contains_eager
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 from pprint import pprint
-from backend.functions.utils import get_json_field, remove_items_create_group, api
+from backend.functions.utils import get_json_field, remove_items_create_group, api, find_calendar_date
 from flask import Blueprint, jsonify, request
+from sqlalchemy import delete
 
 group_change_bp = Blueprint('group_change', __name__)
 
@@ -94,8 +95,9 @@ def add_teacher_group(teacher_id, group_id):
 @group_change_bp.route(f'/delete_group/<int:group_id>')
 @jwt_required()
 def delete_group(group_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
     group = Groups.query.filter(Groups.id == group_id).first()
-    Groups.query.filter(Groups.id == group_id).update({"deleted": True})
+    Groups.query.filter(Groups.id == group_id).update({"deleted": True, "calendar_day": calendar_day.id})
     subject = Subjects.query.filter(Subjects.id == group.subject_id).first()
     db.session.commit()
     teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
@@ -103,7 +105,12 @@ def delete_group(group_id):
         Groups.id == group.id).all()
     time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
     for st in stduents:
-        st.group.remove(group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == group.id,
+                student_group.c.student_id == st.id
+            )
+        )
         db.session.commit()
         st.subject.append(subject)
         db.session.commit()
@@ -112,12 +119,9 @@ def delete_group(group_id):
                 st.time_table.remove(time)
                 db.session.commit()
     for time in time_table:
-        print('vaqt', time)
         if time in teacher.time_table:
-            print('vaqt', time)
             teacher.time_table.remove(time)
             db.session.commit()
-    print(teacher.time_table)
     for time in time_table:
         Group_Room_Week.query.filter(Group_Room_Week.id == time.id).delete()
         db.session.commit()
@@ -272,11 +276,21 @@ def change_time_group(group_id):
     for student in students:
         for time_get in group_time_table_get:
             if time_get in student.time_table:
-                student.time_table.remove(time_get)
+                db.session.execute(
+                    delete(time_table_student).where(
+                        time_table_student.c.group_room_week == time_get.id,
+                        time_table_student.c.student_id == student.id
+                    )
+                )
                 db.session.commit()
     for time_get in group_time_table_get:
         if time_get in teacher.time_table:
-            teacher.time_table.remove(time_get)
+            db.session.execute(
+                delete(time_table_teacher).where(
+                    time_table_teacher.c.group_room_week == time_get.id,
+                    time_table_teacher.c.teacher_id == teacher.id
+                )
+            )
             db.session.commit()
     for time_get in group_time_table_get:
         db.session.delete(time_get)

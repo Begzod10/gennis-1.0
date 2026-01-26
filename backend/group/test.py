@@ -3,20 +3,22 @@ import pprint
 import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
+
 from backend.functions.small_info import user_photo_folder, checkFile
-from app import app, request, jsonify, classroom_server, db
+from backend.models.config import classroom_server
 from backend.functions.utils import api
 from backend.functions.utils import get_or_creat_datetime, find_calendar_date, iterate_models, get_json_field, \
     filter_month_day
-from backend.group.models import GroupTest
+from backend.group.models import GroupTest, db
 from backend.models.models import CalendarMonth, CalendarYear
 from backend.models.models import Groups, SubjectLevels
 from backend.student.models import StudentTest, Students
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
-from flask import Blueprint
+from flask import Blueprint, jsonify, request, current_app as app
 
 group_test_bp = Blueprint('group_test', __name__)
+
 
 @group_test_bp.route(f'/create_test/<int:group_id>', methods=["POST", "GET", "PUT", "DELETE"])
 @jwt_required()

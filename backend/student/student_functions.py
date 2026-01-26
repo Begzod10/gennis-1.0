@@ -4,19 +4,19 @@ from datetime import datetime
 
 # import pandas as pd
 import docx
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from werkzeug.utils import secure_filename
 from sqlalchemy import or_
-
-from app import app
+from io import BytesIO
 from backend.functions.small_info import checkFile, user_contract_folder
 from backend.functions.utils import find_calendar_date, update_week, iterate_models
 from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
     Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentHistoryGroups, Groups, \
-    Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db
+    Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db,EducationLanguage
+from openpyxl import Workbook
 
 student_functions = Blueprint('student_functions', __name__)
 
@@ -92,6 +92,8 @@ def studyingStudents(id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
 
     students_query = (
         Students.query
@@ -114,6 +116,20 @@ def studyingStudents(id):
                 Users.surname.ilike(search_pattern),
                 Users.username.ilike(search_pattern)
             )
+        )
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                students_query = students_query.filter(Users.age.between(start_age, end_age))
+        else:
+            students_query = students_query.filter(Users.age == int(age))
+    if language:
+        students_query = (
+            students_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
         )
 
     students_query = students_query.order_by(Students.user_id)
@@ -159,6 +175,63 @@ def studyingStudents(id):
             "has_more": (offset + (limit or total)) < total
         }
     })
+@student_functions.route(f'/studyingStudents/<int:id>/excel', methods=['GET'])
+# @jwt_required()
+def studyingStudentExcel(id):
+    students_query = (
+        Students.query
+        .options(joinedload(Students.user).joinedload(Users.phone))
+        .join(Students.user)
+        .join(Students.group)
+        .filter(
+            Students.group != None,
+            Groups.status == True,
+            Users.location_id == id
+        )
+        .distinct(Students.id)
+        .order_by(Students.id)
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Students"
+
+    # Header qatori
+    ws.append(["ID", "Name", "Surname", "Username", "Personal Phone", "Parent Phone"])
+
+    for st in students_query.all():
+        user = st.user
+        if not user:
+            continue
+
+        personal_phone = ""
+        parent_phone = ""
+
+        for ph in user.phone:
+            if ph.personal:
+                personal_phone = ph.phone
+            if ph.parent:
+                parent_phone = ph.phone
+
+        ws.append([
+            user.id,
+            user.name or "",
+            user.surname or "",
+            user.username or "",
+            personal_phone,
+            parent_phone
+        ])
+
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    return send_file(
+        file_stream,
+        as_attachment=True,
+        download_name=f"studying_students_{id}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 @student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
@@ -170,10 +243,23 @@ def deletedStudents(id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    teacher_id = request.args.get("teacher", default=None, type=int)
+    group_id = request.args.get("group", default=None, type=int)
+    from_date = request.args.get('from',default=None, type=str)
+    to_date = request.args.get('to', default=None, type=str)
+    subject_id = request.args.get("subject", default=None, type=int)
 
-    base_students = (db.session.query(Students.id).join(Students.user).filter(Students.deleted_from_group != None,
-                                                                              Students.group == None,
-                                                                              Users.location_id == id).distinct().subquery())
+    base_students = (
+        db.session.query(Students.id)
+        .join(Users, Students.user_id == Users.id)
+        .filter(
+            Students.deleted_from_group != None,
+            Students.group == None,
+            Users.location_id == id
+        )
+        .distinct()
+        .subquery()
+    )
 
     students_query = DeletedStudents.query.join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id).filter(
         DeletedStudents.student_id.in_(db.session.query(base_students.c.id)))
@@ -188,8 +274,23 @@ def deletedStudents(id):
         students_query = (students_query.join(DeletedStudents.student).join(Students.user).filter(
             or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                 Users.username.ilike(search_pattern))))
+    if teacher_id:
+        students_query = students_query.filter(DeletedStudents.teacher_id == teacher_id)
+    if group_id:
+        students_query = students_query.filter(DeletedStudents.group_id == group_id)
 
     students_query = students_query.order_by(desc(CalendarDay.date))
+    if from_date and to_date:
+        try:
+            from_date_obj = datetime.strptime(from_date, "%Y-%m-%d")
+            to_date_obj = datetime.strptime(to_date, "%Y-%m-%d")
+            students_query = students_query.filter(
+                CalendarDay.date.between(from_date_obj, to_date_obj)
+            )
+        except ValueError:
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+    if subject_id:
+        students_query = students_query.join(DeletedStudents.group).filter(Groups.subject_id == subject_id)
 
     total = students_query.count()
 
@@ -200,10 +301,19 @@ def deletedStudents(id):
 
     students_list = students_query.all()
 
+
     role = Roles.query.filter(Roles.type_role == "student").first()
 
     list_students = []
     for st in students_list:
+        student_history_groups = StudentHistoryGroups.query.filter(
+            StudentHistoryGroups.student_id == st.student.id
+        ).order_by(desc(StudentHistoryGroups.id)).all()
+        group_subject = []
+        for student_history_group in student_history_groups:
+            if student_history_group.group and student_history_group.group.teacher_id == st.teacher_id:
+                group_subject.append(student_history_group.group.subject.name)
+                break
         try:
             list_students.append({"id": st.student.user.id, "name": st.student.user.name.title(),
                                   "surname": st.student.user.surname.title(), "username": st.student.user.username,
@@ -216,7 +326,8 @@ def deletedStudents(id):
                                   "moneyType": ["green", "yellow", "red", "navy", "black"][
                                       st.student.debtor] if st.student.debtor else 0,
                                   "phone": st.student.user.phone[0].phone if st.student.user.phone else None,
-                                  "reason": st.reason, "group": st.group.id if st.group else None})
+                                  "reason": st.reason, "group": st.group.id if st.group else None,
+                                  "subjects": group_subject})
         except Exception:
             continue
 
@@ -232,6 +343,8 @@ def newStudents(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
 
     base_query = (Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
         Students.user).filter(Users.location_id == int(location_id)).distinct(Students.id))
@@ -240,6 +353,21 @@ def newStudents(location_id):
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                                            Users.username.ilike(search_pattern)))
+
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                base_query = base_query.filter(Users.age.between(start_age, end_age))
+        else:
+            base_query = base_query.filter(Users.age == int(age))
+    if language:
+        base_query = (
+            base_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
 
     base_query = base_query.order_by(desc(Students.id))
 
@@ -282,6 +410,8 @@ def newStudentsDeleted(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
 
     base_query = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
                                                    Students.subject != None, Students.deleted_from_register != None)
@@ -290,6 +420,20 @@ def newStudentsDeleted(location_id):
         search_pattern = f"%{search}%"
         base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
                                            Users.username.ilike(search_pattern)))
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                base_query = base_query.filter(Users.age.between(start_age, end_age))
+        else:
+            base_query = base_query.filter(Users.age == int(age))
+    if language:
+        base_query = (
+            base_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
 
     base_query = base_query.order_by(desc(Students.id))
 

@@ -2,11 +2,10 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required
-
-from app import db
+from backend.functions.filters import update_lesson_plan
 from backend.functions.utils import find_calendar_date
 from backend.functions.utils import get_json_field
-from backend.models.models import LessonPlan, LessonPlanStudents, extract
+from backend.models.models import LessonPlan, LessonPlanStudents, extract, db
 
 lesson_plan_gennis_bp = Blueprint('lesson_plan_gennis', __name__)
 
@@ -56,6 +55,7 @@ def change_lesson_plan(plan_id):
 @lesson_plan_gennis_bp.route(f'/lesson_plan_list/<int:group_id>/<date>')
 @jwt_required()
 def lesson_plan_list(group_id, date):
+    update_lesson_plan(group_id)
     days_list = []
     month_list = []
     years_list = []
@@ -71,11 +71,14 @@ def lesson_plan_list(group_id, date):
         extract('year', LessonPlan.date) == int(date.strftime("%Y")), LessonPlan.group_id == group_id).all()
     for data in plan_list_month:
         days_list.append(data.date.strftime("%d"))
+    days_list = list(dict.fromkeys(days_list))
     days_list.sort()
     for plan in plan_list:
         if plan.date:
             month_list.append(plan.date.strftime("%m"))
             years_list.append(plan.date.strftime("%Y"))
+    month_list = list(dict.fromkeys(month_list))
+    years_list = list(dict.fromkeys(years_list))
     month_list = list(dict.fromkeys(month_list))
     years_list = list(dict.fromkeys(years_list))
     month_list.sort()

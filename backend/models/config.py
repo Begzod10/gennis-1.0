@@ -15,8 +15,9 @@ DEBUG = True
 DB_USER = os.getenv('FLASK_DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
 
-# DB_HOST = os.getenv('FLASK_DB_HOST', 'localhost:5433')
 DB_HOST = os.getenv('DB_HOST', 'localhost:5432')
+
+classroom_server = os.getenv('CLASSROOM_SERVER_URL')
 
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
 DB_PORT = os.getenv('FLASK_DB_PORT', '5432')

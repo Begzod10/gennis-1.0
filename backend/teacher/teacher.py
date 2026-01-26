@@ -13,14 +13,14 @@ from backend.functions.utils import find_calendar_date, update_salary, iterate_m
 from backend.group.class_model import Group_Functions
 from backend.models.models import Attendance, Students, AttendanceDays, Groups, Locations, Subjects, \
     StudentCharity, TeacherBlackSalary, GroupReason, TeacherObservationDay, TeacherGroupStatistics, \
-    Group_Room_Week, LessonPlan, CalendarDay
+    Group_Room_Week, LessonPlan, CalendarDay, GroupAttendance
 from backend.models.models import CalendarMonth, CalendarYear, db
 from backend.models.models import Teachers, Users, Roles
 from backend.student.class_model import Student_Functions
 from backend.teacher.utils import send_telegram_message
 from .utils import get_students_info, prepare_scores
 from sqlalchemy import or_, extract, func
-
+from backend.celery.tasks import process_attendance_post_save
 from ..time_table.models import Week
 
 teachers_bp = Blueprint('teachers', __name__)
@@ -342,7 +342,6 @@ def make_attendance():
     month_date = student['date'].get('month', current_month)
     if month_date == "12" and current_month == "01":
         current_year = old_year
-
     full_date = f"{current_year}-{month_date}-{day}"
     date_day = datetime.strptime(full_date, "%Y-%m-%d")
     date_month = datetime.strptime(f"{current_year}-{month_date}", "%Y-%m")
@@ -418,7 +417,8 @@ def make_attendance():
         date=calendar_day.date
     ).first()
     fine = 0
-    fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
+    if teacher.id != 23:
+        fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
 
     # Add attendance day
 
@@ -447,7 +447,20 @@ def make_attendance():
     )
     db.session.add(attendance_add)
     db.session.commit()
-
+    year_date = attendance.year.date
+    month_date = attendance.month.date
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+    if group_attendance:
+        group_attendance.status = False
+        db.session.commit()
     # Update percentage
     attendance_days = AttendanceDays.query.filter_by(attendance_id=attendance.id).filter(
         AttendanceDays.teacher_ball != None).all()
@@ -456,41 +469,20 @@ def make_attendance():
     db.session.commit()
 
     # Update balance and debt
-    st_functions = Student_Functions(student_id=student_obj.id)
-    st_functions.update_debt()
-    st_functions.update_balance()
-
-    salary_location = salary_debt(student_id=student_obj.id, group_id=group_id, attendance_id=attendance_add.id,
-                                  status_attendance=False, type_attendance="add")
-    update_salary(teacher_id=teacher.user_id)
-
-    if student_obj.debtor == 2:
-        black_salary = TeacherBlackSalary.query.filter_by(
-            teacher_id=teacher.id,
-            student_id=student_obj.id,
-            calendar_month=calendar_month.id,
-            calendar_year=calendar_year.id,
-            location_id=student_obj.user.location_id,
-            salary_id=salary_location.id,
-            status=False
-        ).first()
-        if not black_salary:
-            black_salary = TeacherBlackSalary(
-                teacher_id=teacher.id,
-                total_salary=salary_per_day,
-                student_id=student_obj.id,
-                salary_id=salary_location.id,
-                calendar_month=calendar_month.id,
-                calendar_year=calendar_year.id,
-                location_id=student_obj.user.location_id
-            )
-            black_salary.add()
-        else:
-            black_salary.total_salary += salary_per_day
-            db.session.commit()
+    process_attendance_post_save.delay(
+        student_id=student_obj.id,
+        group_id=group_id,
+        attendance_day_id=attendance_add.id,
+        teacher_user_id=teacher.user_id,
+        is_debtor=(student_obj.debtor == 2),
+        teacher_id=teacher.id,
+        calendar_month_id=calendar_month.id,
+        calendar_year_id=calendar_year.id,
+        location_id=student_obj.user.location_id,
+        salary_per_day=salary_per_day
+    )
 
     user = Users.query.get(student_id)
-    send_telegram_message(student_obj.id, attendance_add.id, group_id)
     if user.school_user_id:
         update_school_salary(user, group, calendar_day, calendar_month, calendar_year, attendance_add)
 
@@ -513,6 +505,20 @@ def attendance_delete(attendance_id, student_id, group_id, main_attendance):
                                                    TeacherBlackSalary.location_id == student.user.location_id,
                                                    ).first()
     salary_per_day = attendancedays.salary_per_day
+    year_date = attendace_get.year.date
+    month_date = attendace_get.month.date
+    group_attendance = db.session.query(GroupAttendance).join(
+        CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
+    ).join(
+        CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
+    ).filter(
+        GroupAttendance.group_id == group_id,
+        CalendarYear.date == year_date,
+        CalendarMonth.date == month_date
+    ).first()
+    if group_attendance:
+        group_attendance.status = False
+        db.session.commit()
     if black_salary:
         if black_salary.total_salary:
             black_salary.total_salary -= salary_per_day
@@ -577,15 +583,14 @@ def get_teachers():
     })
 
 
-from sqlalchemy import or_
-
-
 @teachers_bp.route(f"/get_teachers_location/<int:location_id>", methods=["GET"])
 # @jwt_required()
 def get_teachers_location(location_id):
     offset = request.args.get("offset", default=0, type=int)
     limit = request.args.get("limit", default=None, type=int)
     search = request.args.get("search", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
+    subject = request.args.get("subject", default=None, type=str)
 
     list_teachers = []
     role = Roles.query.filter(Roles.type_role == "teacher").first().role
@@ -606,6 +611,14 @@ def get_teachers_location(location_id):
         Locations.id == location_id,
         Teachers.deleted == None
     )
+    if language:
+        teachers_query = teachers_query.join(Teachers.user).join(Users.language).filter(
+            Users.language.has(name=language)
+        )
+    if subject:
+        teachers_query = teachers_query.join(Teachers.subject).filter(
+            Subjects.name == subject
+        )
 
     # Search qo'shish
     if search:
@@ -660,6 +673,55 @@ def get_teachers_location(location_id):
             "limit": limit,
             "has_more": (offset + (limit or total)) < total
         }
+    })
+
+
+@teachers_bp.route(f"/get_teachers_group/<int:location_id>", methods=["GET"])
+@jwt_required()
+def get_teachers_group(location_id):
+    list_teachers = []
+    role = Roles.query.filter(Roles.type_role == "teacher").first().role
+    teachers_init = Teachers.query.join(Users).filter(
+        Users.location_id == location_id,
+        Teachers.deleted == None
+    ).order_by(Users.location_id).all()
+
+    location = Locations.query.filter(Locations.id == location_id).first()
+    for teach in teachers_init:
+        if location not in teach.locations:
+            teach.locations.append(location)
+            db.session.commit()
+
+    teachers_query = Teachers.query.join(Teachers.locations).filter(
+        Locations.id == location_id,
+        Teachers.deleted == None
+    )
+    teachers = teachers_query.all()
+
+    for teach in teachers:
+        status = False
+        del_group = sum(1 for gr in teach.group if gr.deleted)
+        if del_group == len(teach.group):
+            status = True
+        if not teach.group:
+            status = True
+
+        info = {
+            "id": teach.id,
+            "name": teach.user.name.title(),
+            "surname": teach.user.surname.title(),
+            "username": teach.user.username,
+            "language": teach.user.language.name,
+            "age": teach.user.age,
+            "role": role,
+            "reg_date": teach.user.day.date.strftime("%Y-%m-%d"),
+            "status": status,
+            "photo_profile": teach.user.photo_profile,
+            "subjects": [subject.name for subject in teach.subject]
+        }
+        list_teachers.append(info)
+    return jsonify({
+        "teachers": list_teachers,
     })
 
 
@@ -799,7 +861,6 @@ def branch_daily_stats(location_id):
         .all()
     )
 
-
     calendar_year = CalendarYear.query.filter(
         extract('year', CalendarYear.date) == year
     ).first()
@@ -820,6 +881,13 @@ def branch_daily_stats(location_id):
     if not calendar_day:
         return jsonify({"error": "Bu kunda davomat topilmadi"}), 200
 
+    query = Groups.query.filter_by(location_id=location_id, deleted=False, status=True)
+
+    groups = (
+        query.options(joinedload(Groups.student))
+        .order_by(Groups.id)
+        .all()
+    )
 
     branch_present = branch_absent = branch_total = 0
     group_list = []
@@ -881,4 +949,3 @@ def branch_daily_stats(location_id):
             "total": branch_total
         }
     }), 200
-

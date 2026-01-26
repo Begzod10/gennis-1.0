@@ -3,16 +3,16 @@ import os
 from datetime import date
 from pprint import pprint
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app as app
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 
-from app import app, db
+
 from backend.functions.small_info import advantages_photo_folder, news_photo_folder, checkFile, gallery_folder, \
     home_design, link_img
 from backend.functions.utils import get_json_field
 from backend.models.models import Advantages, CommentLikes, HomeVideo, HomeDesign, Comments, Users, NewsLink, News, \
-    Gallery, NewsImg, StudentCertificate, Groups, Teachers, TeacherData, Subjects, Link, Locations
+    Gallery, NewsImg, StudentCertificate, Groups, Teachers, TeacherData, Subjects, Link, Locations, db
 
 home_page_bp = Blueprint('home_page', __name__)
 

@@ -7,11 +7,11 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import desc
 from werkzeug.security import generate_password_hash
 
-from app import db
 from backend.functions.debt_salary_update import camp_staff_salary_update
 from backend.functions.utils import find_calendar_date, refreshdatas, update_camp_salary_id, get_json_field, \
     iterate_models
-from backend.models.models import CampStaff, CampStaffSalary, CampStaffSalaries, Users, PhoneList, Roles, PaymentTypes
+from backend.models.models import CampStaff, CampStaffSalary, CampStaffSalaries, Users, PhoneList, Roles, PaymentTypes, \
+    db
 from .utils import update_account
 
 account_camp_staff = Blueprint('account_camp_staff', __name__)
@@ -166,7 +166,7 @@ def delete_camp_staff_salary(salary_id):
 @jwt_required()
 def register_camp_staff():
     if request.method == 'POST':
-        refreshdatas()
+        calendar_year, calendar_month, calendar_day = find_calendar_date()
         data = request.get_json()
         name = data['name']
         surname = data['surname']

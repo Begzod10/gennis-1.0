@@ -1,14 +1,14 @@
-from backend.models.models import Column, Integer, Float, ForeignKey, String, Boolean, relationship, DateTime, db
+from backend.models.models import Column, Integer, Float, ForeignKey, String, Boolean, relationship, DateTime, db, JSON
 
-db.Table('student_group',
-         db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
-         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
-         )
+student_group = db.Table('student_group',
+                         db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
+                         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
+                         )
 
-db.Table('teacher_group',
-         db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
-         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
-         )
+teacher_group = db.Table('teacher_group',
+                         db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
+                         db.Column('group_id', db.Integer, db.ForeignKey('groups.id'))
+                         )
 
 
 class Groups(db.Model):
@@ -262,3 +262,13 @@ class GroupTest(db.Model):
             "percentage": self.percentage,
             "file": self.file
         }
+
+
+class GroupAttendance(db.Model):
+    __tablename__ = "group_attendance"
+    id = Column(Integer, primary_key=True)
+    group_id = Column(Integer, ForeignKey('groups.id'))
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'))
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'))
+    to_json = Column(JSON)
+    status = Column(Boolean, default=False)

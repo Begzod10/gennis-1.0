@@ -2,7 +2,7 @@ from sqlalchemy import and_, or_, extract
 from backend.functions.utils import remove_items_create_group
 from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, Group_Room_Week, Students, Users, \
     StudentHistoryGroups, Groups, RegisterDeletedStudents, Roles, Locations, DeletedStudents, GroupReason, CalendarDay, \
-    TeacherGroupStatistics, db, student_subject
+    TeacherGroupStatistics, db, student_subject, student_group
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import get_json_field, find_calendar_date
 from datetime import datetime
@@ -658,7 +658,12 @@ def move_group(new_group_id, old_group_id):
     students_checked = db.session.query(Students).join(Students.user).options(
         contains_eager(Students.user)).filter(Users.id.in_([st_id for st_id in student_list])).all()
     for st in students_checked:
-        st.group.remove(old_group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == old_group.id,
+                student_group.c.student_id == st.id
+            )
+        )
         db.session.commit()
         st.group.append(new_group)
         StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,
@@ -848,7 +853,12 @@ def move_group_time(old_group_id, new_group_id):
     old_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == old_group.id).all()
     new_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == new_group.id).all()
     for st in students_checked:
-        st.group.remove(old_group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == old_group.id,
+                student_group.c.student_id == st.id
+            )
+        )
         db.session.commit()
         st.group.append(new_group)
         StudentHistoryGroups.query.filter(StudentHistoryGroups.group_id == old_group.id,
@@ -856,19 +866,16 @@ def move_group_time(old_group_id, new_group_id):
                                           StudentHistoryGroups.teacher_id == old_group.teacher_id).update(
             {'left_day': calendar_day.date,
              "reason": reason})
-        db.session.commit()
+
         group_history = StudentHistoryGroups(teacher_id=new_group.teacher_id, student_id=st.id, group_id=new_group.id,
                                              joined_day=calendar_day.date)
         db.session.add(group_history)
-        db.session.commit()
         for time in old_time_table:
             if time in st.time_table:
                 st.time_table.remove(time)
-                db.session.commit()
         for time in new_time_table:
             if time in st.time_table:
                 st.time_table.append(time)
-                db.session.commit()
     db.session.commit()
     if len(student_list) > 1:
         return jsonify({
@@ -903,7 +910,13 @@ def delete_student():
                               calendar_day=calendar_day.id, reason_id=group_reason.id)
         db.session.add(add)
         db.session.commit()
-        student.group.remove(group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == group.id,
+                student_group.c.student_id == student.id
+            )
+        )
+        db.session.commit()
         db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
         for time in time_table:
@@ -948,7 +961,12 @@ def delete_student():
         student.subject.append(subject)
         db.session.commit()
 
-        student.group.remove(group)
+        db.session.execute(
+            delete(student_group).where(
+                student_group.c.group_id == group.id,
+                student_group.c.student_id == student.id
+            )
+        )
         db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
         for time in time_table:

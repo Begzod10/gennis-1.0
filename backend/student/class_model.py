@@ -72,9 +72,9 @@ class Student_Functions:
 
         # if result == 0:
         #     result = student.extra_payment
-        student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == self.student_id,
-                                                     StudentExcuses.to_date > calendar_day.date).order_by(
-            desc(StudentExcuses.id)).first()
+        # student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == self.student_id,
+        #                                              StudentExcuses.to_date > calendar_day.date).order_by(
+        #     desc(StudentExcuses.id)).first()
         if result == None:
             result = 0
         Users.query.filter(Users.id == student.user_id).update({'balance': result})

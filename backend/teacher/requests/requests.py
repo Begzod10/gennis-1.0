@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app import db
-from backend.teacher.models import TeacherRequests, Teachers
+from backend.teacher.models import TeacherRequests, Teachers, db
 from backend.models.models import Locations
 from datetime import datetime
 

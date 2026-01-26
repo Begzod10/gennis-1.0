@@ -11,8 +11,9 @@ from backend.models.models import Locations, AccountingPeriod, Teachers, Calenda
     CalendarYear, PaymentTypes, CourseTypes, Subjects, Students, LessonPlan, Users, Week, DeletedStudents, Professions, \
     Group_Room_Week, RegisterDeletedStudents, Groups, Rooms, GroupReason, db
 from sqlalchemy import and_, or_, extract, desc
-
+from backend.models.models import StudentHistoryGroups
 from sqlalchemy.orm import contains_eager
+from sqlalchemy import func
 
 student_functions_bp = Blueprint('student_functions_bp', __name__)
 
@@ -573,7 +574,8 @@ def deleted_students_filter(location_id):
 
         teacher_info = {
             "value": st.teacher_id,
-            "name": f" {st.teacher.user.name.title()} {st.teacher.user.surname.title()}"
+            "name": f" {st.teacher.user.name.title()} {st.teacher.user.surname.title()}",
+            "is_deleted": True if st.teacher.deleted else False
         }
         teachers.append(teacher_info)
 
@@ -591,6 +593,29 @@ def deleted_students_filter(location_id):
 
     day_dict = {gr['value']: gr for gr in groups}
     group_list = list(day_dict.values())
+    subquery = (
+        db.session.query(
+            func.max(StudentHistoryGroups.id).label("max_id")
+        )
+        .join(StudentHistoryGroups.group)
+        .group_by(Groups.subject_id)
+        .subquery()
+    )
+
+    student_history_groups = (
+        StudentHistoryGroups.query
+        .join(subquery, StudentHistoryGroups.id == subquery.c.max_id)
+        .all()
+    )
+
+    subjects = []
+    for student in student_history_groups:
+        if student.group:
+            if student.group.subject:
+                subjects.append({
+                    "value": student.group.subject.id,
+                    "name": student.group.subject.name
+                })
 
     filters = {
 
@@ -610,15 +635,21 @@ def deleted_students_filter(location_id):
             "activeFilters": [],
             "filtersList": teachers_list
         },
-        "group": {
-            "id": 3,
-            "title": "Guruh bo'yicha",
-            "name": "Guruh",
-            "type": "select",
-            "activeFilters": [],
-            "filtersList": group_list
-        },
 
+        "range_date": {
+            "id": 3,
+            "title": "Oraliq sana",
+            "type": "date",
+            "activeFilters": [],
+            #     "filtersList": day_list
+        },
+        "subjects": {
+            "id": 4,
+            "title": "Fan bo'yicha",
+            "type": "select",
+            "filtersList": subjects,
+
+        }
     }
     return filters
 
@@ -727,33 +758,58 @@ def old_current_dates(group_id=0, observation=False):
     return data
 
 
+# Instead of checking each day individually, bulk check:
 def update_lesson_plan(group_id):
-    time_table_group = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
-        Group_Room_Week.id).all()
+    from sqlalchemy import func
+    from sqlalchemy.exc import IntegrityError
+
+    time_table_group = Group_Room_Week.query.filter(
+        Group_Room_Week.group_id == group_id
+    ).order_by(Group_Room_Week.id).all()
+
+    if not time_table_group:
+        return 0
 
     week_list = [timetable.week.eng_name for timetable in time_table_group]
 
     group = Groups.query.filter(Groups.id == group_id).first()
+    if not group or not group.teacher_id:
+        return 0
+
     today = datetime.now().date()
     future_day = today + timedelta(days=7)
 
+    created = 0
     current_day = today
+
     while current_day <= future_day:
         weekday_name = current_day.strftime("%A")
+
         if weekday_name in week_list:
-            exist = LessonPlan.query.filter(
-                LessonPlan.date == current_day,
+            # Check if already exists
+            exists = LessonPlan.query.filter(
+                func.date(LessonPlan.date) == current_day,
                 LessonPlan.group_id == group_id,
                 LessonPlan.teacher_id == group.teacher_id
             ).first()
-            if not exist:
-                lesson_plan_add = LessonPlan(
-                    group_id=group_id,
-                    teacher_id=group.teacher_id,
-                    date=current_day
-                )
-                lesson_plan_add.add()
+
+            if not exists:
+                try:
+                    lesson_plan = LessonPlan(
+                        group_id=group_id,
+                        teacher_id=group.teacher_id,
+                        date=current_day
+                    )
+                    db.session.add(lesson_plan)
+                    db.session.commit()
+                    created += 1
+                except IntegrityError:
+                    db.session.rollback()
+                    # Race condition - another process created it
+
         current_day += timedelta(days=1)
+
+    return created
 
 
 def weekday_from_date(day_list, month, year, week_list):

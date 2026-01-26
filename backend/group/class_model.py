@@ -1,5 +1,5 @@
 from backend.models.models import CalendarDay, Attendance, AttendanceDays, CalendarMonth, CalendarYear, StudentExcuses, \
-    Students, StudentPayments, BookPayments, Users, AttendanceHistoryStudent, LessonPlan, Groups, db
+    Students, StudentPayments, BookPayments, Users, AttendanceHistoryStudent, LessonPlan, Groups, db, GroupAttendance
 from datetime import datetime
 from sqlalchemy import desc
 from sqlalchemy.orm import contains_eager
@@ -12,7 +12,6 @@ class Group_Functions:
         self.group_id = group_id
 
     def update_list_balance(self):
-        refreshdatas()
         calendar_year, calendar_month, calendar_day = find_calendar_date()
         students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
             Groups.id == self.group_id).order_by('id').all()
@@ -45,9 +44,9 @@ class Group_Functions:
 
             # if result == 0:
             #     result = student.extra_payment
-            student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == student_get.id,
-                                                         StudentExcuses.to_date > calendar_day.date).order_by(
-                desc(StudentExcuses.id)).first()
+            # student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == student_get.id,
+            #                                              StudentExcuses.to_date > calendar_day.date).order_by(
+            #     desc(StudentExcuses.id)).first()
             if result == None:
                 result = 0
             Users.query.filter(Users.id == student.user_id).update({'balance': result})
@@ -181,7 +180,19 @@ class Group_Functions:
             "dates": sorted_dates,
             "students_num": students_num
         }
-
+        group_attendance = GroupAttendance.query.filter(GroupAttendance.group_id == self.group_id,
+                                                        GroupAttendance.calendar_month == calendar_month.id,
+                                                        GroupAttendance.calendar_year == calendar_year.id).first()
+        if not group_attendance:
+            group_attendance = GroupAttendance(group_id=self.group_id, calendar_month=calendar_month.id,
+                                               status=True,
+                                               calendar_year=calendar_year.id, to_json=data)
+            db.session.add(group_attendance)
+            db.session.commit()
+        else:
+            group_attendance.to_json = data
+            group_attendance.status = True
+            db.session.commit()
         return data
 
     def attendance_filter_android(self, month, year):

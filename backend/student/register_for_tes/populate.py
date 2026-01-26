@@ -1,4 +1,4 @@
-from app import db  # Import app instance
+from backend.models.models import db  # Import app instance
 from backend.student.register_for_tes.models import School
 
 

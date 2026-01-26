@@ -10,7 +10,7 @@ from calendar import monthrange
 import uuid
 from datetime import datetime
 import pytz
-
+from sqlalchemy.exc import IntegrityError
 api = '/api'
 
 
@@ -67,32 +67,32 @@ def refreshdatas(location_id=0):
     :return:
     """
 
-    calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-    if not calendar_year:
-        calendar_year = CalendarYear(date=new_year())
-        db.session.add(calendar_year)
-        db.session.commit()
-
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month(),
-                                                CalendarMonth.year_id == calendar_year.id).first()
-
-    if not calendar_month:
-        calendar_month = CalendarMonth(date=new_month(), year_id=calendar_year.id)
-        db.session.add(calendar_month)
-        db.session.commit()
-
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
-                                            CalendarDay.month_id == calendar_month.id).first()
-
-    if not calendar_day:
-        calendar_day = CalendarDay(date=new_today(), month_id=calendar_month.id)
-        db.session.add(calendar_day)
-        db.session.commit()
+    # calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
+    # if not calendar_year:
+    #     calendar_year = CalendarYear(date=new_year())
+    #     db.session.add(calendar_year)
+    #     db.session.commit()
+    #
+    # calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month(),
+    #                                             CalendarMonth.year_id == calendar_year.id).first()
+    #
+    # if not calendar_month:
+    #     calendar_month = CalendarMonth(date=new_month(), year_id=calendar_year.id)
+    #     db.session.add(calendar_month)
+    #     db.session.commit()
+    #
+    # calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
+    #                                         CalendarDay.month_id == calendar_month.id).first()
+    #
+    # if not calendar_day:
+    #     calendar_day = CalendarDay(date=new_today(), month_id=calendar_month.id)
+    #     db.session.add(calendar_day)
+    #     db.session.commit()
     update_all_datas()
     # update_period(location_id)
-    account_period = AccountingPeriod.query.order_by(desc(AccountingPeriod.id)).first()
-    CalendarDay.query.filter(CalendarDay.id == calendar_day.id).update({'account_period_id': account_period.id})
-    db.session.commit()
+    # account_period = AccountingPeriod.query.order_by(desc(AccountingPeriod.id)).first()
+    # CalendarDay.query.filter(CalendarDay.id == calendar_day.id).update({'account_period_id': account_period.id})
+    # db.session.commit()
 
 
 def update_period(location_id):
@@ -162,18 +162,18 @@ def update_period(location_id):
 
 
 def update_all_datas():
-    new_month = datetime.strftime(today(), "%Y-%m")
-    new_month = datetime.strptime(new_month, "%Y-%m")
-    calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month,
-                                                CalendarMonth.year_id == calendar_year.id).first()
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
-                                            CalendarDay.month_id == calendar_month.id).first()
-    current_month = datetime.strftime(today(), "%Y-%m")
-
-    new_month = datetime.strptime(current_month, "%Y-%m")
-    old_month = new_month - relativedelta(month=1)
+    # new_month = datetime.strftime(today(), "%Y-%m")
+    # new_month = datetime.strptime(new_month, "%Y-%m")
+    # calendar_year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
+    #
+    # calendar_month = CalendarMonth.query.filter(CalendarMonth.date == new_month,
+    #                                             CalendarMonth.year_id == calendar_year.id).first()
+    # calendar_day = CalendarDay.query.filter(CalendarDay.date == new_today(),
+    #                                         CalendarDay.month_id == calendar_month.id).first()
+    # current_month = datetime.strftime(today(), "%Y-%m")
+    #
+    # new_month = datetime.strptime(current_month, "%Y-%m")
+    # old_month = new_month - relativedelta(month=1)
 
     # location1 = "Xo'jakent"
     # location2 = "Gazalkent"
@@ -255,6 +255,17 @@ def update_all_datas():
         main_admin = Roles(type_role="main_admin", role="22ada11daw")
         main_admin.add()
 
+    zavxos = Professions.query.filter(Professions.name == "Zavxos").first()
+
+    if not zavxos:
+        zavxos = Professions(name="Zavxos")
+        zavxos.add()
+
+    zavxos = Roles.query.filter(Roles.type_role == "zavxos", Roles.role == "z2vs2221").first()
+    if not zavxos:
+        zavxos = Roles(type_role="zavxos", role="z2vs2221")
+        zavxos.add()
+
     # editor = Professions.query.filter(Professions.name == "Editor").first()
     # if not editor:
     #     editor = Professions(name="Editor")
@@ -326,46 +337,50 @@ def filter_month_day():
     return date_year, date_month, date_day
 
 
-def find_calendar_date(date_day=None, date_month=None, date_year=None):
-    """Find or parse calendar date entities."""
-    if date_day:
-        day = CalendarDay.query.filter(CalendarDay.date == date_day).first()
-        month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
-        year = CalendarYear.query.filter(CalendarYear.date == date_year).first()
-        if not year:
-            year = CalendarYear(date=date_year)
-            db.session.add(year)
-            db.session.commit()
-        if not month:
-            month = CalendarMonth(date=date_month, year_id=year.id)
-            db.session.add(month)
-            db.session.commit()
-        if not day:
-            day = CalendarDay(date=date_day, month_id=month.id)
-            db.session.add(day)
-            db.session.commit()
-        return year, month, day
+def get_or_create(session, model, **kwargs):
+    """Generic get_or_create function with proper locking"""
+    instance = session.query(model).filter_by(**kwargs).first()
+    if instance:
+        return instance, False
     else:
-        day = CalendarDay.query.filter(CalendarDay.date == new_today()).first()
-        month = CalendarMonth.query.filter(CalendarMonth.date == new_month()).first()
-        year = CalendarYear.query.filter(CalendarYear.date == new_year()).first()
-        if not year:
-            year = CalendarYear(date=new_year())
-            db.session.add(year)
-            db.session.commit()
-        if not month:
-            month = CalendarMonth(date=new_month(), year_id=year.id)
-            db.session.add(month)
-            db.session.commit()
-        if not day:
-            day = CalendarDay(date=new_today(), month_id=month.id)
-            db.session.add(day)
-            db.session.commit()
+        instance = model(**kwargs)
+        try:
+            session.add(instance)
+            session.flush()
+            return instance, True
+        except IntegrityError:
+            session.rollback()
+            instance = session.query(model).filter_by(**kwargs).first()
+            return instance, False
 
-        year = CalendarYear.query.filter_by(date=new_year()).first()
-        month = CalendarMonth.query.filter_by(date=new_month(), year_id=year.id).first()
-        day = CalendarDay.query.filter_by(date=new_today(), month_id=month.id).first()
-        return year, month, day
+
+def find_calendar_date(date_day=None, date_month=None, date_year=None, timezone='Asia/Tashkent'):
+    tz = pytz.timezone(timezone)
+    now = datetime.now(tz)
+
+    if date_day and date_month and date_year:
+        target_day = date_day
+        target_month = date_month
+        target_year = date_year
+    else:
+        target_day = now.date()
+        target_month = now.date().replace(day=1)
+        target_year = now.date().replace(month=1, day=1)
+
+    # Get or create year
+    year, _ = get_or_create(db.session, CalendarYear, date=target_year)
+
+    # Get or create month
+    month, _ = get_or_create(db.session, CalendarMonth,
+                             date=target_month, year_id=year.id)
+
+    # Get or create day
+    day, _ = get_or_create(db.session, CalendarDay,
+                           date=target_day, month_id=month.id)
+
+    db.session.commit()
+
+    return year, month, day
 
 
 def get_json_field(field_name):
@@ -402,7 +417,6 @@ def number_of_days_in_month(year, month):
 
 
 def update_account(account_id):
-    refreshdatas()
     accounting_info = AccountingInfo.query.filter(AccountingInfo.id == account_id).first()
     old_cash = 0
     old_account_period = AccountingPeriod.query.filter(
@@ -440,7 +454,6 @@ def update_account(account_id):
 
 
 def update_salary(teacher_id):
-    refreshdatas()
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
     attendance_history = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id).filter(
         or_(TeacherSalary.status == False, TeacherSalary.status == None)).all()

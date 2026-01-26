@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app import app
+
 
 from backend.group.test import api
 from sqlalchemy.orm import contains_eager
@@ -11,7 +11,7 @@ from backend.functions.small_info import user_photo_folder, checkFile
 from backend.functions.utils import get_or_creat_datetime, find_calendar_date, iterate_models, get_json_field, \
     filter_month_day
 
-from flask import request, jsonify
+from flask import request, jsonify, current_app as app
 from flask_jwt_extended import jwt_required
 import os
 import json

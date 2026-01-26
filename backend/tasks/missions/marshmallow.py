@@ -4,6 +4,7 @@ from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from backend.tasks.models.models import Mission, MissionSubtask, MissionAttachment, MissionComment, MissionProof, Tag, \
     db
 from backend.models.models import Users
+from marshmallow import Schema, fields
 
 
 class TagSchema(SQLAlchemyAutoSchema):
@@ -12,9 +13,6 @@ class TagSchema(SQLAlchemyAutoSchema):
         load_instance = True
         include_relationships = True
         sqla_session = db.session
-
-
-from marshmallow import Schema, fields
 
 
 class MissionCreateSchema(Schema):

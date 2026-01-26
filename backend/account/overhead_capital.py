@@ -4,12 +4,12 @@ import uuid
 from datetime import datetime
 
 from docx import Document
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file, current_app as app
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 from sqlalchemy import and_, or_, extract, desc
 from sqlalchemy.orm import contains_eager
-from app import app
+
 from backend.functions.filters import old_current_dates
 from backend.functions.small_info import room_images, checkFile
 from backend.functions.utils import get_json_field, find_calendar_date, iterate_models
@@ -19,6 +19,7 @@ from backend.models.models import Overhead, AccountingPeriod, PaymentTypes, Dele
 from backend.models.models import func
 from .utils import update_capital
 from pprint import pprint
+
 account_capital_bp = Blueprint('account_capital_bp', __name__)
 
 
@@ -318,23 +319,21 @@ def add_overhead(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     account_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
         contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
-    current_year = datetime.now().year
-    old_year = datetime.now().year - 1
-    month = str(datetime.now().month)
-    month_get = get_json_field('month')
-    day = get_json_field('day')
-    if month_get == "12" and month == "01":
-        current_year = old_year
-    if not month_get:
-        month_get = month
-
-    date_day = str(current_year) + "-" + str(month_get) + "-" + str(day)
-    date_month = str(current_year) + "-" + str(month_get)
-    date_year = str(current_year)
+    date = get_json_field('date')
+    day = date.split("-")[2]
+    month_get = date.split("-")[1]
+    year = date.split("-")[0]
+    date_day = str(year) + "-" + str(month_get) + "-" + str(day)
+    date_month = str(year) + "-" + str(month_get)
+    date_year = str(year)
     date_day = datetime.strptime(date_day, "%Y-%m-%d")
     date_month = datetime.strptime(date_month, "%Y-%m")
-    calendar_month = CalendarMonth.query.filter(CalendarMonth.date == date_month).first()
-    calendar_day = CalendarDay.query.filter(CalendarDay.date == date_day).first()
+    date_year = datetime.strptime(date_year, "%Y")
+    calendar_year, calendar_month, calendar_day = find_calendar_date(
+        date_day=date_day,
+        date_month=date_month,
+        date_year=date_year
+    )
     type_of_data = get_json_field('typePayment')
     sum = int(get_json_field('price'))
     name_item = get_json_field('typeItem')
@@ -347,7 +346,8 @@ def add_overhead(location_id):
     db.session.commit()
     return jsonify({
         "success": True,
-        "msg": "Qo'shimcha xarajat qo'shildi"
+        "msg": "Qo'shimcha xarajat qo'shildi",
+        "data": add.convert_json()
     })
 
 
@@ -413,22 +413,28 @@ def add_capital(location_id):
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     if request.method == "POST":
-        pprint(request.json)
+
         account_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
             contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
-        current_year = datetime.now().year
-        month = get_json_field('month')
-        calendar_month = str(current_year) + "-" + str(month)
-        day = get_json_field('day')
-        day = str(current_year) + "-" + str(month) + "-" + str(day)
+        date = get_json_field('date')
+        day = date.split("-")[2]
+        month_get = date.split("-")[1]
+        year = date.split("-")[0]
+        date_day = str(year) + "-" + str(month_get) + "-" + str(day)
+        date_month = str(year) + "-" + str(month_get)
+        date_year = str(year)
+        date_day = datetime.strptime(date_day, "%Y-%m-%d")
+        date_month = datetime.strptime(date_month, "%Y-%m")
+        date_year = datetime.strptime(date_year, "%Y")
+        calendar_year, calendar_month, calendar_day = find_calendar_date(
+            date_day=date_day,
+            date_month=date_month,
+            date_year=date_year
+        )
         type_of_data = get_json_field('typePayment')
         sum = int(get_json_field('price'))
         name_item = get_json_field('typeItem')
         payment_type = PaymentTypes.query.filter(PaymentTypes.id == type_of_data).first()
-        month = datetime.strptime(calendar_month, "%Y-%m")
-        day = datetime.strptime(day, "%Y-%m-%d")
-        calendar_month = CalendarMonth.query.filter(CalendarMonth.date == month).first()
-        calendar_day = CalendarDay.query.filter(CalendarDay.date == day).first()
         add = CapitalExpenditure(item_sum=sum, item_name=name_item, payment_type_id=payment_type.id,
                                  location_id=location_id,
                                  calendar_day=calendar_day.id, calendar_month=calendar_month.id,
@@ -438,7 +444,8 @@ def add_capital(location_id):
         db.session.commit()
         return jsonify({
             "success": True,
-            "msg": "Qo'shimcha xarajat qo'shildi"
+            "msg": "Qo'shimcha xarajat qo'shildi",
+            "data": add.convert_json()
         })
 
 

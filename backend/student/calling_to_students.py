@@ -5,11 +5,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import asc
 from sqlalchemy import or_
 
-from app import db
 from backend.functions.utils import find_calendar_date
 from backend.lead.functions import get_lead_tasks, get_completed_lead_tasks
 from backend.models.models import CalendarDay, Lead, desc, Teachers
-from backend.models.models import Students, StudentCallingInfo, Users, StudentExcuses
+from backend.models.models import Students, StudentCallingInfo, Users, StudentExcuses, db
 from backend.student.functions import get_student_info, get_completed_student_info, change_statistics
 from backend.tasks.models.models import Tasks, TasksStatistics, TaskDailyStatistics, TaskStudents
 

@@ -1,8 +1,8 @@
 from flask import Blueprint, jsonify
 
-from app import db
+
 from backend.functions.utils import find_calendar_date, get_json_field
-from backend.models.models import Teachers, DeletedTeachers
+from backend.models.models import Teachers, DeletedTeachers, db
 
 teacher_delete_bp = Blueprint('teacher_delete', __name__)
 

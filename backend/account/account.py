@@ -79,8 +79,19 @@ def get_statistics():
         items = query.all()
 
         return {
+
+            # "count": db.session.query(func.count(model.id)).filter(
+            #     filter_field.in_(calendar_day_ids)
+            # ).join(model.user).filter(Users.location_id == location_id).scalar(),
+            # "items": [
+            #     m.convert_json() for m in model.query.filter(
+            #         filter_field.in_(calendar_day_ids)
+            #     ).join(model.user).filter(Users.location_id == location_id).all()
+            # ]
+
             "count": len(items),
             "items": [m.convert_json() for m in items]
+
         }
 
     payments, payments_sum = get_stats(
@@ -153,6 +164,106 @@ def get_statistics():
     }
 
     return jsonify(data)
+
+
+@account_bp.route('/account_info/prepayments/', methods=["GET"])
+@jwt_required()
+def account_info_prepayments():
+    location = request.args.get('locationId')
+    color = request.args.get("color", type=str)
+    limit = request.args.get("limit", type=int)
+    group_status = request.args.get("groupStatus", type=str)
+    teacher_id = request.args.get("teacherId", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+
+    payments_list = []
+
+    # Base query
+    students_query = (
+        db.session.query(Students)
+        .join(Students.user)
+        .options(contains_eager(Students.user))
+        .filter(Users.balance > 0)
+    )
+    if location:
+        students_query = students_query.filter(Users.location_id == location)
+
+    if teacher_id:
+        if teacher_id != "all":
+            students_query = (
+                students_query.join(Students.group)
+                .options(contains_eager(Students.group))
+                .filter(Groups.teacher_id == teacher_id)
+            )
+    if group_status:
+        if group_status == "Guruh":
+            students_query = students_query.filter(Students.group != None)
+        else:
+            students_query = students_query.filter(Students.group == None)
+
+    if color:
+        colors = ["green", "yellow", "red", "navy", "black"]
+        if color in colors:
+            students_query = students_query.filter(Students.debtor == colors.index(color))
+
+    students = students_query.order_by(Users.balance).all()
+
+    for student in students:
+        phone = student.user.phone[0].phone if student.user.phone else None
+        student_excuse = StudentExcuses.query.filter_by(student_id=student.id).order_by(desc(StudentExcuses.id)).first()
+        info = {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "moneyType": ["green", "yellow", "red", "navy", "black"][student.debtor],
+            "phone": phone,
+            "balance": student.user.balance,
+            "status": "Guruh" if student.group else "Guruhsiz",
+            "teacher": [],
+            "reason": student_excuse.reason if student_excuse else "",
+            "date": student_excuse.added_date.strftime(
+                "%Y-%m-%d") if student_excuse and student_excuse.added_date else "",
+            "payment_reason": "tel qilinmaganlar",
+            "reason_days": ""
+        }
+
+        if student.group:
+            teachers = (
+                db.session.query(Teachers)
+                .join(Teachers.group)
+                .options(contains_eager(Teachers.group))
+                .filter(
+                    Groups.teacher_id == teacher_id,
+                    Groups.id.in_([gr.id for gr in student.group])
+                )
+                .all()
+            )
+            if teachers:
+                info['teacher'] = [t.user_id for t in teachers]
+
+        payments_list.append(info)
+
+    # Pagination
+    pagination_data = None
+    if limit:
+        total = len(payments_list)
+        payments_list = payments_list[offset:offset + limit]
+        pagination_data = {
+            "total": total,
+            "page": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < total
+        }
+
+    return jsonify({
+        "data": {
+            "data": payments_list,
+            "pagination": pagination_data,
+            "overhead_tools": old_current_dates(observation=True),
+            "capital_tools": old_current_dates(observation=True),
+            "location": location
+        }
+    })
 
 
 @account_bp.route('/account_info/dividends/', methods=["GET"])
@@ -337,13 +448,11 @@ def account_info_book_payments():
     limit = request.args.get('limit', type=int)
     type_pagenation = request.args.get("type_pagenation")
     deleted = request.args.get('deleted')
-    if deleted:
-        deleted = True
-    else:
-        deleted = False
+    deleted = True if deleted else False
+
     type_account = "studentBookPayment"
 
-    # Queries
+    # ---------- FILTERING ----------
     if not type_filter:
         if not deleted:
             branch_payments = BranchPayment.query.filter(
@@ -369,7 +478,7 @@ def account_info_book_payments():
             CenterBalanceOverhead.deleted == deleted
         ).order_by(CenterBalanceOverhead.id).all()
 
-    # FULL list
+    # ---------- BOOK PAYMENTS ----------
     full_book_payments = [{
         "id": p.id,
         "name": "Kitobchiga pul",
@@ -383,20 +492,10 @@ def account_info_book_payments():
         "type": "book_payments",
     } for p in branch_payments]
 
-    if type_pagenation == "book_payments" and limit is not None:
-        total = len(full_book_payments)
-        paginated_book_payments = full_book_payments[offset:offset + limit]
-        pagination_data = {
-            "total": total,
-            "offset": offset,
-            "limit": limit,
-            "has_more": (offset + limit) < total
-        }
-    else:
-        paginated_book_payments = full_book_payments
-        pagination_data = None
+    total_book_payments = len(full_book_payments)
 
-    book_overheads = [{
+    # ---------- BOOK OVERHEADS ----------
+    full_book_overheads = [{
         "id": o.id,
         "name": "Kitob pulidan",
         "price": int(o.payment_sum),
@@ -409,9 +508,62 @@ def account_info_book_payments():
         "type": "book_overheads",
     } for o in center_balance_overhead]
 
+    total_book_overheads = len(full_book_overheads)
+
+    # ---------- PAGINATION LOGIC ----------
+    def paginate(data, offset, limit):
+        total = len(data)
+        if limit is not None:
+            paginated = data[offset:offset + limit]
+            pagination = {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "count": len(paginated),
+                "has_more": (offset + limit) < total
+            }
+        else:
+            paginated = data
+            pagination = {
+                "total": total,
+                "offset": 0,
+                "limit": None,
+                "count": total,
+                "has_more": False
+            }
+        return paginated, pagination
+
+    # Default — show both full lists
+    paginated_book_payments, pagination_book_payments = full_book_payments, {
+        "total": total_book_payments,
+        "offset": 0,
+        "limit": None,
+        "count": total_book_payments,
+        "has_more": False
+    }
+
+    paginated_book_overheads, pagination_book_overheads = full_book_overheads, {
+        "total": total_book_overheads,
+        "offset": 0,
+        "limit": None,
+        "count": total_book_overheads,
+        "has_more": False
+    }
+
+    # Apply pagination by type if requested
+    if type_pagenation == "book_payments":
+        paginated_book_payments, pagination_book_payments = paginate(full_book_payments, offset, limit)
+    elif type_pagenation == "book_overheads":
+        paginated_book_overheads, pagination_book_overheads = paginate(full_book_overheads, offset, limit)
+
     payments_list = {
-        "book_overheads": book_overheads,
         "book_payments": paginated_book_payments,
+        "book_overheads": paginated_book_overheads,
+    }
+
+    pagination_data = {
+        "book_payments": pagination_book_payments,
+        "book_overheads": pagination_book_overheads,
     }
 
     return jsonify({
@@ -439,25 +591,20 @@ def account_info_teacher_salary():
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", default=0, type=int)
 
-    # Choose model depending on deleted flag
     TeacherSalaryModel = DeletedTeacherSalaries if deleted else TeacherSalaries
 
-    # Latest accounting period if not filtered
     accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
 
-    # Base query
     query = TeacherSalaryModel.query.filter(TeacherSalaryModel.location_id == location)
 
     if not type_filter:
         query = query.filter(TeacherSalaryModel.account_period_id == accounting_period)
 
-    # Filter by payment type name if provided
     if payment_type_name:
         payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type_name).first()
         if payment_type:
             query = query.filter(TeacherSalaryModel.payment_type_id == payment_type.id)
 
-    # Calendar filters
     if year:
         query = query.filter(TeacherSalaryModel.calendar_year == year)
     if month:
@@ -465,10 +612,8 @@ def account_info_teacher_salary():
     if day:
         query = query.filter(TeacherSalaryModel.calendar_day == day)
 
-    # Order by latest first
     query = query.order_by(desc(TeacherSalaryModel.id))
 
-    # Apply pagination at DB level
     total = query.count()
     if limit:
         query = query.offset(offset).limit(limit)
@@ -936,7 +1081,8 @@ def account_info_debts():
             "status": "Guruh" if student.group else "Guruhsiz",
             "teacher": [],
             "reason": student_excuse.reason if student_excuse else "",
-            "date": student_excuse.added_date.strftime("%Y-%m-%d") if student_excuse else "",
+            "date": student_excuse.added_date.strftime(
+                "%Y-%m-%d") if student_excuse and student_excuse.added_date else "",
             "payment_reason": "tel qilinmaganlar",
             "reason_days": ""
         }

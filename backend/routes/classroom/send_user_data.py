@@ -1,8 +1,7 @@
-from app import app, request, jsonify, db
 from backend.functions.utils import api
-from backend.models.models import Users, Students, Teachers, Subjects, SubjectLevels
+from backend.models.models import Users, Students, Teachers, Subjects, SubjectLevels, db
 from backend.parent.models import Parent
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
 
 classroom_basic_bp = Blueprint('classroom_basic', __name__)
