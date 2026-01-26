@@ -15,6 +15,7 @@ missions_bp = Blueprint("mobile_missions", __name__)
 @missions_bp.route("/missions/", methods=["GET"])
 def mobile_list_missions():
     user_id = int(request.args.get("user_id"))
+    print(user_id)
 
     q = Mission.query.filter(Mission.executor_id == user_id)
 
@@ -25,6 +26,7 @@ def mobile_list_missions():
         q = q.filter(Mission.status == status)
 
     missions = q.order_by(Mission.deadline_datetime.asc()).all()
+    print(missions)
 
     return jsonify(
         MobileMissionListSchema(many=True).dump(missions)
