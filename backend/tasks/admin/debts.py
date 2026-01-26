@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from flask import Blueprint
 from sqlalchemy.orm import joinedload
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from flask import jsonify, request
 from backend.celery.debt_calls import process_student_call
 from backend.functions.utils import api, find_calendar_date, iterate_models, refreshdatas
@@ -222,7 +222,8 @@ def student_debts_completed(location_id, date):
 @task_debts.route('/get_phones/<int:student_id>/')
 def get_phones(student_id):
     student = Students.query.filter(Students.id == student_id).first()
-    phones = PhoneList.query.filter(PhoneList.user_id == student.user_id).all()
+    phones = PhoneList.query.filter(PhoneList.user_id == student.user_id).filter(
+        or_(PhoneList.phone != None, PhoneList.phone != "", PhoneList.phone != "0")).all()
     if not student:
         return jsonify({"error": "Student not found"}), 404
 
