@@ -1,11 +1,13 @@
 from datetime import datetime, date
-from sqlalchemy import or_
+
 from flask import Blueprint, request, jsonify
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
+
 from backend.mobile.missions.marshmallow import MobileMissionListSchema, MobileMissionDetailSchema, CommentSchema
+from backend.tasks.missions.signals import deadline_check_for_user
 from backend.tasks.missions.signals import on_mission_status_change, send_notification
 from backend.tasks.models.models import Mission, db, MissionComment, Notification
-from backend.tasks.missions.signals import deadline_check_for_user
 
 missions_bp = Blueprint("mobile_missions", __name__)
 
@@ -28,29 +30,23 @@ def mobile_list_missions():
     ), 200
 
 
-@missions_bp.route("/missions_detail/", methods=["GET"])
-def mobile_mission_detail():
-    user_id = request.args.get("user_id")
-    mission_id = request.args.get("mission_id")
+@missions_bp.route("/missions_detail/<int:mission_id>/", methods=["GET"])
+def mobile_mission_detail(mission_id):
     mission = Mission.query.options(
         joinedload(Mission.comments),
         joinedload(Mission.proofs),
         joinedload(Mission.attachments)
     ).filter_by(
-        id=mission_id,
-        executor_id=user_id
+        id=mission_id
     ).first_or_404()
 
     return jsonify(MobileMissionDetailSchema().dump(mission)), 200
 
 
-@missions_bp.route("/missions/status/", methods=["PATCH"])
-def mobile_update_status():
-    user_id = request.args.get("user_id")
-    mission_id = request.args.get("mission_id")
+@missions_bp.route("/missions/<int:mission_id>/status/", methods=["PATCH"])
+def mobile_update_status(mission_id):
     mission = Mission.query.filter_by(
-        id=mission_id,
-        executor_id=user_id
+        id=mission_id
     ).first_or_404()
 
     new_status = request.json.get("status")
@@ -72,14 +68,12 @@ def mobile_update_status():
     return jsonify({"status": mission.status}), 200
 
 
-@missions_bp.route("/missions/comments/", methods=["POST"])
-def mobile_add_comment():
+@missions_bp.route("/missions/<int:mission_id>/comments/", methods=["POST"])
+def mobile_add_comment(mission_id):
     user_id = request.args.get("user_id")
-    mission_id = request.args.get("mission_id")
 
     mission = Mission.query.filter_by(
-        id=mission_id,
-        executor_id=user_id
+        id=mission_id
     ).first_or_404()
 
     text = request.json.get("text")
@@ -123,7 +117,6 @@ def get_notifications():
 
     if user_id:
         query = query.filter_by(user_id=user_id)
-
 
     query = query.filter_by(role="executer")
 
