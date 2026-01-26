@@ -14,7 +14,8 @@ missions_bp = Blueprint("mobile_missions", __name__)
 
 @missions_bp.route("/missions/", methods=["GET"])
 def mobile_list_missions():
-    user_id = request.args.get("user_id")
+    user_id = int(request.args.get("user_id"))
+
     q = Mission.query.filter(Mission.executor_id == user_id)
 
     # 🔹 query params
@@ -84,12 +85,13 @@ def mobile_add_comment(mission_id):
     )
     db.session.add(comment)
     db.session.commit()
+    print(mission.executor)
 
     # 🔔 NOTIFICATION (creator ga)
     send_notification(
         user_id=mission.creator_id,
         mission=mission,
-        message=f"{mission.executor.full_name} comment qoldirdi",
+        message=f"{mission.executor.name} {mission.executor.surname} comment qoldirdi",
         role="creator"
     )
 

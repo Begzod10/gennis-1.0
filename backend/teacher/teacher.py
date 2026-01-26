@@ -707,6 +707,7 @@ def get_teachers_group(location_id):
             status = True
 
         info = {
+            "user_id": teach.user.id,
             "id": teach.id,
             "name": teach.user.name.title(),
             "surname": teach.user.surname.title(),
