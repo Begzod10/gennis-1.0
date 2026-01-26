@@ -130,6 +130,7 @@ def get_notifications():
     )
 
     notifications = query.order_by(Notification.created_at.desc()).all()
+    print(notifications)
 
     return jsonify([
         {
@@ -143,3 +144,13 @@ def get_notifications():
         }
         for n in notifications
     ])
+
+
+@missions_bp.route("/notifications/<int:id>/", methods=["PATCH"])
+def update_notification(id):
+    notif = Notification.query.get_or_404(id)
+
+    notif.is_read = True
+    db.session.commit()
+
+    return jsonify({"message": "read"}), 200
