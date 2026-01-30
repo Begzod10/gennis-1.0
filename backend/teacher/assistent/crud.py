@@ -11,7 +11,7 @@ crud_assistent_bp = Blueprint('assistent', __name__)
 
 
 @crud_assistent_bp.route('/crud/', methods=['POST'])
-@crud_assistent_bp.route('/crud/<int:id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@crud_assistent_bp.route('/crud/<int:id>/', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @jwt_required()
 def assistent_detail(id=None):
     role = Roles.query.filter(Roles.type_role == 'assistent').first()
@@ -84,6 +84,11 @@ def assistent_detail(id=None):
             user.username = data['username']
         if 'teacher' in data:
             assistent.teacher_id = data['teacher']
+        if 'selectedSubjects' in data:
+            subject = Subjects.query.filter(Subjects.id == data['selectedSubjects']).first()
+            if subject:
+                assistent.subjects = []
+                assistent.subjects.append(subject)
         db.session.commit()
         return jsonify(assistent.convert_json())
 
