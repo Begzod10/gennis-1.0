@@ -642,38 +642,111 @@ def change_location(user_id, location_id):
         return jsonify({"msg": f"O'quvchi allaqachon {location.name} fliada", "success": True})
 
 
-@student_functions.route(f"/student_attendance_info/<user_id>")
+from sqlalchemy.orm import joinedload, contains_eager
+
+
+@student_functions.route("/student_attendance_info/<user_id>")
 @jwt_required()
 def student_attendance_info(user_id):
-    student = Students.query.filter(Students.user_id == user_id).first()
-    attendance_histories = AttendanceHistoryStudent.query.filter(
-        AttendanceHistoryStudent.student_id == student.id).order_by(AttendanceHistoryStudent.id).all()
-    student_payments = StudentPayments.query.filter(StudentPayments.student_id == student.id,
-                                                    StudentPayments.payment == True).order_by(StudentPayments.id).all()
-    history_list = []
-    book_payments = BookPayments.query.filter(BookPayments.student_id == student.id).order_by(BookPayments.id).all()
+    """
+    Get comprehensive student attendance and payment information.
+    Optimized with eager loading to eliminate N+1 queries.
+    """
+    try:
+        # Single query with all relationships loaded
+        student = db.session.query(Students).options(
+            joinedload(Students.user)
+        ).filter(Students.user_id == user_id).first()
 
-    book_payment_list = [
-        {"id": bk_payment.id, "payment": bk_payment.payment_sum, "date": bk_payment.day.date.strftime("%Y-%m-%d")} for
-        bk_payment in book_payments]
-    history_list = [
-        {"group_name": att.group.subject.name if att.group else "Ma'lumot yo'q", "total_debt": att.total_debt,
-         "payment": att.payment, "remaining_debt": att.remaining_debt, "discount": att.total_discount,
-         "present": att.present_days + att.scored_days, "absent": att.absent_days,
-         "days": att.present_days + att.absent_days, "month": att.month.date.strftime("%Y-%m")} for att in
-        attendance_histories]
-    payment_list = [{"id": payment.id, "payment": payment.payment_sum, "date": payment.day.date.strftime("%Y-%m-%d"),
-                     "type_payment": payment.payment_type.name} for payment in student_payments]
+        if not student:
+            return jsonify({
+                "success": False,
+                "msg": "Student not found"
+            }), 404
 
-    student_payments = StudentPayments.query.filter(StudentPayments.student_id == student.id,
-                                                    StudentPayments.payment == False).order_by(StudentPayments.id).all()
-    discount_list = [{"id": payment.id, "payment": payment.payment_sum, "date": payment.day.date.strftime("%Y-%m-%d"),
+        # Get attendance histories with eager loading
+        attendance_histories = db.session.query(AttendanceHistoryStudent).options(
+            joinedload(AttendanceHistoryStudent.group).joinedload(Groups.subject),
+            joinedload(AttendanceHistoryStudent.month)
+        ).filter(
+            AttendanceHistoryStudent.student_id == student.id
+        ).order_by(AttendanceHistoryStudent.id).all()
 
-                      } for payment in student_payments]
-    return jsonify({
-        "data": {"id": student.user.id, "name": student.user.name.title(), "surname": student.user.surname.title(),
-                 "debts": history_list, "payments": payment_list, "discounts": discount_list,
-                 "bookPayments": book_payment_list}})
+        # Get all student payments in one query (both payment types)
+        all_payments = db.session.query(StudentPayments).options(
+            joinedload(StudentPayments.day),
+            joinedload(StudentPayments.payment_type)
+        ).filter(
+            StudentPayments.student_id == student.id
+        ).order_by(StudentPayments.id).all()
+
+        # Get book payments with eager loading
+        book_payments = db.session.query(BookPayments).options(
+            joinedload(BookPayments.day)
+        ).filter(
+            BookPayments.student_id == student.id
+        ).order_by(BookPayments.id).all()
+
+        # Separate payments and discounts in Python (more efficient than 2 queries)
+        payment_list = []
+        discount_list = []
+
+        for payment in all_payments:
+            payment_data = {
+                "id": payment.id,
+                "payment": payment.payment_sum,
+                "date": payment.day.date.strftime("%Y-%m-%d") if payment.day else None
+            }
+
+            if payment.payment:  # True = payment
+                payment_data["type_payment"] = payment.payment_type.name if payment.payment_type else None
+                payment_list.append(payment_data)
+            else:  # False = discount
+                discount_list.append(payment_data)
+
+        # Build attendance history list
+        history_list = [
+            {
+                "group_name": att.group.subject.name if att.group and att.group.subject else "Ma'lumot yo'q",
+                "total_debt": att.total_debt,
+                "payment": att.payment,
+                "remaining_debt": att.remaining_debt,
+                "discount": att.total_discount,
+                "present": (att.present_days or 0) + (att.scored_days or 0),
+                "absent": att.absent_days or 0,
+                "days": (att.present_days or 0) + (att.absent_days or 0),
+                "month": att.month.date.strftime("%Y-%m") if att.month else None
+            }
+            for att in attendance_histories
+        ]
+
+        # Build book payments list
+        book_payment_list = [
+            {
+                "id": bk_payment.id,
+                "payment": bk_payment.payment_sum,
+                "date": bk_payment.day.date.strftime("%Y-%m-%d") if bk_payment.day else None
+            }
+            for bk_payment in book_payments
+        ]
+
+        return jsonify({
+            "data": {
+                "id": student.user.id,
+                "name": student.user.name.title(),
+                "surname": student.user.surname.title(),
+                "debts": history_list,
+                "payments": payment_list,
+                "discounts": discount_list,
+                "bookPayments": book_payment_list
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "msg": "Ma'lumotlarni yuklashda xatolik"
+        }), 500
 
 
 @student_functions.route(f'/get_student_balance/<user_id>')

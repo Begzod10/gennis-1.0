@@ -45,7 +45,7 @@ class Student_Functions:
                     abs(student.old_debt or 0)
             )
 
-            available_for_attendance = total_funds - deductions
+            available_for_attendance = total_funds
 
             # Get unpaid attendance records in chronological order
             unpaid_attendances = AttendanceHistoryStudent.query.filter(
