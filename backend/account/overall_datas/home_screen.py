@@ -201,7 +201,7 @@ def home_screen_debtors():
                 'id': student.id,
                 'student_name': f"{user.name} {user.surname}",
                 "month": month_date_obj.strftime("%Y-%m"),
-                "is_deleted": student.id in deleted_students_info and not student.groups,
+                "is_deleted":  True if student.id in deleted_students_info and not student.groups else False,
                 "deleted_date": deletion_date.strftime("%Y-%m-%d") if deletion_date else None,
                 "groups": []
             }
