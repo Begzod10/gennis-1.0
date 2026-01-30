@@ -15,15 +15,15 @@ class Student_Functions:
 
     def update_attendance_permonth(self):
         """
-        Distribute all available student payments across unpaid attendance records.
+        FULL RECALCULATION of payment distribution.
 
         Process:
-        1. Calculate total available funds (payments + old_money)
-        2. Deduct book payments and old_debt
-        3. Distribute remaining funds to attendance records (FIFO order)
-        4. Update all records in single transaction
+        1. Get ALL payments ever made
+        2. Get ALL attendance records (reset them all)
+        3. Redistribute payments from scratch across all records (FIFO order)
+        4. Mark records as paid/unpaid based on available funds
 
-        Returns dict with success status and distribution details.
+        This is a full reset/recalculation, not incremental updates.
         """
         try:
             # Get student data
@@ -34,35 +34,34 @@ class Student_Functions:
             # Calculate total available funds using SQL aggregation
             funds_data = self._calculate_available_funds()
 
-            # Calculate net available for attendance payments
+            # Calculate total income
             total_funds = (
                     funds_data['total_payments'] +
                     (student.old_money or 0)
             )
 
+            # Calculate deductions
             deductions = (
                     funds_data['total_book_payments'] +
                     abs(student.old_debt or 0)
             )
 
-            available_for_attendance = total_funds
+            # Available funds for attendance
+            available_for_attendance = total_funds - deductions
 
-            # Get unpaid attendance records in chronological order
-            unpaid_attendances = AttendanceHistoryStudent.query.filter(
-                AttendanceHistoryStudent.student_id == self.student_id,
+            # ✅ Get ALL attendance records (we're recalculating everything)
+            all_attendances = AttendanceHistoryStudent.query.filter(
+                AttendanceHistoryStudent.student_id == self.student_id
             ).order_by(AttendanceHistoryStudent.id).all()
 
-            # Distribute funds across attendance records
-            distribution_result = self._distribute_funds_to_attendance(
-                unpaid_attendances,
+            # ✅ Reset and redistribute from scratch
+            distribution_result = self._redistribute_all_payments(
+                all_attendances,
                 available_for_attendance
             )
 
-            # Update extra payment if any funds remain
-            # if distribution_result['remaining'] > 0:
-            #     student.extra_payment = distribution_result['remaining']
-            # else:
-            #     student.extra_payment = 0
+            # Store remaining funds as extra_payment
+            student.extra_payment = distribution_result['remaining'] if distribution_result['remaining'] > 0 else 0
 
             # Single commit for all changes
             db.session.commit()
@@ -72,8 +71,12 @@ class Student_Functions:
                 'total_funds': total_funds,
                 'deductions': deductions,
                 'available': available_for_attendance,
-                'records_updated': distribution_result['records_updated'],
-                'remaining': distribution_result['remaining']
+                'records_processed': distribution_result['records_processed'],
+                'fully_paid': distribution_result['fully_paid'],
+                'partially_paid': distribution_result['partially_paid'],
+                'unpaid': distribution_result['unpaid'],
+                'remaining': distribution_result['remaining'],
+                'extra_payment': student.extra_payment
             }
 
         except Exception as e:
@@ -82,6 +85,85 @@ class Student_Functions:
                 'success': False,
                 'error': str(e)
             }
+
+    def _redistribute_all_payments(self, attendance_records, available_funds):
+        """
+        FULL redistribution of all payments across all attendance records.
+        Resets all payment/remaining_debt/status fields and recalculates from scratch.
+
+        Args:
+            attendance_records: ALL attendance records (not filtered)
+            available_funds: Total funds available to distribute
+
+        Returns:
+            dict: {
+                'records_processed': int,
+                'fully_paid': int,
+                'partially_paid': int,
+                'unpaid': int,
+                'remaining': Decimal
+            }
+        """
+        remaining_funds = available_funds
+        records_processed = 0
+        fully_paid = 0
+        partially_paid = 0
+        unpaid = 0
+
+        for attendance in attendance_records:
+            total_debt = abs(attendance.total_debt or 0)
+
+            if total_debt <= 0:
+                # No debt on this record - mark as paid with 0 payment
+                attendance.status = True
+                attendance.remaining_debt = 0
+                attendance.payment = 0
+                records_processed += 1
+                continue
+
+            if remaining_funds <= 0:
+                # ✅ No funds left - mark as UNPAID with full debt remaining
+                attendance.status = False
+                attendance.remaining_debt = -total_debt  # Negative = debt
+                attendance.payment = 0
+                unpaid += 1
+                records_processed += 1
+                continue
+
+            if remaining_funds >= total_debt:
+                # ✅ Full payment available
+                attendance.status = True
+                attendance.remaining_debt = 0
+                attendance.payment = total_debt
+                remaining_funds -= total_debt
+                fully_paid += 1
+
+            else:
+                # ✅ Partial payment
+                attendance.status = False
+
+                # How much we can pay
+                amount_paid = remaining_funds
+
+                # How much will still be owed
+                still_owed = total_debt - amount_paid
+
+                # Update fields
+                attendance.remaining_debt = -still_owed  # Negative indicates debt
+                attendance.payment = amount_paid
+
+                remaining_funds = 0
+                partially_paid += 1
+
+            records_processed += 1
+
+        return {
+            'records_processed': records_processed,
+            'fully_paid': fully_paid,
+            'partially_paid': partially_paid,
+            'unpaid': unpaid,
+            'remaining': remaining_funds
+        }
 
     def _calculate_available_funds(self):
         """
@@ -104,75 +186,6 @@ class Student_Functions:
         return {
             'total_payments': result.total_payments if result else 0,
             'total_book_payments': book_result.total_book_payments if book_result else 0
-        }
-
-    def _distribute_funds_to_attendance(self, attendance_records, available_funds):
-        """
-        Distribute available funds across attendance records (FIFO).
-        Updates records in memory, caller commits.
-
-        Returns:
-            dict: {
-                'records_updated': int,
-                'remaining': Decimal,
-                'fully_paid': int,
-                'partially_paid': int
-            }
-        """
-        remaining_funds = available_funds
-        records_updated = 0
-        fully_paid = 0
-        partially_paid = 0
-
-        for attendance in attendance_records:
-            if remaining_funds <= 0:
-                break
-
-            # Calculate outstanding debt for this record
-            outstanding_debt = abs(
-                attendance.remaining_debt
-                if attendance.remaining_debt is not None
-                else attendance.total_debt
-            )
-
-            if outstanding_debt <= 0:
-                continue  # Already paid or no debt
-
-            # Distribute payment
-            if remaining_funds >= outstanding_debt:
-                # Full payment - mark as paid
-                attendance.status = True
-                attendance.remaining_debt = 0
-                attendance.payment = abs(attendance.total_debt)
-                remaining_funds -= outstanding_debt
-                fully_paid += 1
-
-            else:
-                # Partial payment - mark as unpaid with remaining debt
-                attendance.status = False
-
-                # Calculate how much is paid
-                amount_paid = remaining_funds
-                total_debt_abs = abs(attendance.total_debt)
-
-                # Update payment field (cumulative amount paid)
-                previous_payment = attendance.payment or 0
-                attendance.payment = previous_payment + amount_paid
-
-                # Remaining debt is negative (represents debt)
-                new_outstanding = outstanding_debt - amount_paid
-                attendance.remaining_debt = -new_outstanding
-
-                remaining_funds = 0
-                partially_paid += 1
-
-            records_updated += 1
-
-        return {
-            'records_updated': records_updated,
-            'remaining': remaining_funds,
-            'fully_paid': fully_paid,
-            'partially_paid': partially_paid
         }
 
     def update_extra_payment(self):
