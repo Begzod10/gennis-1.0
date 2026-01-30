@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSalary, CalendarMonth, CalendarYear, \
     TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
     DeletedStudents, CalendarDay, DeletedTeachers, Overhead, StudentPayments
+from backend.student.class_model import Student_Functions
 
 home_screen_bp = Blueprint('home_screen_bp', __name__)
 
@@ -179,6 +180,9 @@ def home_screen_debtors():
     total_first_discount = 0
 
     for attendance, student, user, group, subject in attendance_records:
+
+        student_class = Student_Functions(student.id)
+        student_class.update_balance()
         # Calculate discount only once per student
         if student.id not in calculated_discounts:
             student_discounts = StudentPayments.query.filter(
@@ -201,7 +205,7 @@ def home_screen_debtors():
                 'id': student.id,
                 'student_name': f"{user.name} {user.surname}",
                 "month": month_date_obj.strftime("%Y-%m"),
-                "is_deleted":  True if student.id in deleted_students_info and not student.group else False,
+                "is_deleted": True if student.id in deleted_students_info and not student.group else False,
                 "deleted_date": deletion_date.strftime("%Y-%m-%d") if deletion_date else None,
                 "groups": []
             }
