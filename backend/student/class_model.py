@@ -50,10 +50,6 @@ class Student_Functions:
             # Get unpaid attendance records in chronological order
             unpaid_attendances = AttendanceHistoryStudent.query.filter(
                 AttendanceHistoryStudent.student_id == self.student_id,
-                or_(
-                    AttendanceHistoryStudent.status == False,
-                    AttendanceHistoryStudent.status == None
-                )
             ).order_by(AttendanceHistoryStudent.id).all()
 
             # Distribute funds across attendance records
