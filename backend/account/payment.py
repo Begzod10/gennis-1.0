@@ -286,6 +286,7 @@ def get_payment(user_id):
         st_functions = Student_Functions(student_id=student.id)
         st_functions.update_debt()
         st_functions.update_balance()
+        st_functions.update_attendance_permonth()
         student = Students.query.filter(Students.id == student.id).first()
 
         black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.student_id == student.id,
