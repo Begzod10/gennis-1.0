@@ -4,7 +4,7 @@ from datetime import timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import and_, or_, desc
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from backend.functions.utils import get_json_field, find_calendar_date, update_salary
 from backend.models.models import AccountingPeriod, StudentPayments, Students, AttendanceHistoryStudent, PaymentTypes, \
     CalendarMonth, Groups, DeletedBookPayments, StudentCharity, DeletedStudentPayments, BookPayments, \
@@ -138,221 +138,223 @@ def delete_payment(payment_id):
         })
 
 
-@account_payment_bp.route(f'/get_payment/<int:user_id>', methods=['POST', 'GET'])
+@account_payment_bp.route('/get_payment/', methods=['POST', 'GET'])
 @jwt_required()
 def get_payment(user_id):
-    """
-    add data to StudentPayments table
-    :param user_id: User table primary key
-    :return:
-    """
+    """Process student payment"""
+
+    # Validate user
     student = Students.query.filter(Students.user_id == user_id).first()
+    if not student:
+        return jsonify({"success": False, "msg": "Student not found"}), 404
+
     if request.method == "POST":
-        status = get_json_field('type')
-        type_payment = get_json_field('typePayment')
-        payment_sum = int(get_json_field('payment'))
-        if 'date' in request.json:
-            date = get_json_field('date')
-            day = date.split("-")[2]
-            month_get = date.split("-")[1]
-            year = date.split("-")[0]
+        try:
+            # Extract and validate input
+            status = get_json_field('type') == "payment"
+            type_payment = get_json_field('typePayment')
+            payment_sum = int(get_json_field('payment'))
 
-            date_day = str(year) + "-" + str(month_get) + "-" + str(day)
-            date_month = str(year) + "-" + str(month_get)
-            date_year = str(year)
-            date_day = datetime.strptime(date_day, "%Y-%m-%d")
-            date_month = datetime.strptime(date_month, "%Y-%m")
-            date_year = datetime.strptime(date_year, "%Y")
-            calendar_year, calendar_month, calendar_day = find_calendar_date(
-                date_day=date_day,
-                date_month=date_month,
-                date_year=date_year
+            # Validate payment amount
+            if payment_sum <= 0:
+                return jsonify({"success": False, "msg": "Invalid payment amount"}), 400
+
+            # Process date
+            calendar_year, calendar_month, calendar_day = process_payment_date(
+                request.json.get('date')
             )
-        else:
-            calendar_year, calendar_month, calendar_day = find_calendar_date()
-        if status == "payment":
-            status = True
-        else:
-            status = False
 
-        accounting_period = db.session.query(AccountingPeriod).join(AccountingPeriod.month).options(
-            contains_eager(AccountingPeriod.month)).order_by(desc(CalendarMonth.id)).first()
+            # Get payment type
+            payment_type = PaymentTypes.query.get(type_payment) if type_payment else PaymentTypes.query.first()
+            if not payment_type:
+                return jsonify({"success": False, "msg": "Payment type not found"}), 404
 
-        attendance_history = AttendanceHistoryStudent.query.filter(
-            AttendanceHistoryStudent.student_id == student.id, AttendanceHistoryStudent.status == False).order_by(
-            AttendanceHistoryStudent.id).first()
-        if type_payment:
-            payment_type = PaymentTypes.query.filter(PaymentTypes.id == type_payment).first()
-        else:
-            payment_type = PaymentTypes.query.first()
+            # Get accounting period
+            accounting_period = db.session.query(AccountingPeriod).join(
+                AccountingPeriod.month
+            ).options(
+                contains_eager(AccountingPeriod.month)
+            ).order_by(desc(CalendarMonth.id)).first()
 
-        today = datetime.utcnow()
-        hour = datetime.strftime(today, "%Y/%m/%d/%H/%M")
-        hour2 = datetime.strptime(hour, "%Y/%m/%d/%H/%M")
-        ball_time = hour2 + timedelta(minutes=2)
-        exist_payment = StudentPayments.query.filter(StudentPayments.student_id == student.id).order_by(
-            desc(StudentPayments.id)).first()
-        if exist_payment:
-            if exist_payment.payment_data:
-                if hour2 >= exist_payment.payment_data:
-                    exist_payment = StudentPayments(student_id=student.id, location_id=student.user.location_id,
-                                                    calendar_day=calendar_day.id, calendar_month=calendar_month.id,
-                                                    calendar_year=calendar_year.id, payment_type_id=payment_type.id,
-                                                    payment_sum=payment_sum, account_period_id=accounting_period.id,
-                                                    payment=status,
-                                                    payment_data=ball_time)
-                    db.session.add(exist_payment)
-                    db.session.commit()
-            else:
-                exist_payment = StudentPayments(student_id=student.id, location_id=student.user.location_id,
-                                                calendar_day=calendar_day.id, calendar_month=calendar_month.id,
-                                                calendar_year=calendar_year.id, payment_type_id=payment_type.id,
-                                                payment_sum=payment_sum, account_period_id=accounting_period.id,
-                                                payment=status,
-                                                payment_data=ball_time)
-                db.session.add(exist_payment)
-                db.session.commit()
-        else:
-            exist_payment = StudentPayments(student_id=student.id, location_id=student.user.location_id,
-                                            calendar_day=calendar_day.id, calendar_month=calendar_month.id,
-                                            calendar_year=calendar_year.id, payment_type_id=payment_type.id,
-                                            payment_sum=payment_sum, account_period_id=accounting_period.id,
-                                            payment=status,
-                                            payment_data=ball_time)
-            db.session.add(exist_payment)
-            db.session.commit()
+            # Create payment record with rate limiting
+            payment_time = datetime.utcnow() + timedelta(minutes=2)
 
-        all_payments = payment_sum
-        if not attendance_history:
-            if student.extra_payment:
-                extra_payment = student.extra_payment + all_payments
-            else:
-                extra_payment = all_payments
-            Students.query.filter(Students.id == student.id).update({"extra_payment": extra_payment})
-            db.session.commit()
+            new_payment = StudentPayments(
+                student_id=student.id,
+                location_id=student.user.location_id,
+                calendar_day=calendar_day.id,
+                calendar_month=calendar_month.id,
+                calendar_year=calendar_year.id,
+                payment_type_id=payment_type.id,
+                payment_sum=payment_sum,
+                account_period_id=accounting_period.id,
+                payment=status,
+                payment_data=payment_time
+            )
+            db.session.add(new_payment)
+
+            # Process payment distribution
+            remaining_amount = distribute_payment(student.id, payment_sum, new_payment.id)
+
+            # Handle extra payment
+            if remaining_amount > 0:
+                student.extra_payment = (student.extra_payment or 0) + remaining_amount
+
+            # Update student financials
             st_functions = Student_Functions(student_id=student.id)
             st_functions.update_debt()
             st_functions.update_balance()
-            return jsonify({
-                "success": True,
-                "msg": "To'lov qabul qilindi"
-            })
-        else:
-            while all_payments > 0:
-                attendance_history = AttendanceHistoryStudent.query.filter(
-                    AttendanceHistoryStudent.student_id == student.id,
-                    AttendanceHistoryStudent.status == False).order_by(AttendanceHistoryStudent.id).first()
-                if not attendance_history:
 
-                    if student.extra_payment:
-                        extra_payment = student.extra_payment + all_payments
-                    else:
-                        extra_payment = all_payments
+            # Handle task completion if debt cleared
+            if student.debtor == 0:
+                update_task_status(student.id, calendar_day.id, student.user.location_id)
 
-                    Students.query.filter(Students.id == student.id).update({"extra_payment": extra_payment})
-                    db.session.commit()
-                    break
-
-                student_debt = abs(attendance_history.total_debt)
-                if not attendance_history.remaining_debt:
-
-                    result = all_payments + attendance_history.total_debt
-                else:
-                    result = all_payments + attendance_history.remaining_debt
-                all_payments = result
-
-                if all_payments < 0:
-                    AttendanceHistoryStudent.query.filter(
-                        AttendanceHistoryStudent.id == attendance_history.id).update(
-                        {'remaining_debt': all_payments})
-                    db.session.commit()
-                    student_debt = abs(attendance_history.total_debt)
-                    remaining_debt = abs(attendance_history.remaining_debt)
-                    payment = student_debt - remaining_debt
-
-                    AttendanceHistoryStudent.query.filter(
-                        AttendanceHistoryStudent.id == attendance_history.id).update(
-                        {'remaining_debt': all_payments, 'payment': payment})
-                    db.session.commit()
-
-                else:
-                    AttendanceHistoryStudent.query.filter(
-                        AttendanceHistoryStudent.id == attendance_history.id).update(
-                        {'status': True, 'remaining_debt': 0, 'payment': student_debt})
-                    db.session.commit()
-
-                all_payments = result
-
-        st_functions = Student_Functions(student_id=student.id)
-        st_functions.update_debt()
-        st_functions.update_balance()
-        student = Students.query.filter(Students.id == student.id).first()
-
-        black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.student_id == student.id,
-                                                         or_(TeacherBlackSalary.status == False,
-                                                             TeacherBlackSalary.status == None)).all()
-        for salary in black_salaries:
-            salary.status = True
-            salary.payment_id = exist_payment.id
             db.session.commit()
-            teacher = Teachers.query.filter(Teachers.id == salary.teacher_id).first()
-            update_salary(teacher.user_id)
-        if student.debtor == 0:
-            task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
-            task_statistics = TasksStatistics.query.filter(
-                TasksStatistics.task_id == task_type.id,
-                TasksStatistics.calendar_day == calendar_day.id,
-                TasksStatistics.location_id == student.user.location_id
-            ).first()
-            if task_statistics:
-                task_student = TaskStudents.query.filter(TaskStudents.task_id == task_type.id,
-                                                         TaskStudents.tasksstatistics_id == task_statistics.id,
-                                                         TaskStudents.student_id == student.id).first()
-                if task_student:
-                    task_student.status = True
-                    db.session.commit()
 
-        return jsonify({
-            "success": True,
-            "msg": "To'lov qabul qilindi"
-        })
+            return jsonify({"success": True, "msg": "To'lov qabul qilindi"})
+
+        except ValueError as e:
+            db.session.rollback()
+            return jsonify({"success": False, "msg": "Invalid input"}), 400
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "msg": "Payment processing failed"}), 500
+
+    else:  # GET request
+        return get_payment_info(student)
+
+
+def process_payment_date(date_str=None):
+    """Process and validate payment date"""
+    if date_str:
+        try:
+            year, month, day = date_str.split("-")
+            date_day = datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d")
+            date_month = datetime.strptime(f"{year}-{month}", "%Y-%m")
+            date_year = datetime.strptime(year, "%Y")
+        except ValueError:
+            raise ValueError("Invalid date format")
     else:
-        group_list = []
-        group_id_charity = []
-        group_id = []
-        groups = []
-        for group in student.group:
-            group_id.append(group.id)
-        charity = db.session.query(Groups).join(Groups.charity).options(
-            contains_eager(Groups.charity)).filter(Groups.id.in_([gr for gr in group_id]),
-                                                   StudentCharity.student_id == student.id).all()
-        for char in charity:
-            group_id_charity.append(char.id)
-            info = {
-                "id": char.id,
-                "name": char.name.title()
-            }
-            for st_char in char.charity:
-                info['charity'] = st_char.discount
-            group_list.append(info)
+        date_day = date_month = date_year = None
 
-        for group in student.group:
-            if group.id not in group_id_charity:
-                groups.append(group.id)
-        student_groups = db.session.query(Groups).join(Groups.student).options(contains_eager(Groups.student)).filter(
-            Students.id == student.id, Groups.id.in_([gr for gr in groups])).all()
-        for group in student_groups:
-            info = {
+    return find_calendar_date(
+        date_day=date_day,
+        date_month=date_month,
+        date_year=date_year
+    )
+
+
+def distribute_payment(student_id, payment_amount, payment_id):
+    """Distribute payment across unpaid attendance records"""
+
+    # Fetch all unpaid attendance records at once
+    unpaid_attendances = AttendanceHistoryStudent.query.filter(
+        AttendanceHistoryStudent.student_id == student_id,
+        AttendanceHistoryStudent.status == False
+    ).order_by(AttendanceHistoryStudent.id).all()
+
+    remaining = payment_amount
+
+    for attendance in unpaid_attendances:
+        if remaining <= 0:
+            break
+
+        # Calculate debt
+        debt = abs(attendance.remaining_debt if attendance.remaining_debt else attendance.total_debt)
+
+        if remaining >= debt:
+            # Full payment
+            attendance.status = True
+            attendance.remaining_debt = 0
+            attendance.payment = abs(attendance.total_debt)
+            remaining -= debt
+        else:
+            # Partial payment
+            new_remaining_debt = -(debt - remaining)
+            attendance.remaining_debt = new_remaining_debt
+            attendance.payment = abs(attendance.total_debt) - debt
+            remaining = 0
+
+    # Update teacher salaries
+    update_teacher_salaries(student_id, payment_id)
+
+    return remaining
+
+
+def update_teacher_salaries(student_id, payment_id):
+    """Update black salaries for teachers"""
+    black_salaries = db.session.query(TeacherBlackSalary).options(
+        joinedload(TeacherBlackSalary.teacher).joinedload(Teachers.user)
+    ).filter(
+        TeacherBlackSalary.student_id == student_id,
+        TeacherBlackSalary.status.in_([False, None])
+    ).all()
+
+    for salary in black_salaries:
+        salary.status = True
+        salary.payment_id = payment_id
+        update_salary(salary.teacher.user_id)
+
+
+def update_task_status(student_id, calendar_day_id, location_id):
+    """Update task status when debt is cleared"""
+    task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
+    if not task_type:
+        return
+
+    task_statistics = TasksStatistics.query.filter(
+        TasksStatistics.task_id == task_type.id,
+        TasksStatistics.calendar_day == calendar_day_id,
+        TasksStatistics.location_id == location_id
+    ).first()
+
+    if task_statistics:
+        TaskStudents.query.filter(
+            TaskStudents.task_id == task_type.id,
+            TaskStudents.tasksstatistics_id == task_statistics.id,
+            TaskStudents.student_id == student_id
+        ).update({"status": True})
+
+
+def get_payment_info(student):
+    """Get payment information for GET requests"""
+    group_ids = [group.id for group in student.group]
+
+    # Fetch groups with charity info
+    groups_with_charity = db.session.query(Groups).join(
+        Groups.charity
+    ).options(
+        contains_eager(Groups.charity)
+    ).filter(
+        Groups.id.in_(group_ids),
+        StudentCharity.student_id == student.id
+    ).all()
+
+    charity_group_ids = {g.id for g in groups_with_charity}
+
+    group_list = []
+
+    # Add charity groups
+    for group in groups_with_charity:
+        info = {
+            "id": group.id,
+            "name": group.name.title()
+        }
+        for charity in group.charity:
+            info['charity'] = charity.discount
+        group_list.append(info)
+
+    # Add non-charity groups
+    regular_group_ids = set(group_ids) - charity_group_ids
+    if regular_group_ids:
+        regular_groups = Groups.query.filter(Groups.id.in_(regular_group_ids)).all()
+        for group in regular_groups:
+            group_list.append({
                 "id": group.id,
-                "name": group.name.title(),
+                "name": group.name.title()
+            })
 
-            }
-            group_list.append(info)
-        return jsonify({
-            "payment": {
-                "groups": group_list
-            }
-        })
+    return jsonify({"payment": {"groups": group_list}})
 
 
 @account_payment_bp.route(f'/charity/<int:student_id>', methods=['POST'])

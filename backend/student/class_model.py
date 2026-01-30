@@ -13,176 +13,171 @@ class Student_Functions:
     def __init__(self, student_id):
         self.student_id = student_id
 
-    # def update_balance(self):
-    #     """
-    #     Calculate student balance considering:
-    #     - Total payments (StudentPayments + old_money)
-    #     - Total debts (AttendanceHistory + BookPayments + old_debt)
-    #     - Remaining unpaid debts from AttendanceHistory
-    #     - Payment status (paid/unpaid)
-    #
-    #     Balance = Payments - (Unpaid Debts + Book Payments)
-    #     """
-    #     try:
-    #         # Single optimized query using SQL aggregation
-    #         balance_data = db.session.query(
-    #             # Student info
-    #             Students.id.label('student_id'),
-    #             Students.user_id,
-    #             Students.debtor,
-    #             Students.combined_debt,
-    #             func.coalesce(Students.old_money, 0).label('old_money'),
-    #             func.coalesce(Students.old_debt, 0).label('old_debt'),
-    #
-    #             # Sum of all payments
-    #             func.coalesce(
-    #                 func.sum(StudentPayments.payment_sum), 0
-    #             ).label('total_payments'),
-    #
-    #             # Sum of book payments
-    #             func.coalesce(
-    #                 func.sum(BookPayments.payment_sum), 0
-    #             ).label('total_book_payments')
-    #
-    #         ).outerjoin(
-    #             StudentPayments,
-    #             StudentPayments.student_id == Students.id
-    #         ).outerjoin(
-    #             BookPayments,
-    #             BookPayments.student_id == Students.id
-    #         ).filter(
-    #             Students.id == self.student_id
-    #         ).group_by(
-    #             Students.id,
-    #             Students.user_id,
-    #             Students.debtor,
-    #             Students.combined_debt,
-    #             Students.old_money,
-    #             Students.old_debt
-    #         ).first()
-    #
-    #         if not balance_data:
-    #             raise ValueError(f"Student {self.student_id} not found")
-    #
-    #         # Calculate attendance debt considering status and remaining_debt
-    #         attendance_debt_data = self._calculate_attendance_debt()
-    #
-    #         # Calculate final balance
-    #         total_income = (
-    #                 balance_data.total_payments +
-    #                 balance_data.old_money
-    #         )
-    #
-    #         total_expenses = (
-    #                 abs(attendance_debt_data['unpaid_debt']) +
-    #                 abs(balance_data.old_debt) +
-    #                 abs(balance_data.total_book_payments)
-    #         )
-    #
-    #         new_balance = total_income - total_expenses
-    #
-    #         # Calculate debtor status
-    #         new_debtor_status = self._calculate_debtor_status(
-    #             new_balance,
-    #             balance_data.debtor,
-    #             balance_data.combined_debt
-    #         )
-    #
-    #         # Atomic update
-    #         Users.query.filter(Users.id == balance_data.user_id).update({
-    #             'balance': new_balance
-    #         })
-    #
-    #         if new_debtor_status is not None:
-    #             Students.query.filter(Students.id == self.student_id).update({
-    #                 'debtor': new_debtor_status
-    #             })
-    #
-    #         db.session.commit()
-    #
-    #         return {
-    #             'success': True,
-    #             'balance': new_balance,
-    #             'debtor_status': new_debtor_status,
-    #             'breakdown': {
-    #                 'total_payments': balance_data.total_payments,
-    #                 'old_money': balance_data.old_money,
-    #                 'unpaid_debt': attendance_debt_data['unpaid_debt'],
-    #                 'paid_debt': attendance_debt_data['paid_debt'],
-    #                 'old_debt': balance_data.old_debt,
-    #                 'book_payments': balance_data.total_book_payments
-    #             }
-    #         }
-    #
-    #     except Exception as e:
-    #         db.session.rollback()
-    #         return {
-    #             'success': False,
-    #             'error': str(e)
-    #         }
-    #
-    # def _calculate_attendance_debt(self):
-    #     """
-    #     Calculate attendance debt considering:
-    #     - status=False (unpaid): use remaining_debt if exists, else total_debt
-    #     - status=True (paid): debt is already paid, don't count
-    #
-    #     Returns dict with paid and unpaid debt totals.
-    #     """
-    #
-    #     # Query for unpaid attendance records (status=False)
-    #     unpaid_debt = db.session.query(
-    #         func.coalesce(
-    #             func.sum(
-    #                 case(
-    #                     # If remaining_debt exists, use it; otherwise use total_debt
-    #                     (AttendanceHistoryStudent.remaining_debt.isnot(None),
-    #                      AttendanceHistoryStudent.remaining_debt),
-    #                     else_=AttendanceHistoryStudent.total_debt
-    #                 )
-    #             ),
-    #             0
-    #         )
-    #     ).filter(
-    #         AttendanceHistoryStudent.student_id == self.student_id,
-    #         AttendanceHistoryStudent.status == False  # Unpaid records
-    #     ).scalar()
-    #
-    #     # Query for paid attendance records (status=True) - for reporting
-    #     paid_debt = db.session.query(
-    #         func.coalesce(
-    #             func.sum(AttendanceHistoryStudent.total_debt),
-    #             0
-    #         )
-    #     ).filter(
-    #         AttendanceHistoryStudent.student_id == self.student_id,
-    #         AttendanceHistoryStudent.status == True  # Paid records
-    #     ).scalar()
-    #
-    #     return {
-    #         'unpaid_debt': unpaid_debt or 0,
-    #         'paid_debt': paid_debt or 0
-    #     }
-    #
-    # def _calculate_debtor_status(self, balance, current_debtor, combined_debt):
-    #     """
-    #     Determine debtor status:
-    #     0 - No debt (balance >= 0)
-    #     1 - Has debt (balance < 0)
-    #     2 - Severe debt (debt >= combined_debt threshold)
-    #     4 - Special status (never auto-updated)
-    #     """
-    #     if current_debtor == 4:
-    #         return None  # Don't change special status
-    #
-    #     if balance >= 0:
-    #         return 0  # No debt
-    #
-    #     # Has debt - check severity
-    #     if combined_debt and abs(balance) >= abs(combined_debt):
-    #         return 2  # Severe debt
-    #
-    #     return 1  # Regular debt
+    def update_attendance_permonth(self):
+        """
+        Distribute all available student payments across unpaid attendance records.
+
+        Process:
+        1. Calculate total available funds (payments + old_money)
+        2. Deduct book payments and old_debt
+        3. Distribute remaining funds to attendance records (FIFO order)
+        4. Update all records in single transaction
+
+        Returns dict with success status and distribution details.
+        """
+        try:
+            # Get student data
+            student = Students.query.filter_by(id=self.student_id).first()
+            if not student:
+                raise ValueError(f"Student {self.student_id} not found")
+
+            # Calculate total available funds using SQL aggregation
+            funds_data = self._calculate_available_funds()
+
+            # Calculate net available for attendance payments
+            total_funds = (
+                    funds_data['total_payments'] +
+                    (student.old_money or 0)
+            )
+
+            deductions = (
+                    funds_data['total_book_payments'] +
+                    abs(student.old_debt or 0)
+            )
+
+            available_for_attendance = total_funds - deductions
+
+            # Get unpaid attendance records in chronological order
+            unpaid_attendances = AttendanceHistoryStudent.query.filter(
+                AttendanceHistoryStudent.student_id == self.student_id,
+                or_(
+                    AttendanceHistoryStudent.status == False,
+                    AttendanceHistoryStudent.status == None
+                )
+            ).order_by(AttendanceHistoryStudent.id).all()
+
+            # Distribute funds across attendance records
+            distribution_result = self._distribute_funds_to_attendance(
+                unpaid_attendances,
+                available_for_attendance
+            )
+
+            # Update extra payment if any funds remain
+            if distribution_result['remaining'] > 0:
+                student.extra_payment = distribution_result['remaining']
+            else:
+                student.extra_payment = 0
+
+            # Single commit for all changes
+            db.session.commit()
+
+            return {
+                'success': True,
+                'total_funds': total_funds,
+                'deductions': deductions,
+                'available': available_for_attendance,
+                'records_updated': distribution_result['records_updated'],
+                'remaining': distribution_result['remaining']
+            }
+
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def _calculate_available_funds(self):
+        """
+        Calculate total payments and book payments using SQL aggregation.
+        Much faster than loading all records and summing in Python.
+        """
+        # Single query to get both totals
+        result = db.session.query(
+            func.coalesce(func.sum(StudentPayments.payment_sum), 0).label('total_payments')
+        ).filter(
+            StudentPayments.student_id == self.student_id
+        ).first()
+
+        book_result = db.session.query(
+            func.coalesce(func.sum(BookPayments.payment_sum), 0).label('total_book_payments')
+        ).filter(
+            BookPayments.student_id == self.student_id
+        ).first()
+
+        return {
+            'total_payments': result.total_payments if result else 0,
+            'total_book_payments': book_result.total_book_payments if book_result else 0
+        }
+
+    def _distribute_funds_to_attendance(self, attendance_records, available_funds):
+        """
+        Distribute available funds across attendance records (FIFO).
+        Updates records in memory, caller commits.
+
+        Returns:
+            dict: {
+                'records_updated': int,
+                'remaining': Decimal,
+                'fully_paid': int,
+                'partially_paid': int
+            }
+        """
+        remaining_funds = available_funds
+        records_updated = 0
+        fully_paid = 0
+        partially_paid = 0
+
+        for attendance in attendance_records:
+            if remaining_funds <= 0:
+                break
+
+            # Calculate outstanding debt for this record
+            outstanding_debt = abs(
+                attendance.remaining_debt
+                if attendance.remaining_debt is not None
+                else attendance.total_debt
+            )
+
+            if outstanding_debt <= 0:
+                continue  # Already paid or no debt
+
+            # Distribute payment
+            if remaining_funds >= outstanding_debt:
+                # Full payment - mark as paid
+                attendance.status = True
+                attendance.remaining_debt = 0
+                attendance.payment = abs(attendance.total_debt)
+                remaining_funds -= outstanding_debt
+                fully_paid += 1
+
+            else:
+                # Partial payment - mark as unpaid with remaining debt
+                attendance.status = False
+
+                # Calculate how much is paid
+                amount_paid = remaining_funds
+                total_debt_abs = abs(attendance.total_debt)
+
+                # Update payment field (cumulative amount paid)
+                previous_payment = attendance.payment or 0
+                attendance.payment = previous_payment + amount_paid
+
+                # Remaining debt is negative (represents debt)
+                new_outstanding = outstanding_debt - amount_paid
+                attendance.remaining_debt = -new_outstanding
+
+                remaining_funds = 0
+                partially_paid += 1
+
+            records_updated += 1
+
+        return {
+            'records_updated': records_updated,
+            'remaining': remaining_funds,
+            'fully_paid': fully_paid,
+            'partially_paid': partially_paid
+        }
 
     def update_extra_payment(self):
         all_payments = 0
@@ -232,14 +227,11 @@ class Student_Functions:
         if student.old_money:
             old_money = student.old_money
         for attendance in attendance_history:
-            if attendance.status:
-                attendance.remaining_debt = 0
+
             if attendance.total_debt:
                 all_debt += attendance.total_debt
-
         for pay in payments:
             all_payment += pay.payment_sum
-
         result = (all_payment + old_money) - (abs(all_debt) + abs(old_debt) + abs(bk_payments))
 
         # if result == 0:

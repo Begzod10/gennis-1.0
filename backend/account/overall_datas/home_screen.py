@@ -182,7 +182,7 @@ def home_screen_debtors():
     for attendance, student, user, group, subject in attendance_records:
 
         student_class = Student_Functions(student.id)
-        student_class.update_balance()
+        student_class.update_attendance_permonth()
         # Calculate discount only once per student
         if student.id not in calculated_discounts:
             student_discounts = StudentPayments.query.filter(
