@@ -1291,6 +1291,7 @@ def profile(user_id):
         st_functions.filter_charity()
         st_functions.update_debt()
         st_functions.update_balance()
+        st_functions.update_attendance_permonth()
     if teacher_get:
         update_salary(user_id)
     return jsonify({
