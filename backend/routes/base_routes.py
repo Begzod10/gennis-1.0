@@ -21,7 +21,7 @@ from backend.models.models import CourseTypes, Students, Users, Staff, \
     PhoneList, Roles, Group_Room_Week, Locations, Professions, Teachers, Subjects, Week, Groups, \
     AttendanceHistoryStudent, PaymentTypes, StudentExcuses, EducationLanguage, Contract_Students, \
     CalendarYear, TeacherData, StudentTest, GroupTest, AttendanceDays, CalendarDay, CalendarMonth, \
-    GroupReason, Rooms, Parent, db
+    GroupReason, Rooms, Parent, db, Assistent
 from backend.student.class_model import Student_Functions
 from backend.student.register_for_tes.populate import create_school
 
@@ -781,6 +781,7 @@ def profile(user_id):
     teacher_get = Teachers.query.filter(Teachers.user_id == user_id).first()
     staff_get = Staff.query.filter(Staff.user_id == user_id).first()
     director_get = Users.query.filter(Users.id == user_id).first()
+    asistent_get = Assistent.query.filter(Assistent.user_id == user_id).first()
     old_month = CalendarMonth.query.filter(CalendarMonth.date == datetime.strptime("2025-01", "%Y-%m")).first()
     refresh_age(user_get.id)
     att_count = 0
@@ -1085,6 +1086,17 @@ def profile(user_id):
                 i += count["count"]
 
             type_role = "Teacher"
+        if asistent_get:
+            role = Roles.query.filter(Roles.id == user_get.role_id).first()
+            link = {
+                "link": "employeeSalary",
+                "title": "To'lov",
+                "iconClazz": "fa-dollar-sign",
+                "type": "link"
+            }
+            username = asistent_get.user.username
+            type_role = "Asistent"
+            subject_list = [{"name": sub.name.title()} for sub in asistent_get.subjects]
         location_list = list(dict.fromkeys(location_list))
 
         if staff_get:
@@ -1169,7 +1181,9 @@ def profile(user_id):
                 "username": True,
                 "name": True,
                 "surname": True,
-                "crm_username": True,
+                "crm_username": True if type_role == "admin" else False,
+
+                "teacher": True if type_role == "Asistent" else False,
                 "fathersName": True,
                 "age": True,
                 "phone": True,
@@ -1243,6 +1257,16 @@ def profile(user_id):
                     "name": "Fan",
                     "value": subject_list,
                     "order": 9
+                },
+                "address": {
+                    "name": "Manzil",
+                    "value": user_get.address,
+                    "order": 10
+                },
+                "teacher": {
+                    "name": "O'qituvchi",
+                    "value": asistent_get.teacher.id,
+                    "order": 11
                 },
 
             },

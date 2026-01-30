@@ -49,6 +49,7 @@ class Teachers(db.Model):
     student_certificate = relationship("StudentCertificate", backref="teacher", order_by="StudentCertificate.id")
     total_students = Column(Integer)
 
+
     def convert_json(self, entire=False):
         return {
             "info": self.user.convert_json(entire=True)

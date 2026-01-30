@@ -2,9 +2,9 @@ from flask import Blueprint
 from flask import jsonify, request
 from sqlalchemy import desc
 from werkzeug.security import generate_password_hash
-
+from flask_jwt_extended import jwt_required
 from backend.functions.utils import check_exist_id
-from backend.models.models import Users, Roles, PhoneList, db, Subjects
+from backend.models.models import Users, Roles, PhoneList, db, Subjects, Teachers, Locations
 from backend.teacher.assistent.models import Assistent
 
 crud_assistent_bp = Blueprint('assistent', __name__)
@@ -12,6 +12,7 @@ crud_assistent_bp = Blueprint('assistent', __name__)
 
 @crud_assistent_bp.route('/crud/', methods=['POST'])
 @crud_assistent_bp.route('/crud/<int:id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@jwt_required()
 def assistent_detail(id=None):
     role = Roles.query.filter(Roles.type_role == 'assistent').first()
     if not role:
@@ -45,14 +46,12 @@ def assistent_detail(id=None):
         phone = PhoneList(user_id=user_add.id, phone=data.get('phone'))
         phone.add()
 
-        new_assistent = Assistent(user_id=user_add.id)
+        new_assistent = Assistent(user_id=user_add.id, teacher_id=data['teacher'])
         new_assistent.add()
         db.session.flush()
-
-        for subj in data.get('selectedSubjects', []):
-            subject = Subjects.query.get(subj['id'])
-            if subject:
-                new_assistent.subjects.append(subject)
+        subject = Subjects.query.get(data['selectedSubjects'])
+        if subject:
+            new_assistent.subjects.append(subject)
 
         db.session.commit()
 
@@ -83,6 +82,8 @@ def assistent_detail(id=None):
             user.born_year = data['born_date'][0:4]
         if 'username' in data:
             user.username = data['username']
+        if 'teacher' in data:
+            assistent.teacher_id = data['teacher']
         db.session.commit()
         return jsonify(assistent.convert_json())
 
@@ -94,6 +95,7 @@ def assistent_detail(id=None):
 
 @crud_assistent_bp.route('/get_list/<int:location_id>', defaults={'deleted': False}, methods=['GET'])
 @crud_assistent_bp.route('/get_list/<int:location_id>/<deleted>', methods=['GET'])
+@jwt_required()
 def assistent_list(location_id, deleted):
     role = Roles.query.filter(Roles.type_role == 'assistent').first()
     if not role:
@@ -104,3 +106,31 @@ def assistent_list(location_id, deleted):
                                                     Users.role_id == role.id).order_by(desc(Assistent.id)).all()
     assistent_list = [assistent.convert_json() for assistent in assistents]
     return jsonify(assistent_list)
+
+
+@crud_assistent_bp.route('/get_teacher/<int:subject_id>/<int:location_id>', methods=['GET'])
+@jwt_required()
+def get_teacher(subject_id, location_id):
+    teachers = Teachers.query.join(
+        Teachers.subject
+    ).filter(
+        Subjects.id == subject_id
+    ).join(
+        Teachers.locations
+    ).filter(
+        Locations.id == location_id,
+        Teachers.deleted == None
+    ).all()
+
+    list_teachers = []
+    for teach in teachers:
+        info = {
+            "id": teach.id,
+            "name": teach.user.name.title(),
+            "surname": teach.user.surname.title(),
+        }
+        list_teachers.append(info)
+
+    return jsonify({
+        "teachers": list_teachers,
+    })
