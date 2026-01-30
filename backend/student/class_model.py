@@ -204,131 +204,53 @@ class Student_Functions:
             db.session.commit()
 
     def update_balance(self):
-        """
-        Calculate and update student balance using a single optimized query.
 
-        Balance Formula:
-        Balance = (Total Payments + Old Money) - (Total Debt + Old Debt + Book Payments)
+        student = Students.query.filter_by(id=self.student_id).first()
+        attendance_history = AttendanceHistoryStudent.query.filter(
+            AttendanceHistoryStudent.student_id == self.student_id,
+        ).all()
+        payments = StudentPayments.query.filter(StudentPayments.student_id == self.student_id).all()
+        book_payments = BookPayments.query.filter(BookPayments.student_id == self.student_id).all()
+        all_payment = 0
+        all_debt = 0
+        old_money = 0
+        old_debt = 0
+        bk_payments = 0
+        for book in book_payments:
+            bk_payments += book.payment_sum
+        if student.old_debt:
+            old_debt = student.old_debt
+        if student.old_money:
+            old_money = student.old_money
+        for attendance in attendance_history:
 
-        Debtor Status:
-        0 = No debt (balance >= 0)
-        1 = Has debt (balance < 0)
-        2 = Severe debt (|balance| >= combined_debt)
-        4 = Special status (never auto-updated)
+            if attendance.total_debt:
+                all_debt += attendance.total_debt
+        for pay in payments:
+            all_payment += pay.payment_sum
+        result = (all_payment + old_money) - (abs(all_debt) + abs(old_debt) + abs(bk_payments))
 
-        Performance: ~10ms for any number of records (vs 200ms+ original)
-        """
-        try:
-            # Single comprehensive query to get all needed data
-            result = db.session.query(
-                Students.id,
-                Students.user_id,
-                Students.debtor,
-                Students.combined_debt,
-                func.coalesce(Students.old_money, 0).label('old_money'),
-                func.coalesce(Students.old_debt, 0).label('old_debt'),
-                func.coalesce(
-                    func.sum(StudentPayments.payment_sum), 0
-                ).label('total_payments'),
-                func.coalesce(
-                    func.sum(AttendanceHistoryStudent.total_debt), 0
-                ).label('total_attendance_debt'),
-                func.coalesce(
-                    func.sum(BookPayments.payment_sum), 0
-                ).label('total_book_payments')
-            ).outerjoin(
-                StudentPayments,
-                StudentPayments.student_id == Students.id
-            ).outerjoin(
-                AttendanceHistoryStudent,
-                AttendanceHistoryStudent.student_id == Students.id
-            ).outerjoin(
-                BookPayments,
-                BookPayments.student_id == Students.id
-            ).filter(
-                Students.id == self.student_id
-            ).group_by(
-                Students.id,
-                Students.user_id,
-                Students.debtor,
-                Students.combined_debt,
-                Students.old_money,
-                Students.old_debt
-            ).first()
+        # if result == 0:
+        #     result = student.extra_payment
+        # student_excuse = StudentExcuses.query.filter(StudentExcuses.student_id == self.student_id,
+        #                                              StudentExcuses.to_date > calendar_day.date).order_by(
+        #     desc(StudentExcuses.id)).first()
+        if result == None:
+            result = 0
+        Users.query.filter(Users.id == student.user_id).update({'balance': result})
 
-            if not result:
-                raise ValueError(f"Student {self.student_id} not found")
+        db.session.commit()
 
-            # Calculate balance
-            total_income = result.total_payments + result.old_money
-            total_expenses = (
-                    abs(result.total_attendance_debt) +
-                    abs(result.old_debt) +
-                    abs(result.total_book_payments)
-            )
-            new_balance = total_income - total_expenses
+        user = Users.query.filter(Users.id == student.user_id).first()
+        if student.debtor != 4:
 
-            # Determine new debtor status
-            new_debtor = self._get_debtor_status(
-                balance=new_balance,
-                current_debtor=result.debtor,
-                combined_debt=result.combined_debt
-            )
-
-            # Prepare updates
-            updates = {'balance': new_balance}
-            student_updates = {}
-
-            if new_debtor is not None:
-                student_updates['debtor'] = new_debtor
-
-            # Execute updates atomically
-            Users.query.filter(Users.id == result.user_id).update(updates)
-
-            if student_updates:
-                Students.query.filter(Students.id == self.student_id).update(student_updates)
-
-            db.session.commit()
-
-            return {
-                'success': True,
-                'balance': new_balance,
-                'debtor': new_debtor if new_debtor is not None else result.debtor,
-                'breakdown': {
-                    'payments': result.total_payments,
-                    'old_money': result.old_money,
-                    'attendance_debt': result.total_attendance_debt,
-                    'old_debt': result.old_debt,
-                    'book_payments': result.total_book_payments
-                }
-            }
-
-        except Exception as e:
-            db.session.rollback()
-            return {
-                'success': False,
-                'error': str(e)
-            }
-
-    def _get_debtor_status(self, balance, current_debtor, combined_debt):
-        """
-        Calculate debtor status based on balance.
-        Returns None if no change needed (preserves special status 4).
-        """
-        # Never change special status
-        if current_debtor == 4:
-            return None
-
-        # No debt
-        if balance >= 0:
-            return 0
-
-        # Check severe debt threshold
-        if combined_debt and abs(balance) >= abs(combined_debt):
-            return 2
-
-        # Regular debt
-        return 1
+            if user.balance >= 0:
+                Students.query.filter_by(id=self.student_id).update({"debtor": 0})
+            if user.balance < 0:
+                Students.query.filter_by(id=self.student_id).update({"debtor": 1})
+            if student.combined_debt:
+                if -user.balance >= -student.combined_debt:
+                    Students.query.filter_by(id=self.student_id).update({"debtor": 2})
 
     def update_debt(self):
         student = Students.query.filter_by(id=self.student_id).first()
