@@ -274,6 +274,19 @@ def group_profile(group_id):
         "photo_profile": st.user.photo_profile,
         "role": Roles.query.filter(Roles.id == st.user.role_id).first().role
     } for st in students]
+    if group.assistent:
+        data['assistantName'] = {
+            "name": "Asistent ismi",
+            "value": group.assistent.user.name.title()
+        }
+        data['assistantSurname'] = {
+            "name": "Asistent familyasi",
+            "value": group.assistent.user.surname.title()
+        }
+        data['assistentSalary'] = {
+            "name": "Asistent ulushi",
+            "value": group.assistent.percentage
+        }
     gr_functions = Group_Functions(group_id=group_id)
     gr_functions.update_list_balance()
     group_time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(

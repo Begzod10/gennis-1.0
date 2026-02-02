@@ -13,7 +13,7 @@ class Assistent(db.Model):
     teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'))
 
     subjects = db.relationship('Subjects', secondary=assistent_subject,
-                               backref=db.backref('assistent', lazy='dynamic'), lazy='dynamic')
+                               backref=db.backref('assistent', lazy='select'), lazy='select')
     percentage = db.Column(db.Integer, default=0)
     groups = db.relationship("Groups", backref="assistent", order_by="Groups.id")
     deleted = db.Column(db.Boolean, default=False)
@@ -26,13 +26,18 @@ class Assistent(db.Model):
         db.session.commit()
 
     def convert_json(self):
+        can_delete = True
+        if self.time_table:
+            can_delete = False
+        if self.groups:
+            can_delete = False
         return {"id": self.user.id,
                 "name": self.user.name,
                 "surname": self.user.surname,
                 "username": self.user.username,
                 "phone": self.user.phone[0].phone,
                 "percentage": self.percentage,
-
+                "can_delete": can_delete,
                 'date': str(self.user.born_day) + '.' + str(self.user.born_month) + '.' + str(self.user.born_year),
                 'address': self.user.address,
                 'location': {

@@ -95,7 +95,12 @@ def assistent_detail(id=None):
         return jsonify(assistent.convert_json())
 
     if request.method == 'DELETE':
-        user.deleted = True
+        if assistent.deleted:
+            assistent.deleted = False
+        else:
+            assistent.deleted = True
+            assistent.groups = []
+            assistent.time_table = []
         db.session.commit()
         return jsonify({'message': 'Assistent deleted successfully'}), 200
 
@@ -109,8 +114,8 @@ def assistent_list(location_id, deleted):
         role = Roles(role='ass21s122s', type_role='assistent')
         role.add()
 
-    assistents = Assistent.query.join(Users).filter(Users.location_id == location_id, Users.deleted == deleted,
-                                                    Users.role_id == role.id).order_by(desc(Assistent.id)).all()
+    assistents = Assistent.query.join(Users).filter(Assistent.deleted == deleted,
+                                                    Users.location_id == location_id).order_by(desc(Assistent.id)).all()
     assistent_list = [assistent.convert_json() for assistent in assistents]
     return jsonify(assistent_list)
 

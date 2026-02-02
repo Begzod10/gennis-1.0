@@ -1066,6 +1066,7 @@ def profile(user_id):
         i = 0
         location_list = [loc.id for loc in teacher_get.locations] if teacher_get else []
         subject_list = []
+        assistent_list = []
         if teacher_get:
             salary_status = False
             link = {
@@ -1084,7 +1085,9 @@ def profile(user_id):
 
             for count in group_list:
                 i += count["count"]
-
+            assitents = Assistent.query.filter(Assistent.teacher_id == teacher_get.id).all()
+            for assistent in assitents:
+                assistent_list.append(assistent.convert_json())
             type_role = "Teacher"
         if asistent_get:
             role = Roles.query.filter(Roles.id == user_get.role_id).first()
@@ -1097,6 +1100,9 @@ def profile(user_id):
             username = asistent_get.user.username
             type_role = "Asistent"
             subject_list = [{"name": sub.name.title()} for sub in asistent_get.subjects]
+            group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "teacherImg": "", "count": len(gr.student)}
+                          for gr in asistent_get.groups if
+                          not gr.deleted]
         location_list = list(dict.fromkeys(location_list))
 
         if staff_get:
@@ -1177,6 +1183,7 @@ def profile(user_id):
             "observer": user_get.observer,
             "att_count": att_count,
             "deleted": user_get.deleted,
+            "assistent_list": assistent_list,
             "activeToChange": {
                 "username": True,
                 "name": True,

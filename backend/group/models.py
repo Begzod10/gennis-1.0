@@ -50,7 +50,7 @@ class Groups(db.Model):
                                lazy='select')
     test = relationship("GroupTest", backref="group", order_by="GroupTest.id")
     student_tests = relationship("StudentTest", backref="group", order_by="StudentTest.id")
-    asistent_id = Column(Integer, ForeignKey('assistent.id'))
+    assistent_id = Column(Integer, ForeignKey('assistent.id'))
 
     def convert_json(self, entire=False):
         if not entire:
