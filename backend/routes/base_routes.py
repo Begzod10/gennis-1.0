@@ -1182,7 +1182,7 @@ def profile(user_id):
                 "name": True,
                 "surname": True,
                 "crm_username": True if type_role == "admin" else False,
-
+                "percentage": True if type_role == "Asistent" else False,
                 "teacher": True if type_role == "Asistent" else False,
                 "fathersName": True,
                 "age": True,
@@ -1267,6 +1267,11 @@ def profile(user_id):
                     "name": "O'qituvchi",
                     "value": asistent_get.teacher.id if asistent_get is not None else None,
                     "order": 11
+                },
+                "percentage": {
+                    "name": "Ulushi",
+                    "value": asistent_get.percentage if asistent_get is not None else None,
+                    "order": 12
                 },
 
             },

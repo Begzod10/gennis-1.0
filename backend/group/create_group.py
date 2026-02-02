@@ -2,7 +2,7 @@ from sqlalchemy import and_, or_, extract
 from backend.functions.utils import remove_items_create_group
 from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, Group_Room_Week, Students, Users, \
     StudentHistoryGroups, Groups, RegisterDeletedStudents, Roles, Locations, DeletedStudents, GroupReason, CalendarDay, \
-    TeacherGroupStatistics, db, student_subject, student_group
+    TeacherGroupStatistics, db, student_subject, student_group, Assistent
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import get_json_field, find_calendar_date
 from datetime import datetime
@@ -41,6 +41,79 @@ def create_group_tools():
     return jsonify({
         "createGroupTools": filters
     })
+
+
+@group_create_bp.route(f'/check_time_assistent/<int:teacher_id>/<int:location_id>/', methods=['POST'])
+def check_time_asistent(teacher_id, location_id):
+    # teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    assistent_errors = []
+
+    lessons = request.get_json()['lessons']
+    for lesson in lessons:
+        start_time = datetime.strptime(lesson.get('startTime'), "%H:%M")
+        end_time = datetime.strptime(lesson.get('endTime'), "%H:%M")
+
+        assistents = db.session.query(Assistent).join(Assistent.user).options(contains_eager(Assistent.user)).filter(
+            or_(
+                Assistent.deleted == False, Assistent.deleted == None), Assistent.teacher_id == teacher_id,
+                                                                        Users.location_id == location_id).order_by(
+            Assistent.id).all()
+        if not assistents:
+            return jsonify({'error': 'Assistent mavjud emas'})
+        for assistent in assistents:
+            teacher_time_start = db.session.query(Group_Room_Week).join(Group_Room_Week.teacher).options(
+                contains_eager(Group_Room_Week.assistent)).filter(Assistent.id == assistent.id,
+                                                                  Group_Room_Week.week_id == lesson['selectedDay'].get(
+                                                                      'id'),
+                                                                  Group_Room_Week.location_id == location_id).filter(
+                and_(Group_Room_Week.start_time <= start_time, Group_Room_Week.end_time >= start_time)).first()
+            teacher_time_end = db.session.query(Group_Room_Week).join(Group_Room_Week.teacher).options(
+                contains_eager(Group_Room_Week.assistent)).filter(Assistent.id == assistent.id,
+                                                                  Group_Room_Week.location_id == location_id,
+                                                                  Group_Room_Week.week_id == lesson['selectedDay'].get(
+                                                                      'id')).filter(
+                and_(Group_Room_Week.start_time <= end_time, Group_Room_Week.end_time >= end_time)).first()
+
+            info = {
+                "id": assistent.user.id,
+                "name": assistent.user.name.title(),
+                "surname": assistent.user.surname.title(),
+                "username": assistent.user.username,
+                "language": assistent.user.language.name,
+                "age": assistent.user.age,
+                "reg_date": assistent.user.day.date.strftime("%Y-%m-%d") if assistent.user.day else None,
+                "comment": assistent.user.comment,
+                'money': assistent.user.balance,
+                "role": assistent.user.role_info.type_role,
+                "subjects": [subject.name for subject in assistent.subjects],
+                "photo_profile": assistent.user.photo_profile,
+                "color": "green",
+                "error": False,
+                "shift": ""
+            }
+            if teacher_time_start and teacher_time_end:
+                info["color"] = "red"
+                info["error"] = True
+                info[
+                    "shift"] = f"{teacher_time_start.week.name} da soat: '{teacher_time_start.start_time.strftime('%H:%M')} dan " \
+                               f"{teacher_time_end.end_time.strftime('%H:%M')}' gacha {teacher_time_end.group.name} da darsi bor."
+            elif teacher_time_start and not teacher_time_end:
+
+                info["color"] = "red",
+                info["error"] = True,
+                info[
+                    "shift"] = f"{teacher_time_start.week.name} da soat: '{teacher_time_start.start_time.strftime('%H:%M')} dan " \
+                               f"{teacher_time_start.end_time.strftime('%H:%M')}' gacha {teacher_time_start.group.name} da darsi bor."
+            elif teacher_time_end and not teacher_time_start:
+                info["color"] = "red",
+                info["error"] = True,
+                info[
+                    "shift"] = f"{teacher_time_end.week.name} da soat: '{teacher_time_end.start_time.strftime('%H:%M')} dan " \
+                               f"{teacher_time_end.end_time.strftime('%H:%M')}' gacha {teacher_time_end.group.name} da darsi bor."
+            assistent_errors.append(info)
+
+    return jsonify({"assistent_errors": assistent_errors})
 
 
 @group_create_bp.route(f'/get_students/<int:location_id>', methods=['POST'])
@@ -94,6 +167,7 @@ def get_students(location_id):
 
             info = {
                 "id": teacher.user.id,
+                "teacher_id": teacher.id,
                 "name": teacher.user.name.title(),
                 "surname": teacher.user.surname.title(),
                 "username": teacher.user.username,
@@ -312,12 +386,15 @@ def create_group_time(location_id):
     subject = request.get_json()['groupInfo']['subject']
     type_course = request.get_json()['groupInfo']['typeCourse']
     teacher_salary = int(request.get_json()['groupInfo']['teacherDolya'])
+    assistent_id = request.get_json()['assistent']['id']
+    assistent = Assistent.query.filter(Assistent.id == assistent_id).first()
     subject = Subjects.query.filter(Subjects.name == subject).first()
     type_course = CourseTypes.query.filter(CourseTypes.name == type_course).first()
     teacher = Teachers.query.filter(Teachers.user_id == request.get_json()['teacher']['id']).first()
     add = Groups(name=group_name, course_type_id=type_course.id, subject_id=subject.id, location_id=location_id,
                  education_language=teacher.user.education_language, calendar_day=calendar_day.id, attendance_days=13,
                  calendar_month=calendar_month.id, calendar_year=calendar_year.id, teacher_id=teacher.id,
+                 assistent_id=assistent_id,
                  price=group_price, teacher_salary=teacher_salary)
     db.session.add(add)
     db.session.commit()
@@ -334,6 +411,8 @@ def create_group_time(location_id):
         db.session.add(time_table)
         db.session.commit()
         teacher.time_table.append(time_table)
+        db.session.commit()
+        assistent.time_table.append(time_table)
         db.session.commit()
         student_list = request.get_json()['students']
         student_id_list = []
@@ -402,7 +481,6 @@ def create_group():
         Users.id.in_([user_id for user_id in student_id_list])).order_by('id').all()
 
     for st in students_checked:
-        print(calendar_day.id)
         st.created_day_id = calendar_day.id
         db.session.commit()
         for sub in st.subject:

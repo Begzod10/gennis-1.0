@@ -45,8 +45,7 @@ def assistent_detail(id=None):
         user_add.add()
         phone = PhoneList(user_id=user_add.id, phone=data.get('phone'))
         phone.add()
-
-        new_assistent = Assistent(user_id=user_add.id, teacher_id=data['teacher'])
+        new_assistent = Assistent(user_id=user_add.id, teacher_id=data['teacher'], percentage=data['percentage'])
         new_assistent.add()
         db.session.flush()
         subject = Subjects.query.get(data['selectedSubjects'])
@@ -89,6 +88,9 @@ def assistent_detail(id=None):
             if subject:
                 assistent.subjects = []
                 assistent.subjects.append(subject)
+
+        if 'percentage' in data:
+            assistent.percentage = data['percentage']
         db.session.commit()
         return jsonify(assistent.convert_json())
 

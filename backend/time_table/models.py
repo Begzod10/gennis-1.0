@@ -33,6 +33,11 @@ time_table_teacher = db.Table('time_table_teacher',
                               db.Column('group_room_week', db.Integer, db.ForeignKey('group_room_week.id'))
                               )
 
+time_table_assistent = db.Table('time_table_assistent',
+                                db.Column("assistent_id", db.Integer, db.ForeignKey('assistent.id')),
+                                db.Column('group_room_week', db.Integer, db.ForeignKey('group_room_week.id'))
+                                )
+
 
 class Week(db.Model):
     __tablename__ = "week"
