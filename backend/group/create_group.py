@@ -998,8 +998,8 @@ def moving_students(old_id, new_id):
         contains_eager(Students.time_table).joinedload(Group_Room_Week.week),
         contains_eager(Students.time_table).joinedload(Group_Room_Week.group),
         joinedload(Students.subject)
-    ).filter(
-        Students.group_id == old_group.id
+    ).join(Students.group).filter(
+        Groups.id == old_group.id
     ).all()
 
     student_errors = []
