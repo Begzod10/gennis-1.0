@@ -552,7 +552,6 @@ def make_attendance_classroom():
 
     # Create attendance day record based on type
     if not type_status:
-        # Absent
         attendance_add = AttendanceDays(
             teacher_id=teacher.id,
             student_id=student.id,
@@ -589,7 +588,7 @@ def make_attendance_classroom():
             fine=fine
         )
     else:
-        # Present with scores
+
         average_ball = round((homework + dictionary + active) / subject.ball_number)
         attendance_add = AttendanceDays(
             student_id=student.id,

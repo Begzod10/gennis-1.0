@@ -44,6 +44,7 @@ def create_group_tools():
 
 
 @group_create_bp.route(f'/check_time_assistent/<int:teacher_id>/<int:location_id>/', methods=['POST'])
+@jwt_required()
 def check_time_asistent(teacher_id, location_id):
     lessons = request.get_json()['lessons']
 
@@ -226,13 +227,22 @@ def get_students(location_id):
                     schedule_end = schedule.end_time.time() if isinstance(schedule.end_time,
                                                                           datetime) else schedule.end_time
 
+                    # Check if teacher's existing lesson conflicts with new lesson time
                     if (schedule_start <= start_time < schedule_end or
                             schedule_start < end_time <= schedule_end or
                             (start_time <= schedule_start and end_time >= schedule_end)):
-                        conflict_msg = f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan {schedule_end.strftime('%H:%M')}' gacha {schedule.group.name} da darsi bor."
-                        info["conflicts"].append(conflict_msg)
-                        info["color"] = "red"
-                        info["error"] = True
+
+                        # Check if the conflicting lesson already has an assistant assigned
+                        # If it has an assistant, the teacher can skip it and take the new lesson
+                        if not schedule.assistent or len(schedule.assistent) == 0:
+                            # No assistant assigned to this existing lesson - real conflict!
+                            conflict_msg = (
+                                f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                                f"{schedule_end.strftime('%H:%M')}' gacha {schedule.group.name} da darsi bor."
+                            )
+                            info["conflicts"].append(conflict_msg)
+                            info["color"] = "red"
+                            info["error"] = True
 
         if info["conflicts"]:
             info["shift"] = info["conflicts"][0]
@@ -435,15 +445,20 @@ def create_group_time(location_id):
     subject = request.get_json()['groupInfo']['subject']
     type_course = request.get_json()['groupInfo']['typeCourse']
     teacher_salary = int(request.get_json()['groupInfo']['teacherDolya'])
-    assistent_id = request.get_json()['groupInfo']['assistent_id']
-    assistent = Assistent.query.filter(Assistent.user_id == assistent_id).first()
+    if 'assistent_id'  in request.get_json()['groupInfo']:
+        assistent_id = request.get_json()['groupInfo']['assistent_id']
+        assistent = Assistent.query.filter(Assistent.user_id == assistent_id).first()
+        assistent_id = assistent.id
+    else:
+        assistent_id = None
+        assistent = None
     subject = Subjects.query.filter(Subjects.name == subject).first()
     type_course = CourseTypes.query.filter(CourseTypes.name == type_course).first()
     teacher = Teachers.query.filter(Teachers.user_id == request.get_json()['teacher']['id']).first()
     add = Groups(name=group_name, course_type_id=type_course.id, subject_id=subject.id, location_id=location_id,
                  education_language=teacher.user.education_language, calendar_day=calendar_day.id, attendance_days=13,
                  calendar_month=calendar_month.id, calendar_year=calendar_year.id, teacher_id=teacher.id,
-                 assistent_id=assistent.id,
+                 assistent_id=assistent_id,
                  price=group_price, teacher_salary=teacher_salary)
     db.session.add(add)
     db.session.commit()
@@ -461,8 +476,9 @@ def create_group_time(location_id):
         db.session.commit()
         teacher.time_table.append(time_table)
         db.session.commit()
-        assistent.time_table.append(time_table)
-        db.session.commit()
+        if assistent:
+            assistent.time_table.append(time_table)
+            db.session.commit()
         student_list = request.get_json()['students']
         student_id_list = []
 
@@ -552,216 +568,282 @@ def create_group():
 @group_create_bp.route(f'/add_group_students2/<int:group_id>', methods=['POST', 'GET'])
 def add_group_students2(group_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
+
+    # Get group with subject eagerly loaded
+    group = db.session.query(Groups).options(
+        joinedload(Groups.subject)
+    ).filter(Groups.id == group_id).first()
+
+    if not group:
+        return jsonify({"success": False, "error": "Group not found"}), 404
+
     if request.method == "POST":
-        group = Groups.query.filter(Groups.id == group_id).first()
-        subject = Subjects.query.filter(Subjects.id == group.subject_id).first()
         student_list = get_json_field('checkedStudents')
-        student_id_list = []
-        for loc in student_list:
-            student_id_list.append(int(loc['id']))
-        msg = "O'quvchi guruhga qo'shildi"
-        if len(student_id_list) > 1:
-            msg = "O'quvchilar guruhga qo'shildi"
-        students_checked = db.session.query(Students).join(Students.user).options(contains_eager(Students.user)).filter(
-            Users.id.in_([user_id for user_id in student_id_list]),
-        ).order_by(
-            'id').all()
+        student_id_list = [int(loc['id']) for loc in student_list]
+
+        msg = "O'quvchilar guruhga qo'shildi" if len(student_id_list) > 1 else "O'quvchi guruhga qo'shildi"
+
+        # Get all students in one query
+        students_checked = db.session.query(Students).join(
+            Students.user
+        ).options(
+            contains_eager(Students.user)
+        ).filter(
+            Users.id.in_(student_id_list)
+        ).order_by(Students.id).all()
+
+        # Get time_table once
+        time_table = db.session.query(Group_Room_Week).filter(
+            Group_Room_Week.group_id == group.id
+        ).all()
+
+        # Bulk operations
         for st in students_checked:
-            # ✅ Directly delete any existing student-subject relationship
+            # Delete existing student-subject relationship
             db.session.execute(
                 delete(student_subject).where(
-                    student_subject.c.subject_id == subject.id,
+                    student_subject.c.subject_id == group.subject_id,
                     student_subject.c.student_id == st.id
                 )
             )
-            db.session.commit()
+
+            # Add to group
             st.group.append(group)
-            group_history = StudentHistoryGroups(teacher_id=group.teacher_id, student_id=st.id, group_id=group.id,
-                                                 joined_day=calendar_day.date)
+
+            # Add group history
+            group_history = StudentHistoryGroups(
+                teacher_id=group.teacher_id,
+                student_id=st.id,
+                group_id=group.id,
+                joined_day=calendar_day.date
+            )
             db.session.add(group_history)
-            db.session.commit()
-        time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
-        for st in students_checked:
+
+            # Set joined day
             st.joined_day_id = calendar_day.id
-            db.session.commit()
+
+            # Add all time_table entries
             for time in time_table:
                 st.time_table.append(time)
-                db.session.commit()
+
+        # Single commit for all operations
+        db.session.commit()
+
         return jsonify({
             "success": True,
             "msg": msg
         })
 
-    group = Groups.query.filter(Groups.id == group_id).first()
-
-    time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
+    # GET request - fetch available students
     location_id = group.location_id
-    time_start = "14:00"
-    time_end = "07:00"
-    time_start = datetime.strptime(time_start, "%H:%M")
-    time_end = datetime.strptime(time_end, "%H:%M")
-    student_errors = []
     role = Roles.query.filter(Roles.type_role == "student").first()
 
-    for time in time_table:
-        morning_shift = False
-        night_shift = False
-        startTime = time.start_time
-        endTime = time.end_time
-        if startTime >= time_start or endTime <= time_end:
-            night_shift = True
-        else:
-            morning_shift = True
-        students_not_available_morning = ''
-        students_not_available_night = ''
-        if night_shift:
-            students_available = db.session.query(Students).join(Students.user).options(
-                contains_eager(Students.user)).filter(or_(
-                Students.night_shift == night_shift, Students.night_shift == None)).filter(
-                Users.location_id == location_id, Students.group == None, Students.deleted_from_register == None,
-            ).join(Students.subject).options(
-                contains_eager(Students.subject)).order_by(
-                Users.calendar_day).filter(Subjects.id == group.subject_id).all()
-            students_not_available_morning = db.session.query(Students).join(Students.user).options(
-                contains_eager(Students.user)).filter(
-                Students.night_shift == False, Students.group == None, Students.deleted_from_register == None,
-            ).filter(Users.location_id == location_id).join(
-                Students.subject).filter(Subjects.id == group.subject_id).order_by(
-                Users.calendar_day).all()
-        else:
-            students_available = db.session.query(Students).join(Students.user).options(
-                contains_eager(Students.user)).filter(or_(
-                Students.morning_shift == morning_shift, Students.morning_shift == None)).filter(
-                Users.location_id == location_id, Students.group == None, Students.deleted_from_register == None,
-            ).join(Students.subject).options(
-                contains_eager(Students.subject)).filter(Subjects.id == group.subject_id).order_by(
-                Users.calendar_day).all()
-            students_not_available_night = db.session.query(Students).join(Students.user).options(
-                contains_eager(Students.user)).filter(
-                Students.morning_shift == False, Students.group == None, Students.deleted_from_register == None,
-            ).filter(Users.location_id == location_id).join(
-                Students.subject).options(
-                contains_eager(Students.subject)).filter(Subjects.id == group.subject_id).order_by(
-                Users.calendar_day).all()
-        for student in students_available:
-            info = {
-                "id": student.user.id,
-                "name": student.user.name.title(),
-                "surname": student.user.surname.title(),
-                "username": student.user.username,
-                "language": student.user.language.name,
-                "age": student.user.age,
-                "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
-                "comment": student.user.comment,
-                'money': student.user.balance,
-                "role": role.role,
-                "subjects": [subject.name for subject in student.subject],
-                "photo_profile": student.user.photo_profile,
-                "color": "green",
-                "error": False,
-                "shift": ""
-            }
-            student_errors.append(info)
-        if students_not_available_morning and not students_not_available_night:
-            for student in students_not_available_morning:
-                info = {
-                    "id": student.user.id,
-                    "name": student.user.name.title(),
-                    "surname": student.user.surname.title(),
-                    "username": student.user.username,
-                    "language": student.user.language.name,
-                    "age": student.user.age,
-                    "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
-                    "comment": student.user.comment,
-                    'money': student.user.balance,
-                    "role": role.role,
-                    "subjects": [subject.name for subject in student.subject],
-                    "photo_profile": student.user.photo_profile,
-                    "color": "red",
-                    "error": True,
-                    "shift": "Studentga ertalabki smen belgilangan."
-                }
-                student_errors.append(info)
-        else:
-            for student in students_not_available_night:
-                info = {
-                    "id": student.user.id,
-                    "name": student.user.name.title(),
-                    "surname": student.user.surname.title(),
-                    "username": student.user.username,
-                    "language": student.user.language.name,
-                    "age": student.user.age,
-                    "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
-                    "comment": student.user.comment,
-                    'money': student.user.balance,
-                    "role": role.role,
-                    "subjects": [subject.name for subject in student.subject],
-                    "photo_profile": student.user.photo_profile,
-                    "color": "red",
-                    "error": True,
-                    "shift": "Studentga kechki smen belgilangan."
-                }
-                student_errors.append(info)
-        students = db.session.query(Students).join(Students.subject).options(contains_eager(Students.subject)).filter(
-            Students.group != None, Subjects.id == group.subject_id).join(Students.user).options(
-            contains_eager(Students.user)).filter(
-            Users.location_id == location_id).all()
-        for student in students:
-            student_group_start = db.session.query(Group_Room_Week).join(Group_Room_Week.student).options(
-                contains_eager(
-                    Group_Room_Week.student)).filter(Students.id == student.id,
-                                                     Group_Room_Week.week_id == time.week_id,
+    # Get group's time_table once
+    time_table = db.session.query(Group_Room_Week).options(
+        joinedload(Group_Room_Week.week)
+    ).filter(
+        Group_Room_Week.group_id == group.id
+    ).all()
 
-                                                     ).filter(
-                and_(Group_Room_Week.start_time <= startTime, Group_Room_Week.end_time >= startTime)).first()
-            student_group_end = db.session.query(Group_Room_Week).join(Group_Room_Week.student).options(
-                contains_eager(
-                    Group_Room_Week.student)).filter(Students.id == student.id,
-                                                     Group_Room_Week.week_id == time.week_id,
+    if not time_table:
+        return jsonify({"data": [], "success": True})
 
-                                                     ).filter(
-                and_(Group_Room_Week.start_time <= endTime, Group_Room_Week.end_time >= endTime)).first()
-            info = {
-                "id": student.user.id,
-                "name": student.user.name.title(),
-                "surname": student.user.surname.title(),
-                "username": student.user.username,
-                "language": student.user.language.name,
-                "age": student.user.age,
-                "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
-                "comment": student.user.comment,
-                'money': student.user.balance,
-                "role": role.role,
-                "subjects": [subject.name for subject in student.subject],
-                "photo_profile": student.user.photo_profile,
-                "color": "green",
-                "error": False,
-                "shift": ""
-            }
-            if student_group_start and student_group_end:
+    # Determine shift based on first time slot
+    first_time = time_table[0]
+    time_start_night = datetime.strptime("14:00", "%H:%M")
+    time_end_night = datetime.strptime("07:00", "%H:%M")
 
-                info["color"] = "red",
-                info["error"] = True,
-                info[
-                    "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')} dan " \
-                               f"{student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
+    startTime = first_time.start_time
+    endTime = first_time.end_time
+    night_shift = startTime >= time_start_night or endTime <= time_end_night
 
-            elif student_group_start and not student_group_end:
+    # Get available students (no group) in ONE query
+    if night_shift:
+        students_available = db.session.query(Students).join(
+            Students.user
+        ).join(
+            Students.subject
+        ).options(
+            contains_eager(Students.user).joinedload(Users.language),
+            contains_eager(Students.user).joinedload(Users.day),
+            contains_eager(Students.subject)
+        ).filter(
+            or_(Students.night_shift == True, Students.night_shift == None),
+            Users.location_id == location_id,
+            Students.group == None,
+            Students.deleted_from_register == None,
+            Subjects.id == group.subject_id
+        ).order_by(Users.calendar_day).all()
 
-                info["color"] = "red",
-                info["error"] = True,
-                info[
-                    "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')} dan " \
-                               f"{student_group_start.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
-            elif student_group_end and not student_group_start:
+        students_not_available = db.session.query(Students).join(
+            Students.user
+        ).join(
+            Students.subject
+        ).options(
+            contains_eager(Students.user).joinedload(Users.language),
+            contains_eager(Students.user).joinedload(Users.day),
+            contains_eager(Students.subject)
+        ).filter(
+            Students.night_shift == False,
+            Users.location_id == location_id,
+            Students.group == None,
+            Students.deleted_from_register == None,
+            Subjects.id == group.subject_id
+        ).order_by(Users.calendar_day).all()
 
-                info["color"] = "red",
-                info["error"] = True,
-                info[
-                    "shift"] = f"{student_group_end.week.name} da soat: '{student_group_end.start_time.strftime('%H:%M')} dan " \
-                               f"{student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_end.group.name} da darsi bor."
-            student_errors.append(info)
+        shift_error_msg = "Studentga ertalabki smen belgilangan."
+    else:
+        students_available = db.session.query(Students).join(
+            Students.user
+        ).join(
+            Students.subject
+        ).options(
+            contains_eager(Students.user).joinedload(Users.language),
+            contains_eager(Students.user).joinedload(Users.day),
+            contains_eager(Students.subject)
+        ).filter(
+            or_(Students.morning_shift == True, Students.morning_shift == None),
+            Users.location_id == location_id,
+            Students.group == None,
+            Students.deleted_from_register == None,
+            Subjects.id == group.subject_id
+        ).order_by(Users.calendar_day).all()
+
+        students_not_available = db.session.query(Students).join(
+            Students.user
+        ).join(
+            Students.subject
+        ).options(
+            contains_eager(Students.user).joinedload(Users.language),
+            contains_eager(Students.user).joinedload(Users.day),
+            contains_eager(Students.subject)
+        ).filter(
+            Students.morning_shift == False,
+            Users.location_id == location_id,
+            Students.group == None,
+            Students.deleted_from_register == None,
+            Subjects.id == group.subject_id
+        ).order_by(Users.calendar_day).all()
+
+        shift_error_msg = "Studentga kechki smen belgilangan."
+
+    student_errors = []
+
+    # Add available students
+    for student in students_available:
+        info = {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "username": student.user.username,
+            "language": student.user.language.name,
+            "age": student.user.age,
+            "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
+            "comment": student.user.comment,
+            'money': student.user.balance,
+            "role": role.role,
+            "subjects": [subject.name for subject in student.subject],
+            "photo_profile": student.user.photo_profile,
+            "color": "green",
+            "error": False,
+            "shift": ""
+        }
+        student_errors.append(info)
+
+    # Add students with wrong shift
+    for student in students_not_available:
+        info = {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "username": student.user.username,
+            "language": student.user.language.name,
+            "age": student.user.age,
+            "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
+            "comment": student.user.comment,
+            'money': student.user.balance,
+            "role": role.role,
+            "subjects": [subject.name for subject in student.subject],
+            "photo_profile": student.user.photo_profile,
+            "color": "red",
+            "error": True,
+            "shift": shift_error_msg
+        }
+        student_errors.append(info)
+
+    # Get students already in groups with their schedules in ONE query
+    students_in_groups = db.session.query(Students).join(
+        Students.user
+    ).join(
+        Students.subject
+    ).outerjoin(
+        Students.time_table
+    ).options(
+        contains_eager(Students.user).joinedload(Users.language),
+        contains_eager(Students.user).joinedload(Users.day),
+        contains_eager(Students.subject),
+        contains_eager(Students.time_table).joinedload(Group_Room_Week.week),
+        contains_eager(Students.time_table).joinedload(Group_Room_Week.group)
+    ).filter(
+        Students.group != None,
+        Students.deleted_from_register == None,
+        Subjects.id == group.subject_id,
+        Users.location_id == location_id
+    ).all()
+
+    # Check conflicts for students in groups (in-memory)
+    for student in students_in_groups:
+        info = {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "username": student.user.username,
+            "language": student.user.language.name,
+            "age": student.user.age,
+            "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
+            "comment": student.user.comment,
+            'money': student.user.balance,
+            "role": role.role,
+            "subjects": [subject.name for subject in student.subject],
+            "photo_profile": student.user.photo_profile,
+            "color": "green",
+            "error": False,
+            "shift": "",
+            "conflicts": []
+        }
+
+        # Check each time slot against student's schedule
+        for time_slot in time_table:
+            slot_start = time_slot.start_time.time() if isinstance(time_slot.start_time,
+                                                                   datetime) else time_slot.start_time
+            slot_end = time_slot.end_time.time() if isinstance(time_slot.end_time, datetime) else time_slot.end_time
+
+            for schedule in student.time_table:
+                if schedule.week_id == time_slot.week_id:
+                    schedule_start = schedule.start_time.time() if isinstance(schedule.start_time,
+                                                                              datetime) else schedule.start_time
+                    schedule_end = schedule.end_time.time() if isinstance(schedule.end_time,
+                                                                          datetime) else schedule.end_time
+
+                    # Check for overlap
+                    if (schedule_start <= slot_start < schedule_end or
+                            schedule_start < slot_end <= schedule_end or
+                            (slot_start <= schedule_start and slot_end >= schedule_end)):
+                        conflict_msg = (
+                            f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                            f"{schedule_end.strftime('%H:%M')}' gacha {schedule.group.name} da darsi bor."
+                        )
+                        info["conflicts"].append(conflict_msg)
+                        info["color"] = "red"
+                        info["error"] = True
+
+        if info["conflicts"]:
+            info["shift"] = info["conflicts"][0]
+
+        student_errors.append(info)
+
     filtered_students = remove_items_create_group(student_errors)
+
     return jsonify({
         "data": filtered_students,
         "success": True
@@ -885,71 +967,97 @@ def filtered_groups2(location_id):
 
 @group_create_bp.route(f'/moving_students/<int:old_id>/<int:new_id>')
 def moving_students(old_id, new_id):
+    # Get both groups
     old_group = Groups.query.filter(Groups.id == old_id).first()
     new_group = Groups.query.filter(Groups.id == new_id).first()
-    students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
-        Groups.id == old_group.id).all()
-    time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == new_group.id).all()
-    student_errors = []
+
+    if not old_group or not new_group:
+        return jsonify({"success": False, "error": "Group not found"}), 404
+
+    # Get role once
     role = Roles.query.filter(Roles.type_role == "student").first()
-    if time_table:
-        for time in time_table:
-            for student in students:
-                student_group_start = db.session.query(Group_Room_Week).join(Group_Room_Week.student).options(
-                    contains_eager(
-                        Group_Room_Week.student)).filter(Students.id == student.id,
-                                                         Group_Room_Week.week_id == time.week_id,
-                                                         Group_Room_Week.group_id != old_group.id,
-                                                         ).filter(
-                    and_(Group_Room_Week.start_time <= time.start_time,
-                         Group_Room_Week.end_time >= time.start_time)).first()
-                student_group_end = db.session.query(Group_Room_Week).join(Group_Room_Week.student).options(
-                    contains_eager(
-                        Group_Room_Week.student)).filter(Students.id == student.id,
-                                                         Group_Room_Week.week_id == time.week_id,
-                                                         Group_Room_Week.group_id != old_group.id,
-                                                         ).filter(
-                    and_(Group_Room_Week.start_time <= time.end_time,
-                         Group_Room_Week.end_time >= time.end_time)).first()
-                info = {
-                    "id": student.user.id,
-                    "name": student.user.name.title(),
-                    "surname": student.user.surname.title(),
-                    "username": student.user.username,
-                    "language": student.user.language.name,
-                    "age": student.user.age,
-                    "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
-                    "comment": student.user.comment,
-                    'money': student.user.balance,
-                    "role": role.role,
-                    "subjects": [subject.name for subject in student.subject],
-                    "photo_profile": student.user.photo_profile,
-                    "color": "green",
-                    "error": False,
-                    "shift": ""
-                }
-                if student_group_start and student_group_end:
 
-                    info["color"] = "red",
-                    info["error"] = True,
-                    info[
-                        "shift"] = f"{student_group_start.week.name} da soat: '{student_group_start.start_time.strftime('%H:%M')} dan " \
-                                   f"{student_group_end.end_time.strftime('%H:%M')}' gacha {student_group_start.group.name} da darsi bor."
-                elif student_group_start and not student_group_end:
-                    info["color"] = "red",
-                    info["error"] = True,
-                    info[
-                        "shift"] = f"{student_group_start.week.name} da soat: {student_group_start.start_time.strftime('%H:%M')} " \
-                                   f"da {student_group_start.group.name} da darsi bor."
-                elif student_group_end and not student_group_start:
+    # Get new group's time_table with eager loading
+    time_table = db.session.query(Group_Room_Week).options(
+        joinedload(Group_Room_Week.week)
+    ).filter(
+        Group_Room_Week.group_id == new_group.id
+    ).all()
 
-                    info["color"] = "red",
-                    info["error"] = True,
-                    info[
-                        "shift"] = f"{student_group_end.week.name} da soat: {student_group_end.end_time.strftime('%H:%M')} " \
-                                   f"da {student_group_end.group.name} da darsi bor."
+    if not time_table:
+        return jsonify({"students": [], "success": True})
 
-                student_errors.append(info)
+    # Get all students from old group with their schedules in ONE query
+    students = db.session.query(Students).join(
+        Students.user
+    ).outerjoin(
+        Students.time_table
+    ).options(
+        contains_eager(Students.user).joinedload(Users.language),
+        contains_eager(Students.user).joinedload(Users.day),
+        contains_eager(Students.time_table).joinedload(Group_Room_Week.week),
+        contains_eager(Students.time_table).joinedload(Group_Room_Week.group),
+        joinedload(Students.subject)
+    ).filter(
+        Students.group_id == old_group.id
+    ).all()
+
+    student_errors = []
+
+    # Check conflicts for each student (in-memory)
+    for student in students:
+        info = {
+            "id": student.user.id,
+            "name": student.user.name.title(),
+            "surname": student.user.surname.title(),
+            "username": student.user.username,
+            "language": student.user.language.name,
+            "age": student.user.age,
+            "reg_date": student.user.day.date.strftime("%Y-%m-%d"),
+            "comment": student.user.comment,
+            'money': student.user.balance,
+            "role": role.role,
+            "subjects": [subject.name for subject in student.subject],
+            "photo_profile": student.user.photo_profile,
+            "color": "green",
+            "error": False,
+            "shift": "",
+            "conflicts": []
+        }
+
+        # Check each time slot in new group against student's existing schedule
+        for new_time in time_table:
+            new_start = new_time.start_time.time() if isinstance(new_time.start_time, datetime) else new_time.start_time
+            new_end = new_time.end_time.time() if isinstance(new_time.end_time, datetime) else new_time.end_time
+
+            # Check student's existing schedule for conflicts
+            for schedule in student.time_table:
+                # Skip if it's from the old group (they're leaving that group)
+                if (schedule.week_id == new_time.week_id and
+                        schedule.group_id != old_group.id):
+
+                    schedule_start = schedule.start_time.time() if isinstance(schedule.start_time,
+                                                                              datetime) else schedule.start_time
+                    schedule_end = schedule.end_time.time() if isinstance(schedule.end_time,
+                                                                          datetime) else schedule.end_time
+
+                    # Check for time overlap
+                    if (schedule_start <= new_start < schedule_end or
+                            schedule_start < new_end <= schedule_end or
+                            (new_start <= schedule_start and new_end >= schedule_end)):
+                        conflict_msg = (
+                            f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                            f"{schedule_end.strftime('%H:%M')}' gacha {schedule.group.name} da darsi bor."
+                        )
+                        info["conflicts"].append(conflict_msg)
+                        info["color"] = "red"
+                        info["error"] = True
+
+        # Set shift to first conflict if any
+        if info["conflicts"]:
+            info["shift"] = info["conflicts"][0]
+
+        student_errors.append(info)
 
     filtered_students = remove_items_create_group(student_errors)
 
