@@ -96,6 +96,8 @@ class PaymentTypes(db.Model):
     main_overhead = relationship("MainOverhead", backref="payment_type", order_by="MainOverhead.id")
     account_payable_history = relationship("AccountPayableHistory", backref="payment_type",
                                            order_by="AccountPayableHistory.id")
+    assistent_salary = relationship("AssistentSalaries", backref="payment_type", order_by="AssistentSalaries.id")
+    deleted_assistent_salary = relationship("DeletedAsistentSalaries", backref="payment_type", order_by="DeletedAsistentSalaries.id")
 
 
 class StudentPayments(db.Model):

@@ -423,7 +423,8 @@ def make_attendance():
     assistent_fine = 0
     if teacher.id != 23:
         fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
-        assistent_fine = round(assistent_salary_per_day / group.attendance_days)
+        if assistent:
+            assistent_fine = round(assistent_salary_per_day / group.attendance_days)
 
     # Add attendance day
 

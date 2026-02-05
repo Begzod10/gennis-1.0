@@ -1,9 +1,13 @@
 import pprint
 from flask import request
 import requests
+from sqlalchemy.orm import joinedload
+
 from backend.models.models import CalendarDay, CalendarMonth, CalendarYear, AccountingPeriod, Professions, PaymentTypes, \
     Week, AccountingInfo, TeacherSalaries, Teachers, TeacherSalary, UserBooks, Users, StaffSalary, StaffSalaries, \
-    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries, db
+    TeacherBlackSalary, Locations, Roles, contains_eager, desc, or_, GroupReason, CampStaffSalary, CampStaffSalaries, \
+    db, \
+    AssistentSalaries, AssistentSalary, Assistent, AssistentBlackSalary
 from dateutil.relativedelta import relativedelta
 from backend.school.models import SchoolUserSalary, SchoolUserSalaryAttendance, SchoolUserSalaryDay, SchoolUser
 from calendar import monthrange
@@ -11,6 +15,7 @@ import uuid
 from datetime import datetime
 import pytz
 from sqlalchemy.exc import IntegrityError
+
 api = '/api'
 
 
@@ -484,6 +489,7 @@ def update_staff_salary_id(salary_id):
         salary += salary_get.payment_sum
     for book_payment_get in user_books:
         salary += book_payment_get.payment_sum
+
     staff_salary.remaining_salary = staff_salary.total_salary - salary
     staff_salary.taken_money = salary
     db.session.commit()
@@ -551,6 +557,66 @@ def update_teacher_salary_id(salary_id):
     db.session.commit()
 
     return teacher_salary
+
+
+def update_assistant_salary(salary_id):
+    assistant_salary = db.session.query(AssistentSalary).options(
+        joinedload(AssistentSalary.month),
+        joinedload(AssistentSalary.year)
+    ).filter(AssistentSalary.id == salary_id).first()
+
+    if not assistant_salary:
+        return None
+
+    # OPTIMIZATION: Fetch all related data in parallel queries
+    # Query 1: Teacher salaries
+    salaries = AssistentSalaries.query.filter(
+        AssistentSalaries.salary_location_id == salary_id
+
+    ).all()
+
+    # Query 2: User books
+    user_books = UserBooks.query.filter(
+        UserBooks.salary_location_id == salary_id
+    ).all()
+
+    # Query 3: Black salaries
+    black_salaries = AssistentBlackSalary.query.filter(
+        AssistentBlackSalary.calendar_month == assistant_salary.calendar_month,
+        AssistentBlackSalary.calendar_year == assistant_salary.calendar_year,  # Added for accuracy
+        AssistentBlackSalary.assistent_id == assistant_salary.assisten_id,
+        AssistentBlackSalary.location_id == assistant_salary.location_id,  # Added for accuracy
+        or_(
+            AssistentBlackSalary.status == False,
+            AssistentBlackSalary.status == None
+        )
+    ).all()
+
+    # OPTIMIZATION: Calculate totals in memory using sum()
+    black_salary_total = sum(salary.total_salary for salary in black_salaries)
+    salary_payments = sum(salary_get.payment_sum for salary_get in salaries)
+    book_payments = sum(book.payment_sum for book in user_books)
+
+    # Calculate totals
+    total_taken = salary_payments + book_payments
+
+    # Get debt (carry over from previous month)
+    debt = assistant_salary.debt if assistant_salary.debt else 0
+
+    # Update teacher salary record
+
+    assistant_salary.taken_money = total_taken
+    assistant_salary.remaining_salary = assistant_salary.total_salary - (
+            total_taken + black_salary_total + assistant_salary.total_fine - debt
+    )
+    print(assistant_salary.remaining_salary)
+    # Update status based on payment
+    if total_taken >= assistant_salary.total_salary:
+        assistant_salary.status = True
+    else:
+        assistant_salary.status = False
+
+    db.session.commit()
 
 
 def update_camp_salary_id(salary_id):

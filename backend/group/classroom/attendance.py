@@ -548,7 +548,8 @@ def make_attendance_classroom():
     assistent_fine = 0
     if today_lesson_plan or ball < 5:
         fine = round(salary_per_day / group.attendance_days)
-        assistent_fine = round(assistent_salary_per_day / group.attendance_days)
+        if assistent:
+            assistent_fine = round(assistent_salary_per_day / group.attendance_days)
     if teacher.user.username == "rimefara_teach" or teacher.user.username == "Asiko":
         fine = 0
     # Update student ball_time
@@ -840,7 +841,9 @@ def make_attendance_classroom_mobile():
     # Calculate financial values (same for all students)
     balance_per_day = round(group.price / group.attendance_days)
     salary_per_day = round(group.teacher_salary / group.attendance_days)
-
+    assistent = group.assistent if group.assistent else None
+    if assistent:
+        assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
     # Calculate teacher ball based on lateness
     ball = 5
     if int(day) < current_day:
@@ -861,8 +864,11 @@ def make_attendance_classroom_mobile():
     ).first()
 
     fine = 0
+    assistent_fine = 0
     if today_lesson_plan or ball < 5:
         fine = round(salary_per_day / group.attendance_days)
+        if assistent:
+            assistent_fine = round(assistent_salary_per_day / group.attendance_days)
     if teacher.user.username == 'rimefara_teach':
         fine = 0
     errors = []
@@ -958,7 +964,9 @@ def make_attendance_classroom_mobile():
                 discount_per_day=discount_per_day,
                 teacher_ball=ball,
                 fine=fine,
-                discount=discount_status
+                discount=discount_status,
+                assistent_fine=assistent_fine,
+                assistent_salary_per_day=assistent_salary_per_day
             )
         elif homework == 0 and dictionary == 0 and active == 0:
             # Present without scores
@@ -976,7 +984,9 @@ def make_attendance_classroom_mobile():
                 location_id=group.location_id,
                 discount=discount_status,
                 discount_per_day=discount_per_day,
-                fine=fine
+                fine=fine,
+                assistent_fine=assistent_fine,
+                assistent_salary_per_day=assistent_salary_per_day
             )
         else:
             # Present with scores
@@ -999,7 +1009,9 @@ def make_attendance_classroom_mobile():
                 salary_per_day=salary_per_day,
                 discount=discount_status,
                 discount_per_day=discount_per_day,
-                fine=fine
+                fine=fine,
+                assistent_fine=assistent_fine,
+                assistent_salary_per_day=assistent_salary_per_day
             )
 
         attendance_days_to_add.append((student, attendance, attendance_day))

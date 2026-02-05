@@ -282,7 +282,9 @@ class CalendarDay(db.Model):
                                       lazy=True)
     deleted_staff = relationship("DeletedStaff", backref="day", order_by="DeletedStaff.id")
     branch_report = relationship("BranchReport", backref="day", order_by="BranchReport.id")
-
+    assistent_salaries = relationship("AssistentSalaries", backref="day", order_by="AssistentSalaries.id")
+    deleted_assistent_salaries = relationship("DeletedAsistentSalaries", backref="day",
+                                              order_by="DeletedAsistentSalaries.id")
     def convert_json(self, entire=False):
         return {
             "id": self.id,
