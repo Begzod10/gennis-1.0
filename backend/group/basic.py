@@ -285,7 +285,11 @@ def group_profile(group_id):
         }
         data['assistentSalary'] = {
             "name": "Asistent ulushi",
-            "value": group.assistent.percentage
+            "value": group.assistent_salary
+        }
+        data['assistantID'] = {
+            "name": "Asistent ID",
+            "value": group.assistent.id
         }
     gr_functions = Group_Functions(group_id=group_id)
     gr_functions.update_list_balance()

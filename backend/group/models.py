@@ -19,6 +19,7 @@ class Groups(db.Model):
     course_type_id = Column(Integer, ForeignKey('coursetypes.id'))
     subject_id = Column(Integer, ForeignKey('subjects.id'))
     teacher_salary = Column(Integer)
+    assistent_salary = Column(Integer)
     location_id = Column(Integer, ForeignKey('locations.id'))
     status = Column(Boolean, default=False)
     education_language = Column(Integer, ForeignKey('educationlanguage.id'))
@@ -173,6 +174,7 @@ class AttendanceDays(db.Model):
     average_ball = Column(Integer)
     balance_per_day = Column(Integer)
     salary_per_day = Column(Integer)
+    assistent_salary_per_day = Column(Integer)
     balance_with_discount = Column(Integer)
     discount_per_day = Column(Integer)
     location_id = Column(Integer, ForeignKey('locations.id'))
@@ -185,6 +187,7 @@ class AttendanceDays(db.Model):
     calling_status = Column(Boolean, default=False)
     calling_date = Column(DateTime)
     fine = Column(Integer, default=0)
+    assistent_fine = Column(Integer, default=0)
 
     def to_dict(self, entire=False):
         if self.status == 1 or self.status == 2:

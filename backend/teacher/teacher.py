@@ -357,7 +357,10 @@ def make_attendance():
     balance_with_discount = balance_per_day - discount_per_day
     discount_status = bool(discount_per_day)
     student_obj.ball_time = ball_time
-
+    salary_per_day = round(group.teacher_salary / group.attendance_days)
+    assistent = group.assistent if group.assistent else None
+    if assistent:
+        assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
     # Attendance record
     attendance = Attendance.query.filter_by(
         student_id=student_obj.id,
@@ -417,8 +420,10 @@ def make_attendance():
         date=calendar_day.date
     ).first()
     fine = 0
+    assistent_fine = 0
     if teacher.id != 23:
         fine = round(salary_per_day / group.attendance_days) if lesson_plan_today or ball < 5 else 0
+        assistent_fine = round(assistent_salary_per_day / group.attendance_days)
 
     # Add attendance day
 
@@ -443,7 +448,9 @@ def make_attendance():
         homework=homework,
         dictionary=dictionary,
         activeness=active,
-        average_ball=round((homework + dictionary + active) / subject.ball_number) if subject.ball_number else 0
+        average_ball=round((homework + dictionary + active) / subject.ball_number) if subject.ball_number else 0,
+        assistent_fine=assistent_fine,
+        assistent_salary_per_day=assistent_salary_per_day
     )
     db.session.add(attendance_add)
     db.session.commit()
@@ -479,7 +486,8 @@ def make_attendance():
         calendar_month_id=calendar_month.id,
         calendar_year_id=calendar_year.id,
         location_id=student_obj.user.location_id,
-        salary_per_day=salary_per_day
+        salary_per_day=salary_per_day,
+        assistent_salary_per_day=assistent_salary_per_day
     )
 
     user = Users.query.get(student_id)

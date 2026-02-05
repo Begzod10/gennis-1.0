@@ -9,6 +9,7 @@ from sqlalchemy.sql import func, functions
 from pprint import pprint
 import uuid
 from .utils import clone_group_info
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -18,28 +19,15 @@ db = SQLAlchemy()
 # lazy = "select" -> bu relationship bugan table lani aloxida query qb beradi
 # lazy = "joined" -> bu relationship bugan table lani bittada hammasini query qb beradi
 # lazy = "subquery" -> "joined" ga oxshidi test qlib iwltib koriw kere farqi tezligida bolishi mumkin
+
+
 def db_setup(app):
     app.config.from_object('backend.models.config')
     db.app = app
     db.init_app(app)
+    from flask_migrate import Migrate
     Migrate(app, db)
     return db
-
-
-from backend.home_page.models import *
-from backend.account.models import *
-from backend.time_table.models import *
-from backend.group.models import *
-from backend.student.models import *
-from backend.teacher.models import *
-from backend.certificate.models import *
-from backend.book.models import *
-from backend.lead.models import *
-from backend.for_programmers.models import *
-from backend.tasks.models.models import *
-from backend.account.profile.models import *
-
-from backend.parent.models import *
 
 
 # from backend.school.models import *
@@ -103,7 +91,7 @@ class CalendarYear(db.Model):
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
     branch_report = relationship("BranchReport", backref="year", order_by="BranchReport.id")
     school_user_salary = relationship("SchoolUserSalary", backref="year", order_by="SchoolUserSalary.id")
-
+    assistent_salary = relationship("AssistentSalary", backref="year", order_by="AssistentSalary.id")
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
@@ -184,7 +172,7 @@ class CalendarMonth(db.Model):
 
     school_user_salary = relationship("SchoolUserSalary", backref="month", order_by="SchoolUserSalary.id")
     branch_report = relationship("BranchReport", backref="month", order_by="BranchReport.id")
-
+    assistent_salary = relationship("AssistentSalary", backref="month", order_by="AssistentSalary.id")
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
@@ -421,7 +409,7 @@ class Users(db.Model):
     assistent = relationship(
         "Assistent",
         backref='user',
-        order_by=Assistent.id
+        order_by="Assistent.id"
     )
     phone = relationship("PhoneList", backref='user', order_by="PhoneList.id")
     education_language = Column(Integer, ForeignKey('educationlanguage.id'))
@@ -795,3 +783,19 @@ class BranchReport(db.Model):
             },
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+
+from backend.home_page.models import *
+from backend.account.models import *
+from backend.time_table.models import *
+from backend.group.models import *
+from backend.student.models import *
+from backend.teacher.models import *
+from backend.certificate.models import *
+from backend.book.models import *
+from backend.lead.models import *
+from backend.for_programmers.models import *
+from backend.tasks.models.models import *
+from backend.account.profile.models import *
+from backend.parent.models import *
+from backend.teacher.assistent.models import *

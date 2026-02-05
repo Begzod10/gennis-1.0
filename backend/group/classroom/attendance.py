@@ -445,10 +445,13 @@ def make_attendance_classroom():
         StudentCharity.group_id == group_id,
         StudentCharity.student_id == student.id
     ).first()
-
+    assistent = group.assistent
+    assistent_salary_per_day = 0
     # Calculate financial values
     balance_per_day = round(group.price / group.attendance_days)
     salary_per_day = round(group.teacher_salary / group.attendance_days)
+    if assistent:
+        assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
 
     balance_with_discount = 0
     discount_per_day = 0
@@ -542,8 +545,10 @@ def make_attendance_classroom():
     ).first()
 
     fine = 0
+    assistent_fine = 0
     if today_lesson_plan or ball < 5:
         fine = round(salary_per_day / group.attendance_days)
+        assistent_fine = round(assistent_salary_per_day / group.attendance_days)
     if teacher.user.username == "rimefara_teach" or teacher.user.username == "Asiko":
         fine = 0
     # Update student ball_time
@@ -557,6 +562,7 @@ def make_attendance_classroom():
             student_id=student.id,
             calendar_day=calendar_day.id,
             attendance_id=attendance.id,
+            assistent_salary_per_day=assistent_salary_per_day,
             reason="",
             status=0,
             balance_per_day=balance_per_day,
@@ -567,7 +573,8 @@ def make_attendance_classroom():
             discount_per_day=discount_per_day,
             teacher_ball=ball,
             fine=fine,
-            discount=discount_status
+            discount=discount_status,
+            assistent_fine=assistent_fine
         )
     elif homework == 0 and dictionary == 0 and active == 0:
         # Present without scores
@@ -585,7 +592,9 @@ def make_attendance_classroom():
             location_id=group.location_id,
             discount=discount_status,
             discount_per_day=discount_per_day,
-            fine=fine
+            fine=fine,
+            assistent_salary_per_day=assistent_salary_per_day,
+            assistent_fine=assistent_fine
         )
     else:
 
@@ -608,7 +617,9 @@ def make_attendance_classroom():
             salary_per_day=salary_per_day,
             discount=discount_status,
             discount_per_day=discount_per_day,
-            fine=fine
+            fine=fine,
+            assistent_salary_per_day=assistent_salary_per_day,
+            assistent_fine=assistent_fine
         )
 
     db.session.add(attendance_add)
@@ -675,7 +686,8 @@ def make_attendance_classroom():
         calendar_month_id=calendar_month.id,
         calendar_year_id=calendar_year.id,
         location_id=student.user.location_id,
-        salary_per_day=salary_per_day
+        salary_per_day=salary_per_day,
+        assistent_salary_per_day=assistent_salary_per_day
     )
 
     # Return immediately to user - background tasks will complete asynchronously
@@ -728,7 +740,9 @@ def make_attendance_classroom_mobile():
         joinedload(Groups.subject),
         joinedload(Groups.course_type)
     ).filter(Groups.id == group_id).first()
-
+    assistent = None
+    if group.assistent:
+        assistent = group.assistent
     if not group:
         return jsonify({
             "errors": [{

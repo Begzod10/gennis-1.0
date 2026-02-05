@@ -3,11 +3,8 @@ import enum
 from backend.models.models import Column, Integer, ForeignKey, String, relationship, DateTime, Enum, db, desc, \
     contains_eager, Text, Boolean
 from backend.student.models import Students
-from backend.group.models import Groups
 from backend.models.utils import clone_group_info
 from datetime import datetime
-
-from backend.teacher.assistent.models import Assistent
 
 
 class Teachers(db.Model):
@@ -18,7 +15,7 @@ class Teachers(db.Model):
     assistent = relationship(
         "Assistent",
         backref='teacher',
-        order_by=Assistent.id
+        order_by="Assistent.id"
     )
     group = relationship('Groups', secondary="teacher_group", backref="teacher", order_by="Groups.id")
     attendance = relationship("Attendance", backref="teacher", order_by="Attendance.id")
@@ -49,7 +46,6 @@ class Teachers(db.Model):
     student_certificate = relationship("StudentCertificate", backref="teacher", order_by="StudentCertificate.id")
     total_students = Column(Integer)
 
-
     def convert_json(self, entire=False):
         return {
             "info": self.user.convert_json(entire=True)
@@ -72,10 +68,11 @@ class Teachers(db.Model):
         return info
 
 
-db.Table('teacher_locations',
-         db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
-         db.Column('location_id', db.Integer, db.ForeignKey('locations.id'))
-         )
+db.Table(
+    'teacher_locations',
+    db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
+    db.Column('location_id', db.Integer, db.ForeignKey('locations.id'))
+)
 
 
 class DeletedTeachers(db.Model):
@@ -112,6 +109,7 @@ class LessonPlan(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        from backend.models.models import Groups
         students = db.session.query(Students).join(Students.group).options(
             contains_eager(Students.group)).filter(
             Groups.id == self.group_id).order_by(Students.id).all()

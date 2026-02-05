@@ -5,7 +5,7 @@ from backend.functions.debt_salary_update import salary_debt, find_calendar_date
 from backend.student.class_model import Student_Functions
 from backend.functions.utils import update_salary
 from backend.models.models import TeacherBlackSalary, Students, db, Locations, DeletedStudents, RegisterDeletedStudents, \
-    Groups, StudentPayments, BranchReport, Users, Teachers, Staff
+    Groups, StudentPayments, BranchReport, Users, Teachers, Staff, AssistentBlackSalary, Assistent
 import logging
 from sqlalchemy import or_
 from backend.teacher.utils import send_telegram_message
@@ -167,7 +167,7 @@ def send_attendance_notification(self, student_id, attendance_day_id, group_id):
 def handle_post_attendance_completion(step1_results, teacher_user_id, is_debtor,
                                       teacher_id, student_id, calendar_month_id,
                                       calendar_year_id, location_id, salary_per_day,
-                                      attendance_day_id, group_id):
+                                      attendance_day_id, group_id, assistent_salary_per_day):
     """
     Callback task that runs after initial parallel tasks complete
 
@@ -176,7 +176,7 @@ def handle_post_attendance_completion(step1_results, teacher_user_id, is_debtor,
         ... (other parameters passed through)
     """
     try:
-        # Extract salary_location_id from results
+        # Extract results from step 1
         # step1_results is a list: [debt_balance_result, salary_debt_result]
         debt_result = step1_results[0] if len(step1_results) > 0 else {}
         salary_result = step1_results[1] if len(step1_results) > 1 else {}
@@ -188,7 +188,7 @@ def handle_post_attendance_completion(step1_results, teacher_user_id, is_debtor,
         # Step 2: Update teacher salary
         update_teacher_salary.delay(teacher_user_id)
 
-        # Step 3: Handle black salary if debtor
+        # Step 3: Handle teacher black salary if debtor
         if is_debtor and salary_location_id:
             process_black_salary.delay(
                 teacher_id=teacher_id,
@@ -199,9 +199,22 @@ def handle_post_attendance_completion(step1_results, teacher_user_id, is_debtor,
                 salary_location_id=salary_location_id,
                 salary_per_day=salary_per_day
             )
-            logger.info(f"Triggered black salary processing for student {student_id}")
+            logger.info(f"Triggered teacher black salary processing for student {student_id}")
 
-        # Step 4: Send notification (fire and forget)
+        # Step 4: Handle assistant black salary if debtor
+        if is_debtor:
+            process_assistant_black_salary.delay(
+                student_id=student_id,
+                group_id=group_id,
+                calendar_month_id=calendar_month_id,
+                calendar_year_id=calendar_year_id,
+                location_id=location_id,
+                attendance_day_id=attendance_day_id,
+                assistent_salary_per_day=assistent_salary_per_day
+            )
+            logger.info(f"Triggered assistant black salary processing for student {student_id}")
+
+        # Step 5: Send notification (fire and forget)
         send_attendance_notification.delay(student_id, attendance_day_id, group_id)
 
         logger.info(f"Successfully orchestrated post-attendance tasks for student {student_id}")
@@ -216,12 +229,123 @@ def handle_post_attendance_completion(step1_results, teacher_user_id, is_debtor,
         raise
 
 
+@shared_task(bind=True, max_retries=3)
+def process_assistant_black_salary(self, student_id, group_id, calendar_month_id,
+                                   calendar_year_id, location_id, attendance_day_id, assistent_salary_per_day):
+    """
+    Process black salary for assistants when student is a debtor
+
+    Args:
+        student_id: Student ID
+        group_id: Group ID
+        calendar_month_id: Calendar month ID
+        calendar_year_id: Calendar year ID
+        location_id: Location ID
+        attendance_day_id: Attendance day ID
+    """
+    try:
+        from backend.models.models import db
+        from backend.group.models import Groups
+        from backend.teacher.assistent.models import Assistent, AssistentSalary, AssistentBlackSalary
+        from backend.models.models import AttendanceDays
+        from sqlalchemy.orm import joinedload
+
+        # Get group with assistants
+        group = db.session.query(Groups).options(
+            joinedload(Groups.assistent)
+        ).filter(Groups.id == group_id).first()
+
+        if not group or not group.assistent:
+            logger.info(f"No assistants found for group {group_id}")
+            return {"status": "no_assistants", "group_id": group_id}
+
+        # Get attendance day details
+        attendance_day = AttendanceDays.query.filter(
+            AttendanceDays.id == attendance_day_id
+        ).first()
+
+        if not attendance_day:
+            logger.error(f"Attendance day {attendance_day_id} not found")
+            return {"status": "error", "message": "Attendance day not found"}
+
+        # Process each assistant
+        processed_assistants = []
+
+        for assistant in group.assistent:
+            if not assistant.percentage:
+                continue
+
+            # Calculate assistant's portion of the salary
+
+            # Get or create assistant salary record
+            assistant_salary = AssistentSalary.query.filter(
+                AssistentSalary.location_id == location_id,
+                AssistentSalary.assisten_id == assistant.id,
+                AssistentSalary.calendar_year == calendar_year_id,
+                AssistentSalary.calendar_month == calendar_month_id
+            ).first()
+
+            if not assistant_salary:
+                logger.warning(f"No salary record found for assistant {assistant.id}")
+                continue
+
+            # Check if black salary already exists
+            existing_black_salary = AssistentBlackSalary.query.filter(
+                AssistentBlackSalary.assistent_id == assistant.id,
+                AssistentBlackSalary.student_id == student_id,
+                AssistentBlackSalary.calendar_month == calendar_month_id,
+                AssistentBlackSalary.calendar_year == calendar_year_id,
+                AssistentBlackSalary.location_id == location_id
+            ).first()
+
+            if not existing_black_salary:
+                # Create black salary record
+                black_salary = AssistentBlackSalary(
+                    assistent_id=assistant.id,
+                    total_salary=assistent_salary_per_day,
+                    location_id=location_id,
+                    calendar_month=calendar_month_id,
+                    calendar_year=calendar_year_id,
+                    student_id=student_id,
+                    salary_id=assistant_salary.id,
+                    payment_id=None,  # Will be set when payment is made
+                    status=False
+                )
+                db.session.add(black_salary)
+            else:
+                existing_black_salary.total_salary += assistent_salary_per_day
+            processed_assistants.append({
+                "assistant_id": assistant.id,
+                "black_salary": assistent_salary_per_day
+            })
+
+            logger.info(f"Created black salary {assistent_salary_per_day} for assistant {assistant.id}")
+
+        # Commit all black salary records
+        db.session.commit()
+
+        logger.info(f"Processed assistant black salaries for {len(processed_assistants)} assistants")
+
+        return {
+            "status": "success",
+            "student_id": student_id,
+            "group_id": group_id,
+            "processed_assistants": processed_assistants
+        }
+
+    except Exception as exc:
+        db.session.rollback()
+        logger.error(f"Error processing assistant black salary for student {student_id}: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
+
+
 # ✅ FIXED: Main orchestration task using chord
 @shared_task
 def process_attendance_post_save(student_id, group_id, attendance_day_id,
                                  teacher_user_id, is_debtor, teacher_id,
                                  calendar_month_id, calendar_year_id,
-                                 location_id, salary_per_day):
+                                 location_id, salary_per_day, assistent_salary_per_day):
     """
     Main orchestration task that coordinates all post-attendance operations
     Uses Celery chord pattern to avoid blocking
@@ -229,7 +353,7 @@ def process_attendance_post_save(student_id, group_id, attendance_day_id,
     Workflow:
     1. Run student debt/balance and salary debt in parallel (group)
     2. After both complete, trigger callback (chord)
-    3. Callback processes results and launches remaining tasks
+    3. Callback processes results and launches remaining tasks (including assistant black salary)
 
     Args:
         student_id: Student ID
@@ -262,7 +386,8 @@ def process_attendance_post_save(student_id, group_id, attendance_day_id,
                 location_id=location_id,
                 salary_per_day=salary_per_day,
                 attendance_day_id=attendance_day_id,
-                group_id=group_id
+                group_id=group_id,
+                assistent_salary_per_day=assistent_salary_per_day
             )
         )
 

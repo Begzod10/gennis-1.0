@@ -75,7 +75,6 @@ def create_app(config_name='backend.models.config'):
     # Define media folder path
     MEDIA_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'media')
     app.config['MEDIA_FOLDER'] = MEDIA_FOLDER
-
     # CORS - more specific configuration
     CORS(app, resources={
         r"/api/*": {

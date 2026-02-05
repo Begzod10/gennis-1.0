@@ -490,24 +490,67 @@ def update_staff_salary_id(salary_id):
 
 
 def update_teacher_salary_id(salary_id):
-    teacher_salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
-    salaries = TeacherSalaries.query.filter(TeacherSalaries.salary_location_id == salary_id).all()
-    user_books = UserBooks.query.filter(UserBooks.salary_location_id == salary_id).all()
+    """
+    Update teacher salary calculations - OPTIMIZED
+    """
+    # OPTIMIZATION: Single query with eager loading
+    teacher_salary = db.session.query(TeacherSalary).options(
+        joinedload(TeacherSalary.month),
+        joinedload(TeacherSalary.year)
+    ).filter(TeacherSalary.id == salary_id).first()
+
+    if not teacher_salary:
+        return None
+
+    # OPTIMIZATION: Fetch all related data in parallel queries
+    # Query 1: Teacher salaries
+    salaries = TeacherSalaries.query.filter(
+        TeacherSalaries.salary_location_id == salary_id
+    ).all()
+
+    # Query 2: User books
+    user_books = UserBooks.query.filter(
+        UserBooks.salary_location_id == salary_id
+    ).all()
+
+    # Query 3: Black salaries
     black_salaries = TeacherBlackSalary.query.filter(
         TeacherBlackSalary.calendar_month == teacher_salary.calendar_month,
-        TeacherBlackSalary.teacher_id == teacher_salary.id,
-        TeacherBlackSalary.status == False).all()
-    black_salary = 0
-    for salary in black_salaries:
-        black_salary += salary.total_salary
-    salary = 0
-    for salary_get in salaries:
-        salary += salary_get.payment_sum
-    for book_payment_get in user_books:
-        salary += book_payment_get.payment_sum
-    teacher_salary.remaining_salary = teacher_salary.total_salary - (salary + black_salary)
-    teacher_salary.taken_money = salary
+        TeacherBlackSalary.calendar_year == teacher_salary.calendar_year,  # Added for accuracy
+        TeacherBlackSalary.teacher_id == teacher_salary.teacher_id,
+        TeacherBlackSalary.location_id == teacher_salary.location_id,  # Added for accuracy
+        or_(
+            TeacherBlackSalary.status == False,
+            TeacherBlackSalary.status == None
+        )
+    ).all()
+
+    # OPTIMIZATION: Calculate totals in memory using sum()
+    black_salary_total = sum(salary.total_salary for salary in black_salaries)
+    salary_payments = sum(salary_get.payment_sum for salary_get in salaries)
+    book_payments = sum(book.payment_sum for book in user_books)
+
+    # Calculate totals
+    total_taken = salary_payments + book_payments
+
+    # Get debt (carry over from previous month)
+    debt = teacher_salary.debt if teacher_salary.debt else 0
+
+    # Update teacher salary record
+    teacher_salary.taken_money = total_taken
+    teacher_salary.remaining_salary = teacher_salary.total_salary - (
+            total_taken + black_salary_total + teacher_salary.total_fine - debt
+    )
+
+    # Update status based on payment
+    if total_taken >= teacher_salary.total_salary:
+        teacher_salary.status = True
+    else:
+        teacher_salary.status = False
+
     db.session.commit()
+
+    return teacher_salary
 
 
 def update_camp_salary_id(salary_id):

@@ -1,5 +1,5 @@
 from backend.models.models import db, Integer, String, Column, func, Boolean, ForeignKey, relationship, Students, \
-    Groups, DateTime
+    DateTime
 
 assistent_subject = db.Table('assistent_subject',
                              db.Column('assistent_id', db.Integer, db.ForeignKey('assistent.id'), primary_key=True),
@@ -108,6 +108,7 @@ class AssistentBlackSalary(db.Model):
         db.session.commit()
 
     def convert_json(self, entire=False):
+        from backend.models.models import Groups
         student = Students.query.filter(Students.id == self.student_id).first()
         group = Groups.query.filter(Groups.teacher_id == self.teacher_id).first()
         return {

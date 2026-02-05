@@ -445,7 +445,11 @@ def create_group_time(location_id):
     subject = request.get_json()['groupInfo']['subject']
     type_course = request.get_json()['groupInfo']['typeCourse']
     teacher_salary = int(request.get_json()['groupInfo']['teacherDolya'])
-    if 'assistent_id'  in request.get_json()['groupInfo']:
+    if 'assistentSalary' in request.get_json()['groupInfo']:
+        assistent_salary = int(request.get_json()['groupInfo']['assistentSalary'])
+    else:
+        assistent_salary = None
+    if 'assistent_id' in request.get_json()['groupInfo']:
         assistent_id = request.get_json()['groupInfo']['assistent_id']
         assistent = Assistent.query.filter(Assistent.user_id == assistent_id).first()
         assistent_id = assistent.id
@@ -459,6 +463,7 @@ def create_group_time(location_id):
                  education_language=teacher.user.education_language, calendar_day=calendar_day.id, attendance_days=13,
                  calendar_month=calendar_month.id, calendar_year=calendar_year.id, teacher_id=teacher.id,
                  assistent_id=assistent_id,
+                 assistent_salary=assistent_salary,
                  price=group_price, teacher_salary=teacher_salary)
     db.session.add(add)
     db.session.commit()
@@ -1225,3 +1230,22 @@ def delete_student():
             "success": True,
             "msg": "Student ro'yxatdan o'chirildi"
         })
+
+
+@group_create_bp.route(f'/delete_asistent_group/<asistent_id>/<group_id>', methods=['DELETE'])
+@jwt_required()
+def delete_asistent_group(asistent_id, group_id):
+    assistent = Assistent.query.filter(Assistent.id == asistent_id).first()
+    group = Groups.query.filter(Groups.id == group_id).first()
+    time_tables = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
+    for time in time_tables:
+        if time in assistent.time_table:
+            assistent.time_table.remove(time)
+            db.session.commit()
+    if group in assistent.groups:
+        assistent.groups.remove(group)
+        db.session.commit()
+    return jsonify({
+        "success": True,
+        "msg": "Assistent guruhdan o'chirildi"
+    })

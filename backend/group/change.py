@@ -26,6 +26,10 @@ def change_group_info(group_id):
     language = get_json_field('eduLang')
     course_type = get_json_field('courseType')
     status = get_json_field('status')
+    if 'assistentSalary' in request.get_json():
+        assistent_salary = int(get_json_field('assistentSalary'))
+    else:
+        assistent_salary = None
     level_id = None
 
     if 'level_id' in request.get_json():
@@ -47,7 +51,8 @@ def change_group_info(group_id):
         "education_language": language.id,
         "course_type_id": course_type.id,
         "status": status,
-        "level_id": level_id
+        "level_id": level_id,
+        "assistent_salary": assistent_salary
     })
     if old_teacher.id != teacher.id:
         if group in old_teacher.group:
@@ -108,9 +113,10 @@ def add_assistent_group(assistent_id, group_id):
     new_assistent = Assistent.query.filter(Assistent.user_id == assistent_id).first()
     old_assistent = Assistent.query.filter(Assistent.id == group.assistent_id).first()
     time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).all()
-    if group in old_assistent.groups:
-        old_assistent.groups.remove(group)
-        db.session.commit()
+    if old_assistent:
+        if group in old_assistent.groups:
+            old_assistent.groups.remove(group)
+            db.session.commit()
 
     if group not in new_assistent.groups:
         new_assistent.groups.append(group)
@@ -119,9 +125,10 @@ def add_assistent_group(assistent_id, group_id):
         if time not in new_assistent.time_table:
             new_assistent.time_table.append(time)
             db.session.commit()
-        if time in old_assistent.time_table:
-            old_assistent.time_table.remove(time)
-            db.session.commit()
+        if old_assistent:
+            if time in old_assistent.time_table:
+                old_assistent.time_table.remove(time)
+                db.session.commit()
     Groups.query.filter(Groups.id == group_id).update({
         "assistent_id": new_assistent.id
     })
@@ -171,8 +178,8 @@ def delete_group(group_id):
         teacher.group.remove(group)
         db.session.commit()
     if assistent:
-        if group in assistent.group:
-            assistent.group.remove(group)
+        if group in assistent.groups:
+            assistent.groups.remove(group)
             db.session.commit()
     for time in time_table:
         Group_Room_Week.query.filter(Group_Room_Week.id == time.id).delete()
