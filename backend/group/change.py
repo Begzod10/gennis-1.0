@@ -476,13 +476,19 @@ def check_teacher_time(group_id):
             "conflicts": []
         }
 
+        # Check if teacher has assistants
+        teacher_has_assistant = bool(teacher.assistent and len(teacher.assistent) > 0)
+
         # Check conflicts against group's schedule (in-memory)
         for group_time in time_table_group:
             group_start = group_time.start_time.time() if isinstance(group_time.start_time,
                                                                      datetime) else group_time.start_time
             group_end = group_time.end_time.time() if isinstance(group_time.end_time, datetime) else group_time.end_time
+            group_room_id = group_time.room_id
 
-            # Check teacher's existing schedule
+            # ✅ Find all conflicting lessons for this time slot
+            conflicting_lessons = []
+
             for teacher_schedule in teacher.time_table:
                 # Skip if it's the current group or different week/location
                 if (teacher_schedule.group_id == group_id or
@@ -496,23 +502,74 @@ def check_teacher_time(group_id):
                                                                               datetime) else teacher_schedule.end_time
 
                 # Check for time overlap
-                if (schedule_start <= group_start < schedule_end or
+                has_time_overlap = (
+                        schedule_start <= group_start < schedule_end or
                         schedule_start < group_end <= schedule_end or
-                        (group_start <= schedule_start and group_end >= schedule_end)):
+                        (group_start <= schedule_start and group_end >= schedule_end)
+                )
 
-                    # Check if the conflicting lesson already has an assistant assigned
-                    # If it has an assistant, the teacher can delegate it and take the new lesson
-                    if not teacher_schedule.assistent or len(teacher_schedule.assistent) == 0:
-                        # No assistant assigned to this existing lesson - real conflict!
+                if has_time_overlap:
+                    conflicting_lessons.append(teacher_schedule)
+
+            # ✅ Analyze conflicts
+            if conflicting_lessons:
+                # Check for same room conflict (always a conflict)
+                same_room_conflict = any(schedule.room_id == group_room_id for schedule in conflicting_lessons)
+
+                if same_room_conflict:
+                    # Same room - always a conflict
+                    same_room_schedule = next(s for s in conflicting_lessons if s.room_id == group_room_id)
+                    schedule_start = same_room_schedule.start_time.time() if isinstance(same_room_schedule.start_time,
+                                                                                        datetime) else same_room_schedule.start_time
+                    schedule_end = same_room_schedule.end_time.time() if isinstance(same_room_schedule.end_time,
+                                                                                    datetime) else same_room_schedule.end_time
+
+                    conflict_msg = (
+                        f"{same_room_schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                        f"{schedule_end.strftime('%H:%M')}' gacha {same_room_schedule.group.name} da "
+                        f"bir xil xonada ({same_room_schedule.room.name}) darsi bor"
+                    )
+                    info["conflicts"].append(conflict_msg)
+                    info["color"] = "red"
+                    info["error"] = True
+
+                # Check for "too many lessons" conflict
+                elif len(conflicting_lessons) >= 2:
+                    # Already has 2 lessons at this time - can't add a 3rd
+                    first_schedule = conflicting_lessons[0]
+                    schedule_start = first_schedule.start_time.time() if isinstance(first_schedule.start_time,
+                                                                                    datetime) else first_schedule.start_time
+                    schedule_end = first_schedule.end_time.time() if isinstance(first_schedule.end_time,
+                                                                                datetime) else first_schedule.end_time
+
+                    conflict_msg = (
+                        f"{first_schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                        f"{schedule_end.strftime('%H:%M')}' gacha allaqachon 2 ta dars bor - "
+                        f"maksimum 2 ta dars bir vaqtda"
+                    )
+                    info["conflicts"].append(conflict_msg)
+                    info["color"] = "red"
+                    info["error"] = True
+
+                elif len(conflicting_lessons) == 1:
+                    # Already has 1 lesson - can add 2nd only if has assistant and different room
+                    if not teacher_has_assistant:
+                        # No assistant - can't have 2 lessons at once
+                        schedule = conflicting_lessons[0]
+                        schedule_start = schedule.start_time.time() if isinstance(schedule.start_time,
+                                                                                  datetime) else schedule.start_time
+                        schedule_end = schedule.end_time.time() if isinstance(schedule.end_time,
+                                                                              datetime) else schedule.end_time
+
                         conflict_msg = (
-                            f"{teacher_schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
-                            f"{schedule_end.strftime('%H:%M')}' gacha {teacher_schedule.group.name} da darsi bor"
+                            f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                            f"{schedule_end.strftime('%H:%M')}' gacha {schedule.group.name} da darsi bor "
+                            f"(assistant yo'q)"
                         )
-
                         info["conflicts"].append(conflict_msg)
                         info["color"] = "red"
                         info["error"] = True
-                    # else: This lesson has an assistant, so teacher can delegate it - no conflict!
+                    # else: Has assistant and different room - NO CONFLICT ✅
 
         # Set shift to first conflict if any
         if info["conflicts"]:
