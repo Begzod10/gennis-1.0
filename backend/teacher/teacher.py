@@ -359,6 +359,7 @@ def make_attendance():
     student_obj.ball_time = ball_time
     salary_per_day = round(group.teacher_salary / group.attendance_days)
     assistent = group.assistent if group.assistent else None
+    assistent_salary_per_day = 0
     if assistent:
         assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
     # Attendance record
