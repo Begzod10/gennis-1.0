@@ -60,8 +60,8 @@ class Groups(db.Model):
                 "name": self.name,
                 "students": len(self.student),
                 "teacher__id": self.teacher_id,
-                "teacher_name": self.teacher[0].user.name,
-                "teacher_surname": self.teacher[0].user.surname,
+                "teacher_name": self.teacher[0].user.name if self.teacher else None,
+                "teacher_surname": self.teacher[0].user.surname if self.teacher else None,
                 "student_list": [],
                 "level": self.level.name if self.level else None
             }
