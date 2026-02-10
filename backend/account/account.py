@@ -11,6 +11,7 @@ from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes,
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
     CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead
+from backend.teacher.assistent.models import AssistentSalaries, DeletedAsistentSalaries, Assistent
 from backend.models.settings import sum_money
 
 account_bp = Blueprint('account_bp', __name__)
@@ -118,6 +119,12 @@ def get_statistics():
         Overhead.payment_type_id
     )
 
+    assistent_salaries, assistent_salaries_sum = get_stats(
+        AssistentSalaries, AssistentSalaries.location_id,
+        AssistentSalaries.payment_sum, AssistentSalaries.calendar_day,
+        AssistentSalaries.payment_type_id
+    )
+
     new_students = get_simple_stats(Students, Students.created_day_id, join_user=True)
     joined_students = get_simple_stats(Students, Students.joined_day_id, join_user=True)
 
@@ -147,13 +154,14 @@ def get_statistics():
         ]
     }
 
-    expenses_sum = teacher_salaries_sum + staff_salaries_sum + overheads_sum
+    expenses_sum = teacher_salaries_sum + staff_salaries_sum + assistent_salaries_sum + overheads_sum
     overall_sum = payments_sum - expenses_sum
 
     data = {
         "payments": payments,
         "teacher_salaries": teacher_salaries,
         "staff_salaries": staff_salaries,
+        "assistent_salaries": assistent_salaries,
         "overheads": overheads,
         "new_students": new_students,
         "joined_students": joined_students,
@@ -645,6 +653,82 @@ def account_info_teacher_salary():
     return jsonify({
         "data": {
             "typeOfMoney": "teacher_salary",
+            "data": payments_list,
+            "pagination": pagination_data,
+            "overhead_tools": old_current_dates(observation=True),
+            "capital_tools": old_current_dates(observation=True),
+            "location": location
+        }
+    })
+
+
+@account_bp.route('/account_info/assistent_salary/', methods=["GET"])
+@jwt_required()
+def account_info_assistent_salary():
+    location = request.args.get('locationId', type=int)
+    type_filter = request.args.get('typeFilter')
+    payment_type_name = request.args.get('paymentType')
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    day = request.args.get('day', type=int)
+    deleted = request.args.get('deleted', type=int)
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+
+    AssistentSalaryModel = DeletedAsistentSalaries if deleted else AssistentSalaries
+
+    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
+
+    query = AssistentSalaryModel.query.filter(AssistentSalaryModel.location_id == location)
+
+    if not type_filter:
+        query = query.filter(AssistentSalaryModel.account_period_id == accounting_period)
+
+    if payment_type_name:
+        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type_name).first()
+        if payment_type:
+            query = query.filter(AssistentSalaryModel.payment_type_id == payment_type.id)
+
+    if year:
+        query = query.filter(AssistentSalaryModel.calendar_year == year)
+    if month:
+        query = query.filter(AssistentSalaryModel.calendar_month == month)
+    if day:
+        query = query.filter(AssistentSalaryModel.calendar_day == day)
+
+    query = query.order_by(desc(AssistentSalaryModel.id))
+
+    total = query.count()
+    if limit:
+        query = query.offset(offset).limit(limit)
+
+    salaries = query.all()
+
+    payments_list = [{
+        "id": s.id,
+        "name": s.assistent.user.name.title() if s.assistent and s.assistent.user else None,
+        "surname": s.assistent.user.surname.title() if s.assistent and s.assistent.user else None,
+        "salary": s.payment_sum,
+        "typePayment": s.payment_type.name,
+        "date": s.day.date.strftime("%Y-%m-%d"),
+        "day": str(s.calendar_day),
+        "month": str(s.calendar_month),
+        "year": str(s.calendar_year),
+        "user_id": s.assistent.user_id if s.assistent else None
+    } for s in salaries]
+
+    pagination_data = None
+    if limit:
+        pagination_data = {
+            "total": total,
+            "page": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < total
+        }
+
+    return jsonify({
+        "data": {
+            "typeOfMoney": "assistent_salary",
             "data": payments_list,
             "pagination": pagination_data,
             "overhead_tools": old_current_dates(observation=True),
@@ -1292,6 +1376,22 @@ def account_info_deleted(type_filter):
             "user_id": p.teacher.user_id, "reason": p.reason_deleted
         } for p in teacher_salaries]
 
+    elif type_account == "assistent_salary":
+        query = DeletedAsistentSalaries.query.filter(DeletedAsistentSalaries.location_id == location)
+        if not type_filter:
+            query = query.filter(DeletedAsistentSalaries.account_period_id == accounting_period)
+        assistent_salaries = apply_pagination(query.order_by(DeletedAsistentSalaries.id))
+        type_account = "user"
+        payments_list = [{
+            "id": p.id,
+            "name": p.assistent.user.name.title() if p.assistent and p.assistent.user else None,
+            "surname": p.assistent.user.surname.title() if p.assistent and p.assistent.user else None,
+            "salary": p.payment_sum, "typePayment": p.payment_type.name,
+            "date": p.day.date.strftime("%Y-%m-%d"),
+            "day": str(p.calendar_day), "month": str(p.calendar_month), "year": str(p.calendar_year),
+            "user_id": p.assistent.user_id if p.assistent else None, "reason": p.reason_deleted
+        } for p in assistent_salaries]
+
     elif type_account == "staff_salary":
         query = DeletedStaffSalaries.query.filter(DeletedStaffSalaries.location_id == location)
         if not type_filter:
@@ -1441,6 +1541,17 @@ def account_details(location_id):
                                                                                CalendarDay.id == StaffSalaries.calendar_day).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, StaffSalaries.location_id == location_id,
                  StaffSalaries.payment_type_id == payment_type.id)).first()[0] if staff_salaries else 0
+
+        assistent_salaries = db.session.query(AssistentSalaries).join(AssistentSalaries.day).options(
+            contains_eager(AssistentSalaries.day)).filter(
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, AssistentSalaries.location_id == location_id,
+                 AssistentSalaries.payment_type_id == payment_type.id)).order_by(desc(AssistentSalaries.id)).all()
+
+        all_assistent = db.session.query(func.sum(AssistentSalaries.payment_sum)).join(CalendarDay,
+                                                                                       CalendarDay.id == AssistentSalaries.calendar_day).filter(
+            and_(CalendarDay.date >= ot, CalendarDay.date <= do, AssistentSalaries.location_id == location_id,
+                 AssistentSalaries.payment_type_id == payment_type.id)).first()[0] if assistent_salaries else 0
+
         overhead = db.session.query(Overhead).join(Overhead.day).options(contains_eager(Overhead.day)).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, Overhead.location_id == location_id,
                  Overhead.payment_type_id == payment_type.id)).order_by(desc(Overhead.id)).all()
@@ -1522,6 +1633,15 @@ def account_details(location_id):
                          "month": salary.month.date.strftime("%Y-%m"), "date": salary.day.date.strftime('%Y-%m-%d'),
                          "user_id": salary.staff.user_id if salary.staff else None} for salary in staff_salaries]
 
+        assistent_salary = [
+            {"id": salary.id,
+             "name": salary.assistent.user.name.title() if salary.assistent and salary.assistent.user else None,
+             "surname": salary.assistent.user.surname.title() if salary.assistent and salary.assistent.user else None,
+             "salary": salary.payment_sum, "reason": salary.reason,
+             "month": salary.salary.month.date.strftime("%Y-%m") if salary.salary else None,
+             "date": salary.day.date.strftime('%Y-%m-%d'),
+             "user_id": salary.assistent.user_id if salary.assistent else None} for salary in assistent_salaries]
+
         overhead_list = [{"id": salary.id, "name": salary.item_name, "payment": salary.item_sum,
                           "date": salary.day.date.strftime('%Y-%m-%d')} for salary in overhead]
         overhead_list += [{"id": branch_payment.id, "name": "Kitobchiga pul ", "payment": branch_payment.payment_sum,
@@ -1543,10 +1663,11 @@ def account_details(location_id):
         # all_investment = all_investment if all_investment else 0
         all_investment = sum([investment.amount for investment in investments])
         result = (all_payment + all_investment) - (
-                all_overhead + all_teacher + all_staff + all_capital + center_balance_all + branch_payments_all + all_dividend)
+                all_overhead + all_teacher + all_staff + all_assistent + all_capital + center_balance_all + branch_payments_all + all_dividend)
         return jsonify({"data": {"data": {"studentPayment": {"list": payments_list, "value": all_payment},
                                           "teacherSalary": {"list": teacher_salary, "value": all_teacher},
                                           "employeeSalary": {"list": staff_salary, "value": all_staff},
+                                          "assistentSalary": {"list": assistent_salary, "value": all_assistent},
                                           "overheads": {"list": overhead_list, "value": all_overhead},
                                           "capitals": {"list": capital_list, "value": all_capital},
                                           "investments": {"list": investment_list, "value": all_investment},
@@ -1629,6 +1750,9 @@ def get_location_money(location_id):
         staff_salaries = sum_money(StaffSalaries.payment_sum, StaffSalaries.account_period_id, accounting_period.id,
                                    StaffSalaries.location_id, location_id, StaffSalaries.payment_type_id,
                                    payment_type.id)
+        assistent_salaries_sum = sum_money(AssistentSalaries.payment_sum, AssistentSalaries.account_period_id,
+                                           accounting_period.id, AssistentSalaries.location_id, location_id,
+                                           AssistentSalaries.payment_type_id, payment_type.id)
         overhead = sum_money(Overhead.item_sum, Overhead.account_period_id, accounting_period.id, Overhead.location_id,
                              location_id, Overhead.payment_type_id, payment_type.id)
         dividends = db.session.query(Dividend).join(Dividend.day).options(contains_eager(Dividend.day)).filter(
@@ -1670,10 +1794,11 @@ def get_location_money(location_id):
             center_balance_overhead = 0
 
         current_cash = student_payments - (
-                teacher_salaries + staff_salaries + overhead + capital + center_balance_overhead + branch_payments + all_dividend)
+                teacher_salaries + staff_salaries + assistent_salaries_sum + overhead + capital + center_balance_overhead + branch_payments + all_dividend)
 
         account_list += [{"value": current_cash, "type": payment_type.name, "student_payments": student_payments,
                           "teacher_salaries": teacher_salaries, "staff_salaries": staff_salaries,
+                          "assistent_salaries": assistent_salaries_sum,
                           "overhead": overhead + branch_payments + center_balance_overhead, "capital": capital,
                           "dividend": all_dividend}]
 

@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSalary, CalendarMonth, CalendarYear, \
     TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
     DeletedStudents, CalendarDay, DeletedTeachers, Overhead, StudentPayments
+from backend.teacher.assistent.models import Assistent, AssistentSalary, AssistentBlackSalary
 from backend.student.class_model import Student_Functions
 
 home_screen_bp = Blueprint('home_screen_bp', __name__)
@@ -333,6 +334,91 @@ def home_screen_salaries():
             "debt": total_debt,
             "fine": total_fine
         })
+    elif type_salary == "assistent":
+        salary_dict = {}
+        total_salary = 0
+        total_taken_money = 0
+        total_black_salary = 0
+        total_debt = 0
+        total_fine = 0
+        total_remaining_salary = 0
+
+        salary_records = (
+            db.session.query(
+                AssistentSalary,
+                Assistent,
+                Users,
+                CalendarMonth,
+                CalendarYear
+            )
+            .join(Assistent, AssistentSalary.assisten_id == Assistent.id)
+            .join(Users, Assistent.user_id == Users.id)
+            .join(CalendarMonth, AssistentSalary.calendar_month == CalendarMonth.id)
+            .join(CalendarYear, CalendarMonth.year_id == CalendarYear.id)
+            .filter(
+                AssistentSalary.calendar_month == month_id,
+                AssistentSalary.calendar_year == year_id,
+                Users.location_id == location_id,
+                AssistentSalary.location_id == location_id,
+                or_(
+                    Assistent.deleted == False,
+                    Assistent.deleted == None,
+                    and_(
+                        Assistent.deleted == True,
+                        CalendarMonth.date > month_date_obj
+                    )
+                )
+            )
+        )
+
+        for salary, assistent, user, calendar_month, calendar_year in salary_records:
+            assistent_name = f"{user.name} {user.surname}"
+            assistent_salary = salary.total_salary
+            assistent_black_salaries = AssistentBlackSalary.query.filter(
+                AssistentBlackSalary.calendar_month == salary.calendar_month,
+                AssistentBlackSalary.assistent_id == assistent.id,
+                AssistentBlackSalary.location_id == location_id,
+                AssistentBlackSalary.status == False
+            ).all()
+            black_salary = 0
+            for black in assistent_black_salaries:
+                black_salary += black.total_salary
+            debt = salary.debt if salary.debt else 0
+            taken_money = salary.taken_money if salary.taken_money else 0
+            fine = salary.total_fine if salary.total_fine else 0
+            remaining_salary = assistent_salary - (taken_money + black_salary + fine - debt)
+
+            salary_dict[assistent.id] = {
+                'id': assistent.id,
+                'assistent_name': assistent_name,
+                "month": month_date_obj.strftime("%Y-%m"),
+                "is_deleted": assistent.deleted if assistent.deleted else False,
+                "assistent_salary": assistent_salary,
+                "taken_money": taken_money,
+                "remaining_salary": remaining_salary,
+                "black_salary": black_salary,
+                "debt": debt,
+                "fine": fine
+            }
+            total_remaining_salary += remaining_salary
+            total_fine += fine
+            total_debt += debt
+            total_black_salary += black_salary
+            total_salary += assistent_salary
+            total_taken_money += salary.taken_money if salary.taken_money else 0
+
+        salary_list = list(salary_dict.values())
+
+        return jsonify({
+            "salary_list": salary_list,
+            "total_salary": total_salary,
+            "taken_money": total_taken_money,
+            "remaining_salary": total_remaining_salary,
+            "black_salary": total_black_salary,
+            "debt": total_debt,
+            "fine": total_fine
+        })
+
     else:
         salary_dict = {}
         total_salary = 0

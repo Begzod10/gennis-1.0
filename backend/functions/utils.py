@@ -541,11 +541,11 @@ def update_teacher_salary_id(salary_id):
 
     # Get debt (carry over from previous month)
     debt = teacher_salary.debt if teacher_salary.debt else 0
-
+    total_fine = teacher_salary.total_fine if teacher_salary.total_fine else 0
     # Update teacher salary record
     teacher_salary.taken_money = total_taken
     teacher_salary.remaining_salary = teacher_salary.total_salary - (
-            total_taken + black_salary_total + teacher_salary.total_fine - debt
+            total_taken + black_salary_total + total_fine - debt
     )
 
     # Update status based on payment
@@ -609,7 +609,6 @@ def update_assistant_salary(salary_id):
     assistant_salary.remaining_salary = assistant_salary.total_salary - (
             total_taken + black_salary_total + assistant_salary.total_fine - debt
     )
-    print(assistant_salary.remaining_salary)
     # Update status based on payment
     if total_taken >= assistant_salary.total_salary:
         assistant_salary.status = True

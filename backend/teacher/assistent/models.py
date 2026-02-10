@@ -17,6 +17,9 @@ class Assistent(db.Model):
     percentage = db.Column(db.Integer, default=0)
     groups = db.relationship("Groups", backref="assistent", order_by="Groups.id")
     deleted = db.Column(db.Boolean, default=False)
+    assistent_given_salary = relationship('AssistentSalaries', backref="assistent", order_by="AssistentSalaries.id")
+    deleted_assistent_salaries = relationship("DeletedAsistentSalaries", backref="assistent",
+                                              order_by="DeletedAsistentSalaries.id")
     time_table = relationship("Group_Room_Week", secondary="time_table_assistent", backref="assistent",
                               order_by="Group_Room_Week.id",
                               lazy="select")
@@ -149,8 +152,8 @@ class AssistentSalaries(db.Model):
             "payment_type": self.payment_type.name,
             "reason": self.reason,
             'date': CalendarDay.query.get(self.calendar_day).date.strftime("%d.%m.%Y"),
-            "name": self.teacher.user.name if self.teacher and self.teacher.user else None,
-            "surname": self.teacher.user.surname if self.teacher and self.teacher.user else None,
+            "name": self.assistent.user.name if self.assistent and self.assistent.user else None,
+            "surname": self.assistent.user.surname if self.assistent and self.assistent.user else None,
         }
 
 
