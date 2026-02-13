@@ -16,7 +16,8 @@ celery = Celery(
         'backend.celery.tasks',
         'backend.celery.lead_calls',
         'backend.celery.debt_calls',
-        'backend.celery.new_students'
+        'backend.celery.new_students',
+        'backend.celery.check_lesson_plan'
     ]
 )
 
@@ -39,6 +40,12 @@ celery.conf.beat_schedule = {
     'update-branch-reports-every-minute': {
         'task': 'update_branch_reports',
         'schedule': crontab(hour=20, minute="0"),
+        'options': {'expires': 3600}
+    },
+    'check-lesson-plans-daily': {
+        'task': 'check_lesson_plans',
+        # 'schedule': crontab(hour=21, minute="0"),
+        'schedule': crontab(minute="*/1"),
         'options': {'expires': 3600}
     },
 }

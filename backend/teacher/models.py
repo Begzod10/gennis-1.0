@@ -92,6 +92,8 @@ class LessonPlan(db.Model):
     assessment = Column(String)
     activities = Column(String)
     resources = Column(String)
+    ball = Column(Integer)
+    conclusion = Column(String)
     date = Column(DateTime)
     updated_date = Column(DateTime)
     group_id = Column(Integer, ForeignKey('groups.id'))
@@ -122,6 +124,8 @@ class LessonPlan(db.Model):
             "assessment": self.assessment,
             "activities": self.activities,
             "resources": self.resources,
+            "ball": self.ball,
+            "conclusion": self.conclusion,
             "date": self.date.strftime("%Y-%m-%d"),
             "day": self.date.strftime("%d"),
             "month": self.date.strftime("%m"),
