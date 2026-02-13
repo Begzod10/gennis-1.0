@@ -53,13 +53,15 @@ def evaluate_lesson_plan(lesson_plan):
         resources=lesson_plan.resources or "",
     )
 
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model="gpt-5-mini-2025-08-07",
-        instructions=SYSTEM_PROMPT,
-        input=user_prompt,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
     )
 
-    result = json.loads(response.output_text.strip())
+    result = json.loads(response.choices[0].message.content.strip())
     score = int(result["ball"])
     conclusion = str(result["conclusion"])
 
