@@ -11,8 +11,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 client = OpenAI(
-    api_key=os.environ.get("VSEGPT_API_KEY"),
-    base_url=os.environ.get("OPENAI_BASE_URL", "https://api.vsegpt.ru/v1/"),
+    api_key=os.environ.get("PROXY_API_KEY"),
+    base_url=os.environ.get("OPENAI_BASE_URL", "https://gptunnel.ru/v1"),
 )
 
 SYSTEM_PROMPT = """You are an expert education evaluator. You will receive a teacher's lesson plan and must evaluate it.
