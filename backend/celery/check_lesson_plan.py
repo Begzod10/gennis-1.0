@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 client = OpenAI(
     api_key=os.environ.get("PROXY_API_KEY"),
-    base_url=os.environ.get("OPENAI_BASE_URL", "https://gptunnel.ru/v1"),
+    base_url=os.environ.get("OPENAI_BASE_URL", "https://openrouter.ai/api/v1"),
 )
 
 SYSTEM_PROMPT = """You are an expert education evaluator. You will receive a teacher's lesson plan and must evaluate it.
@@ -54,7 +54,7 @@ def evaluate_lesson_plan(lesson_plan):
     )
 
     response = client.chat.completions.create(
-        model="gpt-5-mini-2025-08-07",
+        model="openai/gpt-5-mini",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
