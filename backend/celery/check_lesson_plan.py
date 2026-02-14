@@ -77,39 +77,115 @@ def check_lesson_plans(self):
     try:
         today = datetime.now().date()
         three_days_ahead = today + timedelta(days=3)
-
-        lesson_plans = LessonPlan.query.filter(
-            LessonPlan.ball.is_(None),
-            LessonPlan.objective.isnot(None),
-            LessonPlan.main_lesson.isnot(None),
-            LessonPlan.homework.isnot(None),
-            LessonPlan.date >= today,
-            LessonPlan.date <= three_days_ahead
-        ).all()
-
-        if not lesson_plans:
-            logger.info("No unscored lesson plans found")
-            return {"status": "success", "checked": 0}
-
-        checked = 0
-        errors = 0
-
-        for lesson_plan in lesson_plans:
-            try:
-                score, conclusion = evaluate_lesson_plan(lesson_plan)
-                lesson_plan.ball = score
-                lesson_plan.conclusion = conclusion
-                db.session.commit()
-                checked += 1
-                logger.info(f"Lesson plan {lesson_plan.id} scored: {score}/10")
-            except (ValueError, json.JSONDecodeError, KeyError, Exception) as e:
-                db.session.rollback()
-                errors += 1
-                logger.error(f"Error scoring lesson plan {lesson_plan.id}: {e}")
-
-        logger.info(f"Checked {checked} lesson plans, {errors} errors")
-        return {"status": "success", "checked": checked, "errors": errors}
+        update_lesson_plan()
+        # lesson_plans = LessonPlan.query.filter(
+        #     LessonPlan.ball.is_(None),
+        #     LessonPlan.objective.isnot(None),
+        #     LessonPlan.main_lesson.isnot(None),
+        #     LessonPlan.homework.isnot(None),
+        #     LessonPlan.date >= today,
+        #     LessonPlan.date <= three_days_ahead
+        # ).all()
+        #
+        # if not lesson_plans:
+        #     logger.info("No unscored lesson plans found")
+        #     return {"status": "success", "checked": 0}
+        #
+        # checked = 0
+        # errors = 0
+        #
+        # for lesson_plan in lesson_plans:
+        #     try:
+        #         score, conclusion = evaluate_lesson_plan(lesson_plan)
+        #         lesson_plan.ball = score
+        #         lesson_plan.conclusion = conclusion
+        #         db.session.commit()
+        #         checked += 1
+        #         logger.info(f"Lesson plan {lesson_plan.id} scored: {score}/10")
+        #     except (ValueError, json.JSONDecodeError, KeyError, Exception) as e:
+        #         db.session.rollback()
+        #         errors += 1
+        #         logger.error(f"Error scoring lesson plan {lesson_plan.id}: {e}")
+        #
+        # logger.info(f"Checked {checked} lesson plans, {errors} errors")
+        # return {"status": "success", "checked": checked, "errors": errors}
 
     except Exception as exc:
         logger.error(f"Task failed: {exc}")
         raise self.retry(exc=exc)
+
+
+GENERATE_PROMPT = """You are an expert Full Stack Developer instructor. Generate a lesson plan for a programming class.
+
+Subject: {subject}
+Technologies covered in the course: {languages}
+Lesson date: {date}
+
+Generate a detailed lesson plan with the following fields. Each lesson should focus on one or two specific topics from the technologies list. Make lessons progressively build on each other.
+
+Respond in JSON format:
+{{
+    "objective": "<clear, measurable learning objective for this lesson>",
+    "main_lesson": "<structured main content of the lesson with key concepts and examples>",
+    "homework": "<practical homework assignment that reinforces the lesson>",
+    "assessment": "<how to assess student understanding>",
+    "activities": "<interactive activities and exercises>",
+    "resources": "<relevant resources, documentation links, tools>"
+}}
+
+Respond ONLY with valid JSON. No extra text."""
+
+
+def generate_lesson_plan_content(lesson_plan, subject, languages):
+    response = client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=[
+            {"role": "system", "content": GENERATE_PROMPT.format(
+                subject=subject,
+                languages=", ".join(languages),
+                date=lesson_plan.date.strftime("%Y-%m-%d") if lesson_plan.date else "",
+            )},
+            {"role": "user", "content": "Generate the lesson plan."},
+        ],
+        max_tokens=1000,
+    )
+
+    result = json.loads(response.choices[0].message.content.strip())
+    return result
+
+
+def update_lesson_plan():
+    today = datetime.now().date()
+    three_days_ahead = today + timedelta(days=3)
+    subject = "Full Stack Developer"
+    languages = ["Html", "Css", "Javascript", "Python", "Python Flask", "Docker", "Github",
+                 "Postgresql", "Git"]
+    lesson_plans = LessonPlan.query.filter(
+        LessonPlan.teacher_id == 23,
+        LessonPlan.objective.is_(None),
+        LessonPlan.date >= today,
+        LessonPlan.date <= three_days_ahead
+    ).all()
+
+    updated = 0
+    errors = 0
+
+    for lesson_plan in lesson_plans:
+        try:
+            content = generate_lesson_plan_content(lesson_plan, subject, languages)
+            lesson_plan.objective = content["objective"]
+            lesson_plan.main_lesson = content["main_lesson"]
+            lesson_plan.homework = content["homework"]
+            lesson_plan.assessment = content["assessment"]
+            lesson_plan.activities = content["activities"]
+            lesson_plan.resources = content["resources"]
+            db.session.commit()
+            updated += 1
+            logger.info(f"Lesson plan {lesson_plan.id} filled by AI")
+        except (ValueError, json.JSONDecodeError, KeyError, Exception) as e:
+            db.session.rollback()
+            errors += 1
+            logger.error(f"Error generating lesson plan {lesson_plan.id}: {e}")
+
+    logger.info(f"Updated {updated} lesson plans, {errors} errors")
+    return {"status": "success", "updated": updated, "errors": errors}
