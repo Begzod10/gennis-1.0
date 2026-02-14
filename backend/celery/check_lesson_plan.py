@@ -150,7 +150,10 @@ def generate_lesson_plan_content(lesson_plan, subject, languages):
         max_completion_tokens=1000,
     )
 
-    content = response.choices[0].message.content.strip()
+    raw = response.choices[0].message.content
+    logger.info(f"Raw API response: {repr(raw)}")
+    logger.info(f"Finish reason: {response.choices[0].finish_reason}")
+    content = (raw or "").strip()
     if content.startswith("```"):
         content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
     result = json.loads(content)
