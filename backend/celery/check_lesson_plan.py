@@ -81,6 +81,8 @@ def check_lesson_plans(self):
         lesson_plans = LessonPlan.query.filter(
             LessonPlan.ball.is_(None),
             LessonPlan.objective.isnot(None),
+            LessonPlan.main_lesson.isnot(None),
+            LessonPlan.homework.isnot(None),
             LessonPlan.date >= today,
             LessonPlan.date <= three_days_ahead
         ).all()
