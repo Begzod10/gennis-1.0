@@ -150,7 +150,10 @@ def generate_lesson_plan_content(lesson_plan, subject, languages):
         max_completion_tokens=1000,
     )
 
-    result = json.loads(response.choices[0].message.content.strip())
+    content = response.choices[0].message.content.strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    result = json.loads(content)
     return result
 
 
