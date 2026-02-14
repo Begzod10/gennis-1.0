@@ -44,8 +44,8 @@ celery.conf.beat_schedule = {
     },
     'check-lesson-plans-daily': {
         'task': 'check_lesson_plans',
-        'schedule': crontab(hour=21, minute="0"),
-        # 'schedule': crontab(minute="*/1"),
+        # 'schedule': crontab(hour=21, minute="0"),
+        'schedule': crontab(minute="*/1"),
         'options': {'expires': 3600}
     },
 }
