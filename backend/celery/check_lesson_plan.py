@@ -28,7 +28,7 @@ Evaluation criteria:
 You must respond in JSON format with exactly two fields:
 {
     "ball": <integer from 1 to 10>,
-    "conclusion": "<brief evaluation summary explaining strengths and weaknesses>"
+    "conclusion": "<brief evaluation summary in Uzbek language explaining strengths and weaknesses>"
 }
 
 Respond ONLY with valid JSON. No extra text."""
@@ -121,7 +121,7 @@ Subject: {subject}
 Technologies: {languages}
 Date: {date}
 
-Each field must be exactly ONE short sentence. Keep it brief.
+Each field must be exactly ONE short sentence in Uzbek language. Keep it brief.
 
 Respond in JSON format:
 {{
