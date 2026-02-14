@@ -59,7 +59,7 @@ def evaluate_lesson_plan(lesson_plan):
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        max_tokens=500,
+        max_tokens=1000,
     )
 
     result = json.loads(response.choices[0].message.content.strip())
