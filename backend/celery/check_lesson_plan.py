@@ -78,37 +78,37 @@ def check_lesson_plans(self):
         today = datetime.now().date()
         three_days_ahead = today + timedelta(days=3)
         update_lesson_plan()
-        # lesson_plans = LessonPlan.query.filter(
-        #     LessonPlan.ball.is_(None),
-        #     LessonPlan.objective.isnot(None),
-        #     LessonPlan.main_lesson.isnot(None),
-        #     LessonPlan.homework.isnot(None),
-        #     LessonPlan.date >= today,
-        #     LessonPlan.date <= three_days_ahead
-        # ).all()
-        #
-        # if not lesson_plans:
-        #     logger.info("No unscored lesson plans found")
-        #     return {"status": "success", "checked": 0}
-        #
-        # checked = 0
-        # errors = 0
-        #
-        # for lesson_plan in lesson_plans:
-        #     try:
-        #         score, conclusion = evaluate_lesson_plan(lesson_plan)
-        #         lesson_plan.ball = score
-        #         lesson_plan.conclusion = conclusion
-        #         db.session.commit()
-        #         checked += 1
-        #         logger.info(f"Lesson plan {lesson_plan.id} scored: {score}/10")
-        #     except (ValueError, json.JSONDecodeError, KeyError, Exception) as e:
-        #         db.session.rollback()
-        #         errors += 1
-        #         logger.error(f"Error scoring lesson plan {lesson_plan.id}: {e}")
-        #
-        # logger.info(f"Checked {checked} lesson plans, {errors} errors")
-        # return {"status": "success", "checked": checked, "errors": errors}
+        lesson_plans = LessonPlan.query.filter(
+            LessonPlan.ball.is_(None),
+            LessonPlan.objective.isnot(None),
+            LessonPlan.main_lesson.isnot(None),
+            LessonPlan.homework.isnot(None),
+            LessonPlan.date >= today,
+            LessonPlan.date <= three_days_ahead
+        ).all()
+
+        if not lesson_plans:
+            logger.info("No unscored lesson plans found")
+            return {"status": "success", "checked": 0}
+
+        checked = 0
+        errors = 0
+
+        for lesson_plan in lesson_plans:
+            try:
+                score, conclusion = evaluate_lesson_plan(lesson_plan)
+                lesson_plan.ball = score
+                lesson_plan.conclusion = conclusion
+                db.session.commit()
+                checked += 1
+                logger.info(f"Lesson plan {lesson_plan.id} scored: {score}/10")
+            except (ValueError, json.JSONDecodeError, KeyError, Exception) as e:
+                db.session.rollback()
+                errors += 1
+                logger.error(f"Error scoring lesson plan {lesson_plan.id}: {e}")
+
+        logger.info(f"Checked {checked} lesson plans, {errors} errors")
+        return {"status": "success", "checked": checked, "errors": errors}
 
     except Exception as exc:
         logger.error(f"Task failed: {exc}")
