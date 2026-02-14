@@ -47,6 +47,12 @@ def analyze(attendances, teacher, type_rating=None):
         info["percentage"] = round(ball / len(attendances)) if ball != 0 else 0
         info['observation_len'] = len(attendances)
         teacher_list.append(info)
+    elif type_rating == "lesson_plan":
+        for lp in attendances:
+            if lp.ball:
+                ball += lp.ball
+        info["percentage"] = round(ball / len(attendances)) if ball != 0 else 0
+        teacher_list.append(info)
     elif type_rating == "deleted_students":
         for att in attendances:
             ball += att.percentage
@@ -107,6 +113,16 @@ def teacher_statistics(location_id):
                     TeacherObservationDay.calendar_year == calendar_year.id,
                     TeacherObservationDay.teacher_id == teacher.id).all()
                 teachers_list += analyze(observations, teacher, type_rating)
+            elif type_rating == "lesson_plan":
+                year_start = calendar_year.date
+                year_end = datetime(year_start.year + 1, 1, 1)
+                lesson_plans = LessonPlan.query.filter(
+                    LessonPlan.teacher_id == teacher.id,
+                    LessonPlan.ball.isnot(None),
+                    LessonPlan.date >= year_start,
+                    LessonPlan.date < year_end
+                ).all()
+                teachers_list += analyze(lesson_plans, teacher, type_rating)
         if type_rating == "deleted_students":
             del_st_statistics_num = TeacherGroupStatistics.query.filter(
                 TeacherGroupStatistics.calendar_year == calendar_year.id,
@@ -160,6 +176,19 @@ def teacher_statistics(location_id):
                     TeacherObservationDay.calendar_month == calendar_month.id,
                     TeacherObservationDay.teacher_id == teacher.id).all()
                 teachers_list += analyze(observations, teacher, type_rating)
+            elif type_rating == "lesson_plan":
+                month_start = month
+                if month.month == 12:
+                    month_end = datetime(month.year + 1, 1, 1)
+                else:
+                    month_end = datetime(month.year, month.month + 1, 1)
+                lesson_plans = LessonPlan.query.filter(
+                    LessonPlan.teacher_id == teacher.id,
+                    LessonPlan.ball.isnot(None),
+                    LessonPlan.date >= month_start,
+                    LessonPlan.date < month_end
+                ).all()
+                teachers_list += analyze(lesson_plans, teacher, type_rating)
         if type_rating == "deleted_students":
             del_st_statistics_num = TeacherGroupStatistics.query.filter(
                 TeacherGroupStatistics.calendar_year == calendar_year.id,
@@ -202,6 +231,12 @@ def teacher_statistics(location_id):
                 observations = TeacherObservationDay.query.filter(
                     TeacherObservationDay.teacher_id == teacher.id).all()
                 teachers_list += analyze(observations, teacher, type_rating)
+            elif type_rating == "lesson_plan":
+                lesson_plans = LessonPlan.query.filter(
+                    LessonPlan.teacher_id == teacher.id,
+                    LessonPlan.ball.isnot(None)
+                ).all()
+                teachers_list += analyze(lesson_plans, teacher, type_rating)
         if type_rating == "deleted_students":
             del_st_statistics_num = TeacherGroupStatistics.query.filter(
                 TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
