@@ -115,22 +115,22 @@ def check_lesson_plans(self):
         raise self.retry(exc=exc)
 
 
-GENERATE_PROMPT = """You are an expert Full Stack Developer instructor. Generate a lesson plan for a programming class.
+GENERATE_PROMPT = """You are a Full Stack Developer instructor. Generate a short lesson plan.
 
 Subject: {subject}
-Technologies covered in the course: {languages}
-Lesson date: {date}
+Technologies: {languages}
+Date: {date}
 
-Generate a detailed lesson plan with the following fields. Each lesson should focus on one or two specific topics from the technologies list. Make lessons progressively build on each other.
+Each field must be exactly ONE short sentence. Keep it brief.
 
 Respond in JSON format:
 {{
-    "objective": "<clear, measurable learning objective for this lesson>",
-    "main_lesson": "<structured main content of the lesson with key concepts and examples>",
-    "homework": "<practical homework assignment that reinforces the lesson>",
-    "assessment": "<how to assess student understanding>",
-    "activities": "<interactive activities and exercises>",
-    "resources": "<relevant resources, documentation links, tools>"
+    "objective": "one sentence",
+    "main_lesson": "one sentence",
+    "homework": "one sentence",
+    "assessment": "one sentence",
+    "activities": "one sentence",
+    "resources": "one sentence"
 }}
 
 Respond ONLY with valid JSON. No extra text."""
@@ -138,7 +138,7 @@ Respond ONLY with valid JSON. No extra text."""
 
 def generate_lesson_plan_content(lesson_plan, subject, languages):
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": GENERATE_PROMPT.format(
                 subject=subject,
@@ -147,7 +147,7 @@ def generate_lesson_plan_content(lesson_plan, subject, languages):
             )},
             {"role": "user", "content": "Generate the lesson plan."},
         ],
-        max_completion_tokens=1000,
+        max_tokens=500,
     )
 
     raw = response.choices[0].message.content
