@@ -97,7 +97,8 @@ class PaymentTypes(db.Model):
     account_payable_history = relationship("AccountPayableHistory", backref="payment_type",
                                            order_by="AccountPayableHistory.id")
     assistent_salary = relationship("AssistentSalaries", backref="payment_type", order_by="AssistentSalaries.id")
-    deleted_assistent_salary = relationship("DeletedAsistentSalaries", backref="payment_type", order_by="DeletedAsistentSalaries.id")
+    deleted_assistent_salary = relationship("DeletedAsistentSalaries", backref="payment_type",
+                                            order_by="DeletedAsistentSalaries.id")
 
 
 class StudentPayments(db.Model):
@@ -868,4 +869,33 @@ class Investment(db.Model):
             # "location": self.location.name if self.location else self.reason,
             "reason": self.location.name if self.location else self.reason,
             "type_name": "Investitsiya"
+        }
+
+
+class FineReport(db.Model):
+    __tablename__ = "finereport"
+    id = Column(Integer, primary_key=True)
+    teacher_id = Column(Integer, ForeignKey('teachers.id'))
+    assistant_id = Column(Integer, ForeignKey('assistent.id'))
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'))
+    calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
+    calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
+    teacher_salary_id = Column(Integer, ForeignKey('teachersalary.id'))
+    assistent_salary_id = Column(Integer, ForeignKey('asistent_salary.id'))
+    amount = Column(Integer)
+    reason = Column(String)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False, relationship=None):
+        return {
+            "id": self.id,
+            "amount": self.amount,
+            "month": self.month.date.strftime("%Y-%m"),
+            "year": self.year.date.strftime("%Y"),
+            "date": self.day.date.strftime("%Y-%m-%d"),
+            "reason": self.reason,
+            "type_name": "Fines"
         }

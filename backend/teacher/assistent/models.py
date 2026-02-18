@@ -23,6 +23,7 @@ class Assistent(db.Model):
     time_table = relationship("Group_Room_Week", secondary="time_table_assistent", backref="assistent",
                               order_by="Group_Room_Week.id",
                               lazy="select")
+    finereport = relationship("FineReport", backref="assistent", order_by="FineReport.id")
 
     def add(self):
         db.session.add(self)

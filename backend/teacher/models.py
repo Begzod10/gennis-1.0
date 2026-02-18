@@ -45,6 +45,7 @@ class Teachers(db.Model):
                                 lazy="select")
     student_certificate = relationship("StudentCertificate", backref="teacher", order_by="StudentCertificate.id")
     total_students = Column(Integer)
+    finereport = relationship("FineReport", backref="teacher", order_by="FineReport.id")
 
     def convert_json(self, entire=False):
         return {

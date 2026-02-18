@@ -92,6 +92,8 @@ class CalendarYear(db.Model):
     branch_report = relationship("BranchReport", backref="year", order_by="BranchReport.id")
     school_user_salary = relationship("SchoolUserSalary", backref="year", order_by="SchoolUserSalary.id")
     assistent_salary = relationship("AssistentSalary", backref="year", order_by="AssistentSalary.id")
+    finereport = relationship("FineReport", backref="year", order_by="FineReport.id")
+
     # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
@@ -173,6 +175,8 @@ class CalendarMonth(db.Model):
     school_user_salary = relationship("SchoolUserSalary", backref="month", order_by="SchoolUserSalary.id")
     branch_report = relationship("BranchReport", backref="month", order_by="BranchReport.id")
     assistent_salary = relationship("AssistentSalary", backref="month", order_by="AssistentSalary.id")
+    finereport = relationship("FineReport", backref="month", order_by="FineReport.id")
+
     # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
 
     def convert_json(self, entire=False):
@@ -285,6 +289,8 @@ class CalendarDay(db.Model):
     assistent_salaries = relationship("AssistentSalaries", backref="day", order_by="AssistentSalaries.id")
     deleted_assistent_salaries = relationship("DeletedAsistentSalaries", backref="day",
                                               order_by="DeletedAsistentSalaries.id")
+    finereport = relationship("FineReport", backref="day", order_by="FineReport.id")
+
     def convert_json(self, entire=False):
         return {
             "id": self.id,

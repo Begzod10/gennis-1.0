@@ -1,5 +1,6 @@
 import datetime
 
+from sqlalchemy import func, case
 from flask import Blueprint
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -15,7 +16,7 @@ from backend.models.models import Staff, Users, EducationLanguage, Professions
 from backend.models.models import Teachers, TeacherSalary, StaffSalary, PaymentTypes, DeletedStaffSalaries, UserBooks, \
     StaffSalaries, TeacherSalaries, DeletedTeacherSalaries, AccountingPeriod, CalendarMonth, StudentPayments, \
     CalendarYear, Locations, TeacherBlackSalary, db, AssistentSalaries, Assistent, AssistentSalary, \
-    AssistentBlackSalary, DeletedAsistentSalaries
+    AssistentBlackSalary, DeletedAsistentSalaries, AttendanceDays, Attendance, FineReport
 
 account_salary_bp = Blueprint('account_salary_bp', __name__)
 
@@ -306,8 +307,16 @@ def teacher_salary_inside(salary_id, user_id):
     salary_debt = 0
     total_fine = 0
     salary_info_teacher = {}
+    fine_report = []
     if teacher:
         salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
+        fine_reports = FineReport.query.filter(FineReport.teacher_id == teacher.id,
+                                               FineReport.teacher_salary_id == salary_id).order_by(
+            desc(FineReport.id)).all()
+        if fine_reports:
+            for report in fine_reports:
+                fine_report.append(report.convert_json())
+        teacher_salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
         teacher_black_salaries = TeacherBlackSalary.query.filter(
             TeacherBlackSalary.calendar_month == salary.calendar_month, TeacherBlackSalary.teacher_id == teacher.id,
             TeacherBlackSalary.location_id == salary.location_id, TeacherBlackSalary.status == False).all()
@@ -360,6 +369,12 @@ def teacher_salary_inside(salary_id, user_id):
         total_salary = salary.total_salary
     elif assistant:
         salary = AssistentSalary.query.filter(AssistentSalary.id == salary_id).first()
+        fine_reports = FineReport.query.filter(FineReport.assistant_id == assistant.id,
+                                               FineReport.assistent_salary_id == salary_id).order_by(
+            desc(FineReport.id)).all()
+        if fine_reports:
+            for report in fine_reports:
+                fine_report.append(report.convert_json())
         user_books = UserBooks.query.filter(UserBooks.user_id == user_id, UserBooks.salary_id == salary_id).order_by(
             UserBooks.id).all()
         salaries = AssistentSalaries.query.filter(AssistentSalaries.salary_location_id == salary_id).order_by(
@@ -385,7 +400,7 @@ def teacher_salary_inside(salary_id, user_id):
         "data": {"salary": total_salary, "residue": salary.remaining_salary, "taken_salary": salary.taken_money,
                  "exist_salary": salary.remaining_salary if salary.remaining_salary else salary.total_salary,
                  "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries, "black_salary": black_salary,
-                 "salary_debt": salary_debt, "total_fine": total_fine,
+                 "salary_debt": salary_debt, "total_fine": total_fine, "fine_report": fine_report
                  }})
 
 
@@ -393,9 +408,17 @@ def teacher_salary_inside(salary_id, user_id):
 def teacher_salary_inside_classroom(user_id, salary_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     assistant = Assistent.query.filter(Assistent.user_id == user_id).first()
+    fine_report = []
     if teacher:
         black_salary = 0
         salary = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
+        fine_reports = FineReport.query.filter(FineReport.teacher_id == teacher.id,
+                                               FineReport.teacher_salary_id == salary_id).order_by(
+            desc(FineReport.id)).all()
+        if fine_reports:
+            for report in fine_reports:
+                fine_report.append(report.convert_json())
+
         teacher_black_salaries = TeacherBlackSalary.query.filter(
             TeacherBlackSalary.calendar_month == salary.calendar_month,
             TeacherBlackSalary.teacher_id == teacher.id,
@@ -447,6 +470,13 @@ def teacher_salary_inside_classroom(user_id, salary_id):
         db.session.commit()
     else:
         salary = AssistentSalary.query.filter(AssistentSalary.id == salary_id).first()
+        fine_reports = FineReport.query.filter(FineReport.assistant_id == assistant.id,
+                                               FineReport.assistant_salary_id == salary_id).order_by(
+
+            desc(FineReport.id)).all()
+        if fine_reports:
+            for report in fine_reports:
+                fine_report.append(report.convert_json())
         user_books = UserBooks.query.filter(UserBooks.user_id == user_id, UserBooks.salary_id == salary_id).order_by(
             UserBooks.id).all()
         salaries = AssistentSalaries.query.filter(AssistentSalaries.salary_id == salary_id).order_by(
@@ -477,6 +507,7 @@ def teacher_salary_inside_classroom(user_id, salary_id):
                              "month": salary.month.date.strftime("%Y-%m"), "data": list_salaries,
                              "black_salary": black_salary,
                              "salary_debt": salary.debt, "total_fine": salary.total_fine,
+                             "fine_reports": fine_report
                              }})
 
 
@@ -897,4 +928,114 @@ def delete_staff(user_id):
         {"deleted": True, "deleted_comment": request.get_json()['otherReason'],
          "deleted_date": f"{datetime.datetime.now()};"})
     db.session.commit()
+    return jsonify({"msg": "O'chirildi", "status": True})
+
+
+@account_salary_bp.route(f'/refresh_salary/<user_id>', methods=['POST'])
+@jwt_required()
+def refresh_salary(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    teacher = Teachers.query.filter(Teachers.user_id == user.id).first()
+    assistent = Assistent.query.filter(Assistent.user_id == user.id).first()
+    sum_fine = request.get_json()['sum_fine']
+    salary_id = request.get_json()['salary_id']
+    reason = request.get_json()['reason']
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+
+    if teacher:
+        teacher_salary_get = TeacherSalary.query.filter(TeacherSalary.id == salary_id).first()
+        subq = db.session.query(
+            AttendanceDays.id,
+            func.sum(AttendanceDays.fine).over(
+                order_by=AttendanceDays.id
+            ).label('running_total')
+        ).join(AttendanceDays.attendance).filter(
+            Attendance.teacher_id == teacher.id,
+            Attendance.location_id == teacher_salary_get.location_id,
+            Attendance.calendar_month == teacher_salary_get.calendar_month,
+            Attendance.calendar_year == teacher_salary_get.calendar_year,
+            AttendanceDays.fine > 0
+        ).subquery()
+
+        ids_to_zero = db.session.query(subq.c.id).filter(
+            subq.c.running_total <= sum_fine
+        ).all()
+        ids_to_zero = [row.id for row in ids_to_zero]
+
+        if ids_to_zero:
+            AttendanceDays.query.filter(
+                AttendanceDays.id.in_(ids_to_zero)
+            ).update({"fine": 0}, synchronize_session=False)
+
+        remaining_fine = db.session.query(
+            func.sum(AttendanceDays.fine)
+        ).join(AttendanceDays.attendance).filter(
+            Attendance.teacher_id == teacher.id,
+            Attendance.location_id == teacher_salary_get.location_id,
+            Attendance.calendar_month == teacher_salary_get.calendar_month,
+            Attendance.calendar_year == teacher_salary_get.calendar_year,
+        ).scalar() or 0
+
+        teacher_salary_get.total_fine = remaining_fine
+
+        fine_report = FineReport(
+            teacher_id=teacher.id,  # ✅ correct
+            calendar_month=calendar_month.id,
+            calendar_year=calendar_year.id,
+            calendar_day=calendar_day.id,
+            amount=sum_fine,
+            teacher_salary_id=teacher_salary_get.id,
+            reason=reason
+        )
+        db.session.add(fine_report)
+        db.session.commit()
+
+    if assistent:
+        assistent_salary_get = AssistentSalary.query.filter(AssistentSalary.id == salary_id).first()
+        subq = db.session.query(
+            AttendanceDays.id,
+            func.sum(AttendanceDays.assistent_fine).over(
+                order_by=AttendanceDays.id
+            ).label('running_total')
+        ).join(AttendanceDays.attendance).filter(
+            Attendance.assistent_id == assistent.id,
+            Attendance.location_id == assistent_salary_get.location_id,
+            Attendance.calendar_month == assistent_salary_get.calendar_month,
+            Attendance.calendar_year == assistent_salary_get.calendar_year,
+            AttendanceDays.assistent_fine > 0
+        ).subquery()
+
+        ids_to_zero = db.session.query(subq.c.id).filter(
+            subq.c.running_total <= sum_fine
+        ).all()
+        ids_to_zero = [row.id for row in ids_to_zero]
+
+        if ids_to_zero:
+            AttendanceDays.query.filter(
+                AttendanceDays.id.in_(ids_to_zero)
+            ).update({"assistent_fine": 0}, synchronize_session=False)
+
+        remaining_fine = db.session.query(
+            func.sum(AttendanceDays.assistent_fine)
+        ).join(AttendanceDays.attendance).filter(
+            Attendance.assistent_id == assistent.id,
+            Attendance.location_id == assistent_salary_get.location_id,
+            Attendance.calendar_month == assistent_salary_get.calendar_month,
+            Attendance.calendar_year == assistent_salary_get.calendar_year,
+        ).scalar() or 0
+
+        assistent_salary_get.total_fine = remaining_fine
+
+        fine_report = FineReport(
+            assistent_id=assistent.id,  # ✅ fixed - was teacher.id before
+            calendar_month=calendar_month.id,
+            calendar_year=calendar_year.id,
+            calendar_day=calendar_day.id,
+            amount=sum_fine,
+            assistent_salary_id=assistent_salary_get.id,
+            reason=reason
+        )
+        db.session.add(fine_report)
+        db.session.commit()
+
     return jsonify({"msg": "O'chirildi", "status": True})
