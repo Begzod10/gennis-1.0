@@ -892,7 +892,7 @@ class FineReport(db.Model):
     def convert_json(self, entire=False, relationship=None):
         return {
             "id": self.id,
-            "amount": self.amount,
+            "salary": self.amount,
             "month": self.month.date.strftime("%Y-%m"),
             "year": self.year.date.strftime("%Y"),
             "date": self.day.date.strftime("%Y-%m-%d"),
