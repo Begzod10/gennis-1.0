@@ -46,7 +46,8 @@ def _upsert_group(group_data: dict, location_id: Optional[int]) -> TelegramGroup
     return group
 
 
-def _upsert_member(member_data: dict, group: TelegramGroup) -> TelegramGroupMember:
+def _upsert_member(member_data: dict, group: TelegramGroup,
+                   location_id: Optional[int] = None) -> TelegramGroupMember:
     """
     Find-or-create a TelegramGroupMember by (telegram_user_id, group_id).
     Always refreshes all fields with the latest snapshot from the bot.
@@ -73,6 +74,8 @@ def _upsert_member(member_data: dict, group: TelegramGroup) -> TelegramGroupMemb
     member.joined_group_at = _parse_dt(member_data.get("joined_group_at")) or member.joined_group_at
     member.last_seen_at = _parse_dt(member_data.get("last_seen_at")) or member.last_seen_at
     member.total_messages = member_data.get("total_messages", member.total_messages)
+    if location_id is not None:
+        member.location_id = location_id
     return member
 
 
