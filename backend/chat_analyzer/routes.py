@@ -180,7 +180,7 @@ def receive_reports():
 
             # 3. Upsert each member + their ReportMember row
             for member_data in report_item.get("group_members", []):
-                member = _upsert_member(member_data, group)
+                member = _upsert_member(member_data, group, location_id=location_id)
                 db.session.flush()
 
                 _upsert_report_member(
