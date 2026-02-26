@@ -807,3 +807,9 @@ from backend.tasks.models.models import *
 from backend.account.profile.models import *
 from backend.parent.models import *
 from backend.teacher.assistent.models import *
+from backend.chat_analyzer.models import (
+    TelegramGroup,
+    TelegramGroupMember,
+    ReportMember,
+    ChatAnalysisReport,
+)

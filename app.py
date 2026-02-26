@@ -190,6 +190,7 @@ def register_all_routes(api, app):
     from backend.tasks.admin.views import register_task_rating_views
     from backend.telegram_bot.views import register_telegram_bot_routes
     from backend.tasks.missions.views import register_missions_views
+    from backend.chat_analyzer.views import register_chat_analyzer_routes
 
     # Register all routes
     routes = [
@@ -210,7 +211,8 @@ def register_all_routes(api, app):
         register_parent_mobile_views,
         register_programmers_views,
         register_overall_datas_routes,
-        register_missions_views
+        register_missions_views,
+        register_chat_analyzer_routes
     ]
 
     for register_func in routes:
