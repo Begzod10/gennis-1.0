@@ -27,10 +27,10 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _upsert_group(group_data: dict) -> TelegramGroup:
+def _upsert_group(group_data: dict, location_id: Optional[int]) -> TelegramGroup:
     """
     Find-or-create a TelegramGroup by telegram_group_id.
-    Always updates name/created_at with the latest values from the bot.
+    Always updates name, created_at and location_id from the payload.
     """
     tg_id = group_data.get("id")
     group = TelegramGroup.query.filter_by(telegram_group_id=tg_id).first()
@@ -41,6 +41,8 @@ def _upsert_group(group_data: dict) -> TelegramGroup:
 
     group.name = group_data.get("name", group.name)
     group.created_at = _parse_dt(group_data.get("created_at")) or group.created_at
+    if location_id is not None:
+        group.location_id = location_id
     return group
 
 
@@ -106,6 +108,8 @@ def _upsert_report(report_item: dict, group: TelegramGroup,
     report.top_members = report_item.get("top_members", report.top_members)
     report.ai_analysis = report_item.get("ai_analysis", report.ai_analysis)
     report.report_text = report_item.get("report_text", report.report_text)
+    # Mirror location from the group so reports are filterable by branch
+    report.location_id = group.location_id
     return report
 
 
@@ -162,8 +166,9 @@ def receive_reports():
     try:
         for report_item in reports_data:
 
-            # 1. Upsert group
-            group = _upsert_group(report_item.get("group", {}))
+            # 1. Upsert group  (location_id comes from top-level payload)
+            location_id = data.get("location_id") or report_item.get("location_id")
+            group = _upsert_group(report_item.get("group", {}), location_id=location_id)
             db.session.flush()
 
             # 2. Upsert report (no duplicate for same group+date)
@@ -200,15 +205,36 @@ def receive_reports():
 
 @chat_analyzer_bp.route("/reports/", methods=["GET"])
 def list_reports():
-    """Return all saved reports (latest first)."""
-    reports = (
-        ChatAnalysisReport.query
-        .order_by(ChatAnalysisReport.id.desc())
-        .all()
-    )
+    """
+    Return reports (latest first).
+
+    Query params:
+      ?location_id=<int>   — filter by branch location
+      ?report_date=<str>   — filter by date, e.g. 2026-02-26
+      ?group_id=<int>      — filter by DB group id
+    """
+    q = ChatAnalysisReport.query
+
+    location_id = request.args.get("location_id", type=int)
+    report_date = request.args.get("report_date", type=str)
+    group_id = request.args.get("group_id", type=int)
+
+    if location_id is not None:
+        q = q.filter(ChatAnalysisReport.location_id == location_id)
+    if report_date:
+        q = q.filter(ChatAnalysisReport.report_date == report_date)
+    if group_id is not None:
+        q = q.filter(ChatAnalysisReport.group_id == group_id)
+
+    reports = q.order_by(ChatAnalysisReport.id.desc()).all()
     return jsonify({
         "success": True,
         "count": len(reports),
+        "filters": {
+            "location_id": location_id,
+            "report_date": report_date,
+            "group_id": group_id,
+        },
         "reports": [r.convert_json() for r in reports],
     }), 200
 
@@ -224,11 +250,23 @@ def get_report(report_id):
 
 @chat_analyzer_bp.route("/groups/", methods=["GET"])
 def list_groups():
-    """Return all known Telegram groups."""
-    groups = TelegramGroup.query.order_by(TelegramGroup.id).all()
+    """
+    Return all known Telegram groups.
+
+    Query params:
+      ?location_id=<int>  — filter by branch location
+    """
+    q = TelegramGroup.query
+
+    location_id = request.args.get("location_id", type=int)
+    if location_id is not None:
+        q = q.filter(TelegramGroup.location_id == location_id)
+
+    groups = q.order_by(TelegramGroup.id).all()
     return jsonify({
         "success": True,
         "count": len(groups),
+        "filters": {"location_id": location_id},
         "groups": [g.convert_json() for g in groups],
     }), 200
 
