@@ -362,49 +362,59 @@ def change_time_group(group_id):
     lessons = get_json_field('lessons')
 
     group = Groups.query.filter(Groups.id == group_id).first()
-    students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
-        Groups.id == group_id).all()
+    students = db.session.query(Students).join(Students.group).options(
+        contains_eager(Students.group)
+    ).filter(Groups.id == group_id).all()
     teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()
     group_time_table_get = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).all()
-    for student in students:
-        for time_get in group_time_table_get:
-            if time_get in student.time_table:
-                db.session.execute(
-                    delete(time_table_student).where(
-                        time_table_student.c.group_room_week == time_get.id,
-                        time_table_student.c.student_id == student.id
-                    )
-                )
-                db.session.commit()
+
+    # Remove from association tables using synchronize_session=False
     for time_get in group_time_table_get:
-        if time_get in teacher.time_table:
-            db.session.execute(
-                delete(time_table_teacher).where(
-                    time_table_teacher.c.group_room_week == time_get.id,
-                    time_table_teacher.c.teacher_id == teacher.id
-                )
+        db.session.execute(
+            delete(time_table_student).where(
+                time_table_student.c.group_room_week == time_get.id
             )
-            db.session.commit()
+        )
+        db.session.execute(
+            delete(time_table_teacher).where(
+                time_table_teacher.c.group_room_week == time_get.id
+            )
+        )
+
+    db.session.flush()  # flush association deletes before deleting parent rows
+
+    # Now delete the Group_Room_Week rows
     for time_get in group_time_table_get:
         db.session.delete(time_get)
-        db.session.commit()
+
+    db.session.commit()
+
+    # Re-fetch students after commit
+    students = db.session.query(Students).join(Students.group).options(
+        contains_eager(Students.group)
+    ).filter(Groups.id == group_id).all()
+
     for lesson in lessons:
         start_time = datetime.strptime(lesson['startTime'], "%H:%M")
         end_time = datetime.strptime(lesson['endTime'], "%H:%M")
-        add = Group_Room_Week(week_id=lesson['selectedDay'].get('id'), room_id=lesson['selectedRoom'].get('id'),
-                              start_time=start_time, end_time=end_time, group_id=group_id,
-                              location_id=group.location_id)
+        add = Group_Room_Week(
+            week_id=lesson['selectedDay'].get('id'),
+            room_id=lesson['selectedRoom'].get('id'),
+            start_time=start_time,
+            end_time=end_time,
+            group_id=group_id,
+            location_id=group.location_id
+        )
         db.session.add(add)
-        db.session.commit()
-        students = db.session.query(Students).join(Students.group).options(contains_eager(Students.group)).filter(
-            Groups.id == group_id).all()
+        db.session.flush()  # get the ID before appending relationships
+
         for student in students:
-            student_get = Students.query.filter(Students.id == student.id).first()
-            student_get.time_table.append(add)
-            db.session.commit()
+            student.time_table.append(add)
 
         teacher.time_table.append(add)
-        db.session.commit()
+
+    db.session.commit()
+
     return jsonify({
         "success": True,
         "msg": "Guruh dars vaqtlari o'zgartirildi"
