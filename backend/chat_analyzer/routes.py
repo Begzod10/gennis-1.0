@@ -169,8 +169,9 @@ def receive_reports():
     try:
         for report_item in reports_data:
 
-            # 1. Upsert group  (location_id comes from top-level payload)
-            
+            # 1. Upsert group  (location_id comes from top-level payload or per-report item)
+            _top = data.get("location_id")
+            location_id = _top if _top is not None else report_item.get("location_id")
             group = _upsert_group(report_item.get("group", {}), location_id=location_id)
             db.session.flush()
 
