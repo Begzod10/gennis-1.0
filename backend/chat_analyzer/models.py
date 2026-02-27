@@ -181,7 +181,7 @@ class ChatAnalysisReport(db.Model):
     member_stats = relationship("ReportMember", back_populates="report", lazy="select")
 
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-    location = relationship("Locations", backref="chat_analysis_reports", foreign_keys=[location_id])
+
 
     def add(self):
         db.session.add(self)
