@@ -353,6 +353,7 @@ class Locations(db.Model):
     task_rating = relationship("TaskRatings", backref="location", order_by="TaskRatings.id")
     branch_report = relationship("BranchReport", backref="location", order_by="BranchReport.id")
     task_monthly_rating = relationship("TaskRatingsMonthly", backref="location", order_by="TaskRatingsMonthly.id")
+    chat_analysis_reports = relationship("ChatAnalysisReport", backref="location", order_by="ChatAnalysisReport.id")
 
     def convert_json(self, entire=False):
         return {
