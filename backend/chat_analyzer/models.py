@@ -35,8 +35,8 @@ class TelegramGroup(db.Model):
             "telegram_group_id": self.telegram_group_id,
             "name": self.name,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "location_id": self.location_id,
-            "location": self.location.convert_json() if self.location else None,
+            "location_id": self.location_id
+            # "location": self.location.convert_json() if self.location else None,
         }
 
     def __repr__(self):
@@ -99,8 +99,8 @@ class TelegramGroupMember(db.Model):
             "joined_group_at": self.joined_group_at.isoformat() if self.joined_group_at else None,
             "last_seen_at": self.last_seen_at.isoformat() if self.last_seen_at else None,
             "total_messages": self.total_messages,
-            "location_id": self.location_id,
-            "location": self.location.convert_json() if self.location else None,
+            "location_id": self.location_id
+            # "location": self.location.convert_json() if self.location else None,
         }
 
     def __repr__(self):
