@@ -204,8 +204,8 @@ class ChatAnalysisReport(db.Model):
             "ai_analysis": self.ai_analysis,
             "report_text": self.report_text,
             "created_at": self.created_at.isoformat() if self.created_at else None, 
-            "location_id": self.location_id,
-            "location": self.location.convert_json() if self.location else None,
+            "location_id": self.location_id
+            # "location": self.location.convert_json() if self.location else None,
         }
         if include_members:
             data["member_stats"] = [rm.convert_json() for rm in self.member_stats]
