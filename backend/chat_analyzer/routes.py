@@ -165,12 +165,12 @@ def receive_reports():
 
     sent_at = _parse_dt(data.get("sent_at"))
     result_ids = []
-
+    location_id = data.get("location_id")
     try:
         for report_item in reports_data:
 
             # 1. Upsert group  (location_id comes from top-level payload)
-            location_id = data.get("location_id") or report_item.get("location_id")
+            
             group = _upsert_group(report_item.get("group", {}), location_id=location_id)
             db.session.flush()
 
@@ -286,5 +286,44 @@ def list_group_members(group_id):
         "count": len(group.members),
         "members": [m.convert_json() for m in group.members],
     }), 200
+
+@chat_analyzer_bp.route("/data/", methods=["DELETE"])
+def delete_all_data():
+    """
+    Delete ALL rows from every chat-analyzer table.
+
+    Order matters — child tables must be cleared before parent tables
+    to satisfy foreign-key constraints:
+        1. ReportMember           (references ChatAnalysisReport + TelegramGroupMember)
+        2. ChatAnalysisReport     (references TelegramGroup)
+        3. TelegramGroupMember    (references TelegramGroup)
+        4. TelegramGroup
+    """
+    try:
+        rm_count   = ReportMember.query.delete()
+        rep_count  = ChatAnalysisReport.query.delete()
+        mem_count  = TelegramGroupMember.query.delete()
+        grp_count  = TelegramGroup.query.delete()
+        db.session.commit()
+
+        logger.info(
+            f"Deleted all data — groups: {grp_count}, members: {mem_count}, "
+            f"reports: {rep_count}, report_members: {rm_count}"
+        )
+        return jsonify({
+            "success": True,
+            "deleted": {
+                "telegram_groups":        grp_count,
+                "telegram_group_members": mem_count,
+                "chat_analysis_reports":  rep_count,
+                "report_members":         rm_count,
+            },
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting all data: {e}")
+        return jsonify({"success": False, "msg": str(e)}), 500
+
 
 # /api/chat-analyzer/reports/
