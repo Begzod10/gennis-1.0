@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from flask import Blueprint, request, jsonify
+from sqlalchemy import func
 
 from backend.models.models import db
 from .models import ChatAnalysisReport, TelegramGroup, TelegramGroupMember, ReportMember
@@ -240,6 +241,80 @@ def list_reports():
             "group_id": group_id,
         },
         "reports": [r.convert_json() for r in reports],
+    }), 200
+
+
+@chat_analyzer_bp.route("/reports/monthly/", methods=["GET"])
+def monthly_statistics():
+    """
+    Return aggregated monthly statistics across all reports.
+
+    Query params:
+      ?location_id=<int>  — filter by branch location
+      ?group_id=<int>     — filter by DB group id
+      ?year=<int>         — filter by year, e.g. 2026
+
+    Response groups results by year + month, sorted newest first.
+    Each entry contains:
+      - year, month
+      - total_messages   (sum across all reports in that month)
+      - total_active_members (sum of active_members)
+      - total_messages_analyzed (sum of messages_analyzed)
+      - report_count     (number of daily reports in that month)
+    """
+    location_id = request.args.get("location_id", type=int)
+    group_id    = request.args.get("group_id",    type=int)
+    year        = request.args.get("year",        type=int)
+
+    # Extract year and month from report_date string (format: "YYYY-MM-DD")
+    year_expr  = func.substr(ChatAnalysisReport.report_date, 1, 4).label("year")
+    month_expr = func.substr(ChatAnalysisReport.report_date, 6, 2).label("month")
+
+    q = (
+        db.session.query(
+            year_expr,
+            month_expr,
+            func.sum(ChatAnalysisReport.total_messages).label("total_messages"),
+            func.sum(ChatAnalysisReport.active_members).label("total_active_members"),
+            func.sum(ChatAnalysisReport.messages_analyzed).label("total_messages_analyzed"),
+            func.count(ChatAnalysisReport.id).label("report_count"),
+        )
+    )
+
+    if location_id is not None:
+        q = q.filter(ChatAnalysisReport.location_id == location_id)
+    if group_id is not None:
+        q = q.filter(ChatAnalysisReport.group_id == group_id)
+    if year is not None:
+        q = q.filter(func.substr(ChatAnalysisReport.report_date, 1, 4) == str(year))
+
+    rows = (
+        q.group_by(year_expr, month_expr)
+         .order_by(year_expr.desc(), month_expr.desc())
+         .all()
+    )
+
+    result = [
+        {
+            "year":                    int(row.year),
+            "month":                   int(row.month),
+            "total_messages":          row.total_messages or 0,
+            "total_active_members":    row.total_active_members or 0,
+            "total_messages_analyzed": row.total_messages_analyzed or 0,
+            "report_count":            row.report_count,
+        }
+        for row in rows
+    ]
+
+    return jsonify({
+        "success": True,
+        "count": len(result),
+        "filters": {
+            "location_id": location_id,
+            "group_id":    group_id,
+            "year":        year,
+        },
+        "monthly_stats": result,
     }), 200
 
 
