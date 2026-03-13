@@ -90,11 +90,11 @@ def create_app(config_name='backend.models.config'):
     })
 
     # ⭐ Initialize socketio with the app (bind it to the Flask app)
-    socketio.init_app(
-        app,
-        message_queue='redis://localhost:6379/0',  # ✅ Add this!
-        cors_allowed_origins="*"
-    )
+    # socketio.init_app(
+    #     app,
+    #     message_queue='redis://localhost:6379/0',  # ✅ Add this!
+    #     cors_allowed_origins="*"
+    # )
 
     # Initialize extensions
     db = db_setup(app)
@@ -191,6 +191,7 @@ def register_all_routes(api, app):
     from backend.telegram_bot.views import register_telegram_bot_routes
     from backend.tasks.missions.views import register_missions_views
     from backend.chat_analyzer.views import register_chat_analyzer_routes
+    from backend.reports.urls import register_report_views
 
     # Register all routes
     routes = [
@@ -212,7 +213,8 @@ def register_all_routes(api, app):
         register_programmers_views,
         register_overall_datas_routes,
         register_missions_views,
-        register_chat_analyzer_routes
+        register_chat_analyzer_routes,
+        register_report_views
     ]
 
     for register_func in routes:

@@ -793,7 +793,23 @@ class BranchReport(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    category = db.Column(db.String(255))
+    program_type = db.Column(db.String(100), default="Gennis")
+    text = db.Column(db.Text)
 
+    def __repr__(self):
+        return f"<Report {self.name}>"
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "program_type": self.program_type,
+            "text": self.text
+        }
 from backend.home_page.models import *
 from backend.account.models import *
 from backend.time_table.models import *
