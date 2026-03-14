@@ -1,6 +1,6 @@
 from backend.group.models import Groups
 from backend.models.models import Column, Integer, ForeignKey, String, Boolean, relationship, DateTime, db, \
-    BigInteger
+    BigInteger, Date
 from backend.models.models import func
 from backend.student.models import Students
 
@@ -870,6 +870,39 @@ class Investment(db.Model):
             "reason": self.location.name if self.location else self.reason,
             "type_name": "Investitsiya"
         }
+
+
+class ManagementDividend(db.Model):
+    __tablename__ = "management_dividend"
+    id = Column(Integer, primary_key=True)
+    management_id = Column(Integer, unique=True)
+    amount = Column(Integer)
+    date = Column(Date)
+    description = Column(String)
+    payment_type = Column(String(255))
+    location_id = Column(Integer, ForeignKey('locations.id'))
+    deleted = Column(Boolean, default=False)
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "management_id": self.management_id,
+            "amount": self.amount,
+            "type_name": "Management Dividend",
+            "date": self.date.strftime("%Y-%m-%d") if self.date else None,
+            "description": self.description,
+            "payment_type": self.payment_type,
+            "location_id": self.location_id,
+            "deleted": self.deleted,
+        }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def delete(self):
+        self.deleted = True
+        db.session.commit()
 
 
 class FineReport(db.Model):
