@@ -905,6 +905,39 @@ class ManagementDividend(db.Model):
         db.session.commit()
 
 
+class ManagementInvestment(db.Model):
+    __tablename__ = "management_investment"
+    id = Column(Integer, primary_key=True)
+    management_id = Column(Integer, unique=True)
+    amount = Column(Integer)
+    date = Column(Date)
+    description = Column(String)
+    payment_type = Column(String(255))
+    location_id = Column(Integer, ForeignKey('locations.id'))
+    deleted = Column(Boolean, default=False)
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "management_id": self.management_id,
+            "amount": self.amount,
+            "type_name": "Management Investment",
+            "date": self.date.strftime("%Y-%m-%d") if self.date else None,
+            "description": self.description,
+            "payment_type": self.payment_type,
+            "location_id": self.location_id,
+            "deleted": self.deleted,
+        }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def delete(self):
+        self.deleted = True
+        db.session.commit()
+
+
 class FineReport(db.Model):
     __tablename__ = "finereport"
     id = Column(Integer, primary_key=True)
