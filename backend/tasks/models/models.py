@@ -209,6 +209,7 @@ class Tag(db.Model):
 class Mission(db.Model):
     __tablename__ = "missions"
     id = db.Column(db.Integer, primary_key=True)
+    management_id = db.Column(db.BigInteger, nullable=True, unique=True)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
 
