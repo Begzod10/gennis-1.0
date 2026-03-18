@@ -90,11 +90,11 @@ def create_app(config_name='backend.models.config'):
     })
 
     # ⭐ Initialize socketio with the app (bind it to the Flask app)
-    # socketio.init_app(
-    #     app,
-    #     message_queue='redis://localhost:6379/0',  # ✅ Add this!
-    #     cors_allowed_origins="*"
-    # )
+    socketio.init_app(
+        app,
+        message_queue='redis://localhost:6379/0',  # ✅ Add this!
+        cors_allowed_origins="*"
+    )
 
     # Initialize extensions
     db = db_setup(app)
