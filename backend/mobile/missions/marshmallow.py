@@ -16,7 +16,7 @@ class MobileMissionListSchema(SQLAlchemySchema):
     category = fields.Str()
     status = fields.Str()
     deadline_datetime = fields.DateTime(format="%Y-%m-%d %H:%M")
-
+    creator_name = fields.Str()
     deadline_color = fields.Method("get_color")
 
     def get_color(self, obj):
