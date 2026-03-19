@@ -33,16 +33,19 @@ def create_comment():
 
             attachment_path = f"/uploads/comments/{new_name}"
 
+        user = Users.query.filter(Users.id == user_id).first()
+        creator_name = f"{user.name} {user.surname}".strip() if user else None
+
         comment = MissionComment(
             mission_id=mission_id,
             user_id=user_id,
             text=text,
-            attachment_path=attachment_path
+            attachment_path=attachment_path,
+            creator_name=creator_name,
         )
 
         db.session.add(comment)
         db.session.commit()
-        user = Users.query.filter(Users.id == user_id).first()
         schema = CommentSchema()
         result = schema.dump(comment)
         return jsonify(result), 201
