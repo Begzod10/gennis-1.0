@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from backend.tasks.missions.marshmallow import AttachmentSchema
+from backend.models.models import Users
 
 attachments_bp = Blueprint("attachments", __name__)
 
@@ -32,7 +33,13 @@ def create_attachment():
     # relative URL for frontend
     file_url = f"/uploads/attachments/{filename}"
 
-    a = MissionAttachment(mission_id=mission_id, file_path=file_url, note=note)
+    creator_id = request.form.get("creator_id")
+    creator_name = None
+    if creator_id:
+        user = Users.query.filter(Users.id == creator_id).first()
+        creator_name = f"{user.name} {user.surname}".strip() if user else None
+
+    a = MissionAttachment(mission_id=mission_id, file_path=file_url, note=note, creator_name=creator_name)
     db.session.add(a)
     db.session.commit()
     schema = AttachmentSchema()

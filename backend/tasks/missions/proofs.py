@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 from backend.tasks.missions.marshmallow import ProofSchema
+from backend.models.models import Users
 
 proofs_bp = Blueprint("proofs", __name__)
 
@@ -34,7 +35,13 @@ def create_proof():
     # relative URL for frontend
     file_url = f"/uploads/proofs/{filename}"
 
-    p = MissionProof(mission_id=mission_id, file_path=file_url, comment=comment)
+    creator_id = request.form.get("creator_id")
+    creator_name = None
+    if creator_id:
+        user = Users.query.filter(Users.id == creator_id).first()
+        creator_name = f"{user.name} {user.surname}".strip() if user else None
+
+    p = MissionProof(mission_id=mission_id, file_path=file_url, comment=comment, creator_name=creator_name)
     db.session.add(p)
     db.session.commit()
 
