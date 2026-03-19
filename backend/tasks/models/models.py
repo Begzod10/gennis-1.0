@@ -220,6 +220,7 @@ class Mission(db.Model):
     creator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     executor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    reviewer_name = db.Column(db.String(255), nullable=True)
 
     original_executor_id = db.Column(
         db.Integer,
