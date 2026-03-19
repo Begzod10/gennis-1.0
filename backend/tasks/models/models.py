@@ -313,6 +313,7 @@ class Mission(db.Model):
 class MissionSubtask(db.Model):
     __tablename__ = "mission_subtasks"
     id = db.Column(db.Integer, primary_key=True)
+    management_id = db.Column(db.BigInteger, nullable=True, unique=True)
     mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
     title = db.Column(db.String(255))
     is_done = db.Column(db.Boolean, default=False)
@@ -323,6 +324,7 @@ class MissionSubtask(db.Model):
 class MissionAttachment(db.Model):
     __tablename__ = "mission_attachments"
     id = db.Column(db.Integer, primary_key=True)
+    management_id = db.Column(db.BigInteger, nullable=True, unique=True)
     mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
     file_path = db.Column(db.String(255))
     note = db.Column(db.String(255), nullable=True)
@@ -332,17 +334,19 @@ class MissionAttachment(db.Model):
 class MissionComment(db.Model):
     __tablename__ = "mission_comments"
     id = db.Column(db.Integer, primary_key=True)
+    management_id = db.Column(db.BigInteger, nullable=True, unique=True)
     mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     text = db.Column(db.Text)
     attachment_path = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    user = db.relationship("Users", backref="mission_comments")
+    user = db.relationship("Users", backref="mission_comments", foreign_keys=[user_id])
 
 
 class MissionProof(db.Model):
     __tablename__ = "mission_proofs"
     id = db.Column(db.Integer, primary_key=True)
+    management_id = db.Column(db.BigInteger, nullable=True, unique=True)
     mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
     file_path = db.Column(db.String(255))
     comment = db.Column(db.String(255), nullable=True)
