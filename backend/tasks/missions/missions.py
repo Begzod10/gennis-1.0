@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, and_
@@ -5,8 +6,84 @@ from flask import Blueprint, request, jsonify, send_from_directory
 from marshmallow import ValidationError
 from backend.tasks.missions.marshmallow import MissionCreateSchema, MissionDetailSchema
 from backend.tasks.models.models import Mission, db, Tag, MissionComment
+from backend.tasks.models.management import ManagementMission, ManagementSession
 from backend.tasks.missions.utils import create_notification
 from backend.tasks.missions.signals import on_mission_status_change, send_notification
+
+_logger = logging.getLogger(__name__)
+
+
+def _get_management_mission(management_id: int):
+    """Return (session, ManagementMission) or (None, None) if not found."""
+    if ManagementSession is None or not management_id:
+        return None, None
+    sess = ManagementSession()
+    try:
+        mgmt = sess.query(ManagementMission).filter(
+            ManagementMission.id == management_id,
+            ManagementMission.deleted == False,
+        ).first()
+        return sess, mgmt
+    except Exception:
+        sess.close()
+        return None, None
+
+
+def _sync_update_to_management(mission):
+    """Sync changed fields back to the management mission (direct DB write)."""
+    if not mission.management_id:
+        return
+    sess, mgmt = _get_management_mission(mission.management_id)
+    if mgmt is None:
+        if sess:
+            sess.close()
+        return
+    try:
+        for attr, dst in [
+            ("title",               "title"),
+            ("description",         "description"),
+            ("category",            "category"),
+            ("status",              "status"),
+            ("delay_days",          "delay_days"),
+            ("final_sc",            "final_sc"),
+            ("kpi_weight",          "kpi_weight"),
+            ("penalty_per_day",     "penalty_per_day"),
+            ("early_bonus_per_day", "early_bonus_per_day"),
+            ("max_bonus",           "max_bonus"),
+            ("max_penalty",         "max_penalty"),
+        ]:
+            val = getattr(mission, attr, None)
+            if val is not None:
+                setattr(mgmt, dst, val)
+        if mission.deadline_datetime:
+            mgmt.deadline = mission.deadline_datetime.date()
+        if mission.finish_datetime:
+            mgmt.finish_date = mission.finish_datetime.date()
+        sess.commit()
+    except Exception as exc:
+        sess.rollback()
+        _logger.warning("[management sync] Gennis update failed: %s", exc)
+    finally:
+        sess.close()
+
+
+def _sync_delete_to_management(mission):
+    """Soft-delete the management mission when it is deleted in Gennis."""
+    if not mission.management_id:
+        return
+    sess, mgmt = _get_management_mission(mission.management_id)
+    if mgmt is None:
+        if sess:
+            sess.close()
+        return
+    try:
+        mgmt.deleted = True
+        sess.commit()
+    except Exception as exc:
+        sess.rollback()
+        _logger.warning("[management sync] Gennis delete failed: %s", exc)
+    finally:
+        sess.close()
 
 missions_bp = Blueprint("missions", __name__)
 up_bp = Blueprint("up_bp", __name__)
@@ -259,6 +336,7 @@ def update_mission(pk):
         m.repeat_every = int(json_data["repeat_every"])
 
     db.session.commit()
+    _sync_update_to_management(m)
 
     return jsonify(MissionDetailSchema().dump(m)), 200
 
@@ -266,6 +344,7 @@ def update_mission(pk):
 @missions_bp.route("/<int:pk>/", methods=["DELETE"])
 def delete_mission(pk):
     m = Mission.query.get_or_404(pk)
+    _sync_delete_to_management(m)
     db.session.delete(m)
     db.session.commit()
     return jsonify({"detail": "deleted"}), 200

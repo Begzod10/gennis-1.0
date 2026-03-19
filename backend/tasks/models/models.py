@@ -318,6 +318,7 @@ class MissionSubtask(db.Model):
     title = db.Column(db.String(255))
     is_done = db.Column(db.Boolean, default=False)
     order = db.Column(db.Integer, default=0)
+    creator_name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -328,6 +329,7 @@ class MissionAttachment(db.Model):
     mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
     file_path = db.Column(db.String(255))
     note = db.Column(db.String(255), nullable=True)
+    creator_name = db.Column(db.String(255), nullable=True)
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -339,6 +341,7 @@ class MissionComment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     text = db.Column(db.Text)
     attachment_path = db.Column(db.String(255), nullable=True)
+    creator_name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user = db.relationship("Users", backref="mission_comments", foreign_keys=[user_id])
 
@@ -350,6 +353,7 @@ class MissionProof(db.Model):
     mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
     file_path = db.Column(db.String(255))
     comment = db.Column(db.String(255), nullable=True)
+    creator_name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
