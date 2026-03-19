@@ -61,6 +61,7 @@ def list_comments(mission_id):
         {
             "id": c.id,
             "user_id": c.user_id,
+            "creator_name": c.creator_name,
             "text": c.text,
             "attachment": c.attachment_path,
             "created_at": c.created_at.isoformat()
