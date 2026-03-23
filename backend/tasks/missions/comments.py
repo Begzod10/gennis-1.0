@@ -50,7 +50,6 @@ def create_comment():
 
         # Sync to management DB if mission originated from management
         mission = Mission.query.get(int(mission_id))
-        print(f"[management sync] comment: mission={mission} management_id={mission.management_id if mission else 'no mission'}")
         if mission and mission.management_id:
             mgmt_id = sync_comment_to_management(
                 mission_management_id=mission.management_id,
