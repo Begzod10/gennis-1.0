@@ -70,9 +70,24 @@ class ManagementMissionProof(ManagementBase):
 management_engine = create_engine(MANAGEMENT_DB_URL) if MANAGEMENT_DB_URL else None
 ManagementSession = sessionmaker(bind=management_engine) if management_engine else None
 
+_lazy_engine = None
+_lazy_session_factory = None
+
 
 def _get_management_session():
-    return ManagementSession() if ManagementSession else None
+    global _lazy_engine, _lazy_session_factory
+    # Try module-level session first (set at import time)
+    if ManagementSession is not None:
+        return ManagementSession()
+    # Fallback: lazy init in case MANAGEMENT_DB_URL was loaded after import
+    if _lazy_session_factory is None:
+        url = os.getenv("MANAGEMENT_DB_URL")
+        if not url:
+            print("[management sync] MANAGEMENT_DB_URL is not set")
+            return None
+        _lazy_engine = create_engine(url)
+        _lazy_session_factory = sessionmaker(bind=_lazy_engine)
+    return _lazy_session_factory()
 
 
 def sync_comment_to_management(mission_management_id, text, attachment_url, creator_name):
