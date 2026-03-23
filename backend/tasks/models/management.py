@@ -92,7 +92,9 @@ def _get_management_session():
 
 def sync_comment_to_management(mission_management_id, text, attachment_url, creator_name):
     """Create a comment in the management DB. Returns the new management comment id."""
+    print(f"[management sync] sync_comment called: mission_management_id={mission_management_id} text={text[:30] if text else None}")
     session = _get_management_session()
+    print(f"[management sync] session={session}")
     if not session:
         return None
     try:
@@ -104,6 +106,7 @@ def sync_comment_to_management(mission_management_id, text, attachment_url, crea
         )
         session.add(c)
         session.commit()
+        print(f"[management sync] comment created id={c.id}")
         return c.id
     except Exception as e:
         session.rollback()
