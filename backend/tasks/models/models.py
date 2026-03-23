@@ -358,6 +358,26 @@ class MissionProof(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class MissionHistory(db.Model):
+    __tablename__ = "mission_history"
+    id = db.Column(db.Integer, primary_key=True)
+    management_id = db.Column(db.BigInteger, nullable=True, unique=True)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
+    executor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    management_executor_id = db.Column(db.BigInteger, nullable=True)
+    management_executor_name = db.Column(db.String(255), nullable=True)
+    management_reviewer_id = db.Column(db.BigInteger, nullable=True)
+    management_reviewer_name = db.Column(db.String(255), nullable=True)
+    turon_executor_id = db.Column(db.BigInteger, nullable=True)
+    turon_executor_name = db.Column(db.String(255), nullable=True)
+    turon_reviewer_id = db.Column(db.BigInteger, nullable=True)
+    turon_reviewer_name = db.Column(db.String(255), nullable=True)
+    changed_by_name = db.Column(db.String(255), nullable=True)
+    note = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Notification(db.Model):
     __tablename__ = "notifications"
     id = db.Column(db.Integer, primary_key=True)

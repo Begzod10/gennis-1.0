@@ -4,8 +4,8 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, and_
 from flask import Blueprint, request, jsonify, send_from_directory
 from marshmallow import ValidationError
-from backend.tasks.missions.marshmallow import MissionCreateSchema, MissionDetailSchema
-from backend.tasks.models.models import Mission, db, Tag, MissionComment
+from backend.tasks.missions.marshmallow import MissionCreateSchema, MissionDetailSchema, MissionHistorySchema
+from backend.tasks.models.models import Mission, MissionHistory, db, Tag, MissionComment
 from backend.tasks.models.management import ManagementMission, ManagementSession
 from backend.tasks.missions.utils import create_notification
 from backend.tasks.missions.signals import on_mission_status_change, send_notification
@@ -339,6 +339,18 @@ def update_mission(pk):
     _sync_update_to_management(m)
 
     return jsonify(MissionDetailSchema().dump(m)), 200
+
+
+@missions_bp.route("/<int:pk>/history/", methods=["GET"])
+def mission_history(pk):
+    Mission.query.get_or_404(pk)
+    history = (
+        MissionHistory.query
+        .filter_by(mission_id=pk)
+        .order_by(MissionHistory.created_at.asc())
+        .all()
+    )
+    return jsonify(MissionHistorySchema().dump(history, many=True)), 200
 
 
 @missions_bp.route("/<int:pk>/", methods=["DELETE"])

@@ -2,7 +2,7 @@ from datetime import datetime
 from marshmallow import Schema, fields, post_load
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from backend.tasks.models.models import Mission, MissionSubtask, MissionAttachment, MissionComment, MissionProof, Tag, \
-    db
+    MissionHistory, db
 from backend.models.models import Users
 from marshmallow import Schema, fields
 
@@ -90,6 +90,18 @@ class ProofSchema(SQLAlchemyAutoSchema):
 
     class Meta:
         model = MissionProof
+        include_fk = True
+        load_instance = True
+        sqla_session = db.session
+
+
+class MissionHistorySchema(SQLAlchemyAutoSchema):
+    created_at = fields.DateTime(format="%Y-%m-%d %H:%M")
+    executor = fields.Nested(UserShortSchema, allow_none=True)
+    reviewer = fields.Nested(UserShortSchema, allow_none=True)
+
+    class Meta:
+        model = MissionHistory
         include_fk = True
         load_instance = True
         sqla_session = db.session
