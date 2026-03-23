@@ -263,18 +263,10 @@ def update_mission(pk):
         new_executor_id = int(json_data["executor_id"])
 
         if new_executor_id != old_executor_id:
-            # m.executor_id = new_executor_id
-
-            # 🔁 redirect aniqlash
-            if new_executor_id != m.executor_id:
-                m.is_redirected = True
-                m.redirected_at = datetime.utcnow()
-                m.redirected_by_id = json_data.get("executor_id")
-            else:
-                # agar originalga qaytsa
-                m.is_redirected = False
-                m.redirected_at = None
-                m.redirected_by_id = None
+            m.executor_id = new_executor_id
+            m.is_redirected = True
+            m.redirected_at = datetime.utcnow()
+            m.redirected_by_id = old_executor_id
 
             send_notification(
                 user_id=new_executor_id,

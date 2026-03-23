@@ -3,6 +3,7 @@ from datetime import datetime
 from backend.models.models import MissionComment, Mission, db, Users
 from backend.tasks.missions.utils import allowed_file, create_notification
 from backend.tasks.missions.marshmallow import CommentSchema
+from backend.tasks.models.management import sync_comment_to_management
 from werkzeug.utils import secure_filename
 import os
 
@@ -46,6 +47,20 @@ def create_comment():
 
         db.session.add(comment)
         db.session.commit()
+
+        # Sync to management DB if mission originated from management
+        mission = Mission.query.get(int(mission_id))
+        if mission and mission.management_id:
+            mgmt_id = sync_comment_to_management(
+                mission_management_id=mission.management_id,
+                text=text,
+                attachment_url=attachment_path,
+                creator_name=creator_name,
+            )
+            if mgmt_id:
+                comment.management_id = mgmt_id
+                db.session.commit()
+
         schema = CommentSchema()
         result = schema.dump(comment)
         return jsonify(result), 201

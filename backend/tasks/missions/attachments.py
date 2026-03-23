@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
-from backend.models.models import MissionAttachment, db
+from backend.models.models import MissionAttachment, Mission, db
 from backend.tasks.missions.utils import allowed_file
+from backend.tasks.models.management import sync_attachment_to_management
 import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -42,6 +43,20 @@ def create_attachment():
     a = MissionAttachment(mission_id=mission_id, file_path=file_url, note=note, creator_name=creator_name)
     db.session.add(a)
     db.session.commit()
+
+    # Sync to management DB if mission originated from management
+    mission = Mission.query.get(int(mission_id))
+    if mission and mission.management_id:
+        mgmt_id = sync_attachment_to_management(
+            mission_management_id=mission.management_id,
+            file_url=file_url,
+            note=note,
+            creator_name=creator_name,
+        )
+        if mgmt_id:
+            a.management_id = mgmt_id
+            db.session.commit()
+
     schema = AttachmentSchema()
     result = schema.dump(a)
     return jsonify(result), 201

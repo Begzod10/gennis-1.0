@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
-from backend.tasks.models.models import MissionProof, db
+from backend.tasks.models.models import MissionProof, Mission, db
 from backend.tasks.missions.utils import allowed_file
+from backend.tasks.models.management import sync_proof_to_management
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -44,6 +45,19 @@ def create_proof():
     p = MissionProof(mission_id=mission_id, file_path=file_url, comment=comment, creator_name=creator_name)
     db.session.add(p)
     db.session.commit()
+
+    # Sync to management DB if mission originated from management
+    mission = Mission.query.get(int(mission_id))
+    if mission and mission.management_id:
+        mgmt_id = sync_proof_to_management(
+            mission_management_id=mission.management_id,
+            file_url=file_url,
+            comment=comment,
+            creator_name=creator_name,
+        )
+        if mgmt_id:
+            p.management_id = mgmt_id
+            db.session.commit()
 
     schema = ProofSchema()
     result = schema.dump(p)
