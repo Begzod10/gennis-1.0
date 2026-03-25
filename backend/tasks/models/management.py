@@ -67,6 +67,17 @@ class ManagementMissionProof(ManagementBase):
     deleted = Column(Boolean, default=False)
 
 
+class ManagementMissionSubtask(ManagementBase):
+    __tablename__ = "mission_subtask"
+
+    id = Column(BigInteger, primary_key=True)
+    mission_id = Column(BigInteger, nullable=False)
+    title = Column(String(255), nullable=False)
+    is_done = Column(Boolean, default=False)
+    order = Column(Integer, default=0)
+    deleted = Column(Boolean, default=False)
+
+
 management_engine = create_engine(MANAGEMENT_DB_URL) if MANAGEMENT_DB_URL else None
 ManagementSession = sessionmaker(bind=management_engine) if management_engine else None
 
@@ -154,6 +165,29 @@ def sync_proof_to_management(mission_management_id, file_url, comment, creator_n
     except Exception as e:
         session.rollback()
         print(f"[management sync] proof failed: {e}")
+        return None
+    finally:
+        session.close()
+
+
+def sync_subtask_to_management(mission_management_id, title, is_done, order):
+    """Create a subtask in the management DB. Returns the new management subtask id."""
+    session = _get_management_session()
+    if not session:
+        return None
+    try:
+        st = ManagementMissionSubtask(
+            mission_id=mission_management_id,
+            title=title,
+            is_done=is_done,
+            order=order,
+        )
+        session.add(st)
+        session.commit()
+        return st.id
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] subtask failed: {e}")
         return None
     finally:
         session.close()

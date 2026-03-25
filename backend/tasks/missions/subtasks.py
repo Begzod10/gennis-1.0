@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from backend.tasks.models.models import MissionSubtask, Mission, db
 from backend.tasks.missions.marshmallow import SubtaskSchema
+from backend.tasks.models.management import sync_subtask_to_management
 
 subtasks_bp = Blueprint("subtasks", __name__)
 
@@ -9,10 +10,22 @@ subtasks_bp = Blueprint("subtasks", __name__)
 def create_subtask():
     json = request.get_json() or {}
     mission_id = json.get("mission_id")
-    t = Mission.query.get_or_404(mission_id)
+    mission = Mission.query.get_or_404(mission_id)
     st = MissionSubtask(mission_id=mission_id, title=json.get("title"), order=json.get("order", 0))
     db.session.add(st)
     db.session.commit()
+
+    if mission.management_id:
+        mgmt_id = sync_subtask_to_management(
+            mission_management_id=mission.management_id,
+            title=st.title,
+            is_done=st.is_done,
+            order=st.order,
+        )
+        if mgmt_id:
+            st.management_id = mgmt_id
+            db.session.commit()
+
     schema = SubtaskSchema()
     result = schema.dump(st)
     return jsonify(result), 201
