@@ -262,8 +262,9 @@ def update_mission(pk):
     # =========================
     # EXECUTOR CHANGE / REDIRECT
     # =========================
-    if "executor_id" in json_data:
-        new_executor_id = int(json_data["executor_id"])
+    raw_executor = json_data.get("executor_id") or (json_data.get("executor_ids") or [None])[0]
+    if raw_executor is not None:
+        new_executor_id = int(raw_executor)
 
         if new_executor_id != old_executor_id:
             m.executor_id = new_executor_id
