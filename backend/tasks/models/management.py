@@ -67,6 +67,18 @@ class ManagementMissionProof(ManagementBase):
     deleted = Column(Boolean, default=False)
 
 
+class ManagementMissionHistory(ManagementBase):
+    __tablename__ = "mission_history"
+
+    id = Column(BigInteger, primary_key=True)
+    mission_id = Column(BigInteger, nullable=False)
+    gennis_executor_id = Column(Integer, nullable=True)
+    gennis_executor_name = Column(String(255), nullable=True)
+    gennis_reviewer_id = Column(Integer, nullable=True)
+    gennis_reviewer_name = Column(String(255), nullable=True)
+    note = Column(String(500), nullable=True)
+
+
 class ManagementMissionSubtask(ManagementBase):
     __tablename__ = "mission_subtask"
 
@@ -165,6 +177,32 @@ def sync_proof_to_management(mission_management_id, file_url, comment, creator_n
     except Exception as e:
         session.rollback()
         print(f"[management sync] proof failed: {e}")
+        return None
+    finally:
+        session.close()
+
+
+def sync_history_to_management(mission_management_id, gennis_executor_id=None, gennis_executor_name=None,
+                              gennis_reviewer_id=None, gennis_reviewer_name=None, note=None):
+    """Create a history record in the management DB when executor/reviewer changes in Gennis."""
+    session = _get_management_session()
+    if not session:
+        return None
+    try:
+        h = ManagementMissionHistory(
+            mission_id=mission_management_id,
+            gennis_executor_id=gennis_executor_id,
+            gennis_executor_name=gennis_executor_name,
+            gennis_reviewer_id=gennis_reviewer_id,
+            gennis_reviewer_name=gennis_reviewer_name,
+            note=note,
+        )
+        session.add(h)
+        session.commit()
+        return h.id
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] history failed: {e}")
         return None
     finally:
         session.close()

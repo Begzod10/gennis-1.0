@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 from marshmallow import ValidationError
 from backend.tasks.missions.marshmallow import MissionCreateSchema, MissionDetailSchema, MissionHistorySchema
 from backend.tasks.models.models import Mission, MissionHistory, db, Tag, MissionComment
-from backend.tasks.models.management import ManagementMission, ManagementSession
+from backend.tasks.models.management import ManagementMission, ManagementSession, sync_history_to_management
 from backend.tasks.missions.utils import create_notification
 from backend.tasks.missions.signals import on_mission_status_change, send_notification
 
@@ -268,6 +268,28 @@ def update_mission(pk):
             m.redirected_at = datetime.utcnow()
             m.redirected_by_id = old_executor_id
 
+            # Record history locally
+            old_executor_user = Users.query.get(old_executor_id)
+            new_executor_user = Users.query.get(new_executor_id)
+            old_name = f"{old_executor_user.name} {old_executor_user.surname}".strip() if old_executor_user else None
+            new_name = f"{new_executor_user.name} {new_executor_user.surname}".strip() if new_executor_user else None
+            history = MissionHistory(
+                mission_id=m.id,
+                executor_id=new_executor_id,
+                changed_by_name=old_name,
+                note=f"Redirected to {new_name}",
+            )
+            db.session.add(history)
+
+            # Sync history to management
+            if m.management_id:
+                sync_history_to_management(
+                    mission_management_id=m.management_id,
+                    gennis_executor_id=new_executor_id,
+                    gennis_executor_name=new_name,
+                    note=f"Redirected by {old_name}",
+                )
+
             send_notification(
                 user_id=new_executor_id,
                 mission=m,
@@ -279,7 +301,34 @@ def update_mission(pk):
     # BASIC FIELDS
     # =========================
     if "reviewer_id" in json_data:
-        m.reviewer_id = json_data["reviewer_id"]
+        new_reviewer_id = json_data["reviewer_id"]
+        old_reviewer_id = m.reviewer_id
+
+        if new_reviewer_id != old_reviewer_id:
+            m.reviewer_id = new_reviewer_id
+
+            new_reviewer_user = Users.query.get(new_reviewer_id) if new_reviewer_id else None
+            old_reviewer_user = Users.query.get(old_reviewer_id) if old_reviewer_id else None
+            new_reviewer_name = f"{new_reviewer_user.name} {new_reviewer_user.surname}".strip() if new_reviewer_user else None
+            old_reviewer_name = f"{old_reviewer_user.name} {old_reviewer_user.surname}".strip() if old_reviewer_user else None
+
+            history = MissionHistory(
+                mission_id=m.id,
+                reviewer_id=new_reviewer_id,
+                changed_by_name=old_reviewer_name,
+                note=f"Reviewer changed to {new_reviewer_name}",
+            )
+            db.session.add(history)
+
+            if m.management_id:
+                sync_history_to_management(
+                    mission_management_id=m.management_id,
+                    gennis_reviewer_id=new_reviewer_id,
+                    gennis_reviewer_name=new_reviewer_name,
+                    note=f"Reviewer changed by {old_reviewer_name}",
+                )
+        else:
+            m.reviewer_id = new_reviewer_id
 
     if "deadline_datetime" in json_data:
         m.deadline_datetime = datetime.fromisoformat(json_data["deadline_datetime"])
