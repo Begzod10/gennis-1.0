@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from backend.tasks.models.models import MissionProof, Mission, db
 from backend.tasks.missions.utils import allowed_file
-from backend.tasks.models.management import sync_proof_to_management
+from backend.tasks.models.management import sync_proof_to_management, sync_proof_update_to_management, sync_proof_delete_to_management
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -101,6 +101,13 @@ def update_proof(pk):
 
     db.session.commit()
 
+    if p.management_id:
+        sync_proof_update_to_management(
+            management_id=p.management_id,
+            file=p.file_path if file else None,
+            comment=comment if comment else None,
+        )
+
     schema = ProofSchema()
     result = schema.dump(p)
     return jsonify(result), 200
@@ -110,6 +117,7 @@ def update_proof(pk):
 @proofs_bp.route("/<int:pk>/", methods=["DELETE"])
 def delete_proof(pk):
     p = MissionProof.query.get_or_404(pk)
+    mgmt_id = p.management_id
 
     try:
         os.remove(p.file_path)
@@ -118,5 +126,8 @@ def delete_proof(pk):
 
     db.session.delete(p)
     db.session.commit()
+
+    if mgmt_id:
+        sync_proof_delete_to_management(mgmt_id)
 
     return jsonify({"detail": "deleted"}), 200

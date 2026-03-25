@@ -3,7 +3,7 @@ from datetime import datetime
 from backend.models.models import MissionComment, Mission, db, Users
 from backend.tasks.missions.utils import allowed_file, create_notification
 from backend.tasks.missions.marshmallow import CommentSchema
-from backend.tasks.models.management import sync_comment_to_management
+from backend.tasks.models.management import sync_comment_to_management, sync_comment_update_to_management, sync_comment_delete_to_management
 from werkzeug.utils import secure_filename
 import os
 
@@ -127,6 +127,13 @@ def update_comment(pk):
 
     db.session.commit()
 
+    if c.management_id:
+        sync_comment_update_to_management(
+            management_id=c.management_id,
+            text=text if text else None,
+            attachment=c.attachment_path,
+        )
+
     schema = CommentSchema()
     result = schema.dump(c)
     return jsonify(result), 200
@@ -136,6 +143,10 @@ def update_comment(pk):
 @comments_bp.route("/<int:pk>/", methods=["DELETE"])
 def delete_comment(pk):
     c = MissionComment.query.get_or_404(pk)
+    mgmt_id = c.management_id
     db.session.delete(c)
     db.session.commit()
+
+    if mgmt_id:
+        sync_comment_delete_to_management(mgmt_id)
     return jsonify({"detail": "deleted"}), 200

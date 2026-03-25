@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from backend.tasks.models.models import MissionSubtask, Mission, db
 from backend.tasks.missions.marshmallow import SubtaskSchema
-from backend.tasks.models.management import sync_subtask_to_management
+from backend.tasks.models.management import sync_subtask_to_management, sync_subtask_update_to_management, sync_subtask_delete_to_management
 
 subtasks_bp = Blueprint("subtasks", __name__)
 
@@ -40,6 +40,14 @@ def update_subtask(pk):
     if "title" in json:
         st.title = json["title"]
     db.session.commit()
+
+    if st.management_id:
+        sync_subtask_update_to_management(
+            management_id=st.management_id,
+            title=json.get("title"),
+            is_done=st.is_done if "is_done" in json else None,
+        )
+
     schema = SubtaskSchema()
     result = schema.dump(st)
     return jsonify(result), 200
@@ -48,6 +56,11 @@ def update_subtask(pk):
 @subtasks_bp.route("/<int:pk>/", methods=["DELETE"])
 def delete_subtask(pk):
     st = MissionSubtask.query.get_or_404(pk)
+    mgmt_id = st.management_id
     db.session.delete(st)
     db.session.commit()
+
+    if mgmt_id:
+        sync_subtask_delete_to_management(mgmt_id)
+
     return jsonify({"detail": "deleted"}), 200

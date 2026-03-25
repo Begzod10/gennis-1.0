@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from backend.models.models import MissionAttachment, Mission, db
 from backend.tasks.missions.utils import allowed_file
-from backend.tasks.models.management import sync_attachment_to_management
+from backend.tasks.models.management import sync_attachment_to_management, sync_attachment_update_to_management, sync_attachment_delete_to_management
 import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -96,6 +96,14 @@ def update_attachment(pk):
         a.file_path = f"/uploads/attachments/{filename}"
 
     db.session.commit()
+
+    if a.management_id:
+        sync_attachment_update_to_management(
+            management_id=a.management_id,
+            file=a.file_path if file else None,
+            note=note if note else None,
+        )
+
     schema = AttachmentSchema()
     result = schema.dump(a)
     return jsonify(result), 200
@@ -105,7 +113,11 @@ def update_attachment(pk):
 @attachments_bp.route("/<int:pk>/", methods=["DELETE"])
 def delete_attachment(pk):
     a = MissionAttachment.query.get_or_404(pk)
+    mgmt_id = a.management_id
     db.session.delete(a)
     db.session.commit()
+
+    if mgmt_id:
+        sync_attachment_delete_to_management(mgmt_id)
 
     return jsonify({"detail": "deleted"}), 200

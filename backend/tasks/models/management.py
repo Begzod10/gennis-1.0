@@ -191,3 +191,153 @@ def sync_subtask_to_management(mission_management_id, title, is_done, order):
         return None
     finally:
         session.close()
+
+
+def sync_comment_update_to_management(management_id, text=None, attachment=None):
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        c = session.query(ManagementMissionComment).filter(ManagementMissionComment.id == management_id).first()
+        if not c:
+            return
+        if text is not None:
+            c.text = text
+        if attachment is not None:
+            c.attachment = attachment
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] comment update failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_comment_delete_to_management(management_id):
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        c = session.query(ManagementMissionComment).filter(ManagementMissionComment.id == management_id).first()
+        if c:
+            c.deleted = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] comment delete failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_attachment_update_to_management(management_id, file=None, note=None):
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        a = session.query(ManagementMissionAttachment).filter(ManagementMissionAttachment.id == management_id).first()
+        if not a:
+            return
+        if file is not None:
+            a.file = file
+        if note is not None:
+            a.note = note
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] attachment update failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_attachment_delete_to_management(management_id):
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        a = session.query(ManagementMissionAttachment).filter(ManagementMissionAttachment.id == management_id).first()
+        if a:
+            a.deleted = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] attachment delete failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_proof_update_to_management(management_id, file=None, comment=None):
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        p = session.query(ManagementMissionProof).filter(ManagementMissionProof.id == management_id).first()
+        if not p:
+            return
+        if file is not None:
+            p.file = file
+        if comment is not None:
+            p.comment = comment
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] proof update failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_proof_delete_to_management(management_id):
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        p = session.query(ManagementMissionProof).filter(ManagementMissionProof.id == management_id).first()
+        if p:
+            p.deleted = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] proof delete failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_subtask_delete_to_management(management_id):
+    """Soft-delete a subtask in the management DB by its management_id."""
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        st = session.query(ManagementMissionSubtask).filter(
+            ManagementMissionSubtask.id == management_id
+        ).first()
+        if st:
+            st.deleted = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] subtask delete failed: {e}")
+    finally:
+        session.close()
+
+
+def sync_subtask_update_to_management(management_id, title=None, is_done=None):
+    """Update a subtask in the management DB by its management_id."""
+    session = _get_management_session()
+    if not session:
+        return
+    try:
+        st = session.query(ManagementMissionSubtask).filter(
+            ManagementMissionSubtask.id == management_id
+        ).first()
+        if not st:
+            return
+        if title is not None:
+            st.title = title
+        if is_done is not None:
+            st.is_done = is_done
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[management sync] subtask update failed: {e}")
+    finally:
+        session.close()
