@@ -217,7 +217,7 @@ class Mission(db.Model):
     tags = db.relationship("Tag", secondary=mission_tags, backref=db.backref("missions", lazy="dynamic"))
 
     creator_name = db.Column(db.String(255), nullable=True)
-    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     executor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     reviewer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     reviewer_name = db.Column(db.String(255), nullable=True)
@@ -376,6 +376,9 @@ class MissionHistory(db.Model):
     changed_by_name = db.Column(db.String(255), nullable=True)
     note = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    executor = db.relationship("Users", foreign_keys=[executor_id])
+    reviewer = db.relationship("Users", foreign_keys=[reviewer_id])
 
 
 class Notification(db.Model):
