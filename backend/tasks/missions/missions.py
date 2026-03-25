@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 from marshmallow import ValidationError
 from backend.tasks.missions.marshmallow import MissionCreateSchema, MissionDetailSchema, MissionHistorySchema
 from backend.tasks.models.models import Mission, MissionHistory, db, Tag, MissionComment
+from backend.models.models import Users
 from backend.tasks.models.management import ManagementMission, ManagementSession, sync_history_to_management
 from backend.tasks.missions.utils import create_notification
 from backend.tasks.missions.signals import on_mission_status_change, send_notification
@@ -59,6 +60,8 @@ def _sync_update_to_management(mission):
             mgmt.deadline = mission.deadline_datetime.date()
         if mission.finish_datetime:
             mgmt.finish_date = mission.finish_datetime.date()
+        if mission.executor_id:
+            mgmt.gennis_executor_id = mission.executor_id
         sess.commit()
     except Exception as exc:
         sess.rollback()
