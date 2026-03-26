@@ -18,6 +18,7 @@ DB_PASSWORD = os.getenv('FLASK_DB_PASSWORD', '123')
 DB_HOST = os.getenv('DB_HOST', 'localhost')
 
 classroom_server = os.getenv('CLASSROOM_SERVER_URL')
+BASE_URL = os.getenv('BASE_URL', 'http://localhost:5001')
 
 DB_NAME = os.getenv('FLASK_DB_NAME', 'gennis')
 DB_PORT = os.getenv('FLASK_DB_PORT', '5432')

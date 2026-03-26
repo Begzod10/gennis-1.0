@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from backend.models.models import MissionAttachment, Mission, db
 from backend.tasks.missions.utils import allowed_file
 from backend.tasks.models.management import sync_attachment_to_management, sync_attachment_update_to_management, sync_attachment_delete_to_management
+from backend.models.config import BASE_URL
 import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -49,7 +50,7 @@ def create_attachment():
     if mission and mission.management_id:
         mgmt_id = sync_attachment_to_management(
             mission_management_id=mission.management_id,
-            file_url=file_url,
+            file_url=f"{BASE_URL}{file_url}",
             note=note,
             creator_name=creator_name,
         )
@@ -100,7 +101,7 @@ def update_attachment(pk):
     if a.management_id:
         sync_attachment_update_to_management(
             management_id=a.management_id,
-            file=a.file_path if file else None,
+            file=f"{BASE_URL}{a.file_path}" if file and a.file_path else None,
             note=note if note else None,
         )
 

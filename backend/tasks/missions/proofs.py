@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from backend.tasks.models.models import MissionProof, Mission, db
 from backend.tasks.missions.utils import allowed_file
 from backend.tasks.models.management import sync_proof_to_management, sync_proof_update_to_management, sync_proof_delete_to_management
+from backend.models.config import BASE_URL
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -51,7 +52,7 @@ def create_proof():
     if mission and mission.management_id:
         mgmt_id = sync_proof_to_management(
             mission_management_id=mission.management_id,
-            file_url=file_url,
+            file_url=f"{BASE_URL}{file_url}",
             comment=comment,
             creator_name=creator_name,
         )
@@ -104,7 +105,7 @@ def update_proof(pk):
     if p.management_id:
         sync_proof_update_to_management(
             management_id=p.management_id,
-            file=p.file_path if file else None,
+            file=f"{BASE_URL}{p.file_path}" if file and p.file_path else None,
             comment=comment if comment else None,
         )
 

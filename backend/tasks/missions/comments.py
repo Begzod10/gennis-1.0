@@ -4,6 +4,7 @@ from backend.models.models import MissionComment, Mission, db, Users
 from backend.tasks.missions.utils import allowed_file, create_notification
 from backend.tasks.missions.marshmallow import CommentSchema
 from backend.tasks.models.management import sync_comment_to_management, sync_comment_update_to_management, sync_comment_delete_to_management
+from backend.models.config import BASE_URL
 from werkzeug.utils import secure_filename
 import os
 
@@ -54,7 +55,7 @@ def create_comment():
             mgmt_id = sync_comment_to_management(
                 mission_management_id=mission.management_id,
                 text=text,
-                attachment_url=attachment_path,
+                attachment_url=f"{BASE_URL}{attachment_path}" if attachment_path else None,
                 creator_name=creator_name,
             )
             if mgmt_id:
@@ -131,7 +132,7 @@ def update_comment(pk):
         sync_comment_update_to_management(
             management_id=c.management_id,
             text=text if text else None,
-            attachment=c.attachment_path,
+            attachment=f"{BASE_URL}{c.attachment_path}" if c.attachment_path else None,
         )
 
     schema = CommentSchema()
