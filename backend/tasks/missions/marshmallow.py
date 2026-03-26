@@ -5,6 +5,13 @@ from backend.tasks.models.models import Mission, MissionSubtask, MissionAttachme
     MissionHistory, db
 from backend.models.models import Users
 from marshmallow import Schema, fields
+from backend.models.config import BASE_URL
+
+
+def _to_url(path):
+    if path and not str(path).startswith(("http://", "https://")):
+        return f"{BASE_URL}{path}"
+    return path
 
 
 class TagSchema(SQLAlchemyAutoSchema):
@@ -57,6 +64,10 @@ class SubtaskSchema(SQLAlchemyAutoSchema):
 
 class AttachmentSchema(SQLAlchemyAutoSchema):
     uploaded_at = fields.DateTime(format="%Y-%m-%d %H:%M")
+    file_path = fields.Method("get_file_url")
+
+    def get_file_url(self, obj):
+        return _to_url(obj.file_path)
 
     class Meta:
         model = MissionAttachment
@@ -77,6 +88,10 @@ class UserShortSchema(SQLAlchemyAutoSchema):
 class CommentSchema(SQLAlchemyAutoSchema):
     created_at = fields.DateTime(format="%Y-%m-%d %H:%M")
     user = fields.Nested(UserShortSchema)
+    attachment_path = fields.Method("get_attachment_url")
+
+    def get_attachment_url(self, obj):
+        return _to_url(obj.attachment_path)
 
     class Meta:
         model = MissionComment
@@ -87,6 +102,10 @@ class CommentSchema(SQLAlchemyAutoSchema):
 
 class ProofSchema(SQLAlchemyAutoSchema):
     created_at = fields.DateTime(format="%Y-%m-%d %H:%M")
+    file_path = fields.Method("get_file_url")
+
+    def get_file_url(self, obj):
+        return _to_url(obj.file_path)
 
     class Meta:
         model = MissionProof
