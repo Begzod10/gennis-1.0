@@ -139,25 +139,6 @@ def _get_teacher_records(teacher, type_rating, cal_year, cal_month):
     return []
 
 
-def _calc_score(records, type_rating):
-    """Return the average percentage score for a list of records of the given type."""
-    if not records:
-        return None  # no data – excluded from the average
-    ball = 0
-    if type_rating in ("attendance", "attendances"):
-        for att in records:
-            if att.ball_percentage:
-                ball += att.ball_percentage
-    elif type_rating == "observation":
-        for att in records:
-            ball += att.average
-    elif type_rating == "lesson_plan":
-        for lp in records:
-            if lp.ball:
-                ball += lp.ball
-    return round(ball / len(records)) if ball else 0
-
-
 def _build_deleted_students_list(teachers, group_reasons, cal_year, cal_month):
     """Build the reason-breakdown list for deleted_students type_rating."""
     teacher_ids = [t.id for t in teachers]
@@ -201,25 +182,13 @@ def teacher_statistics(location_id):
 
     cal_year, cal_month, is_all = _resolve_year_month(year, month, calendar_year)
 
-    types_to_calc = (
-        [type_rating] if type_rating in ("attendance", "observation", "lesson_plan")
-        else ["attendance", "observation", "lesson_plan"]
-    )
-
     teachers_list = []
-    for teacher in teachers:
-        scores = []
-        for t in types_to_calc:
-            score = _calc_score(_get_teacher_records(teacher, t, cal_year, cal_month), t)
-            if score is not None:
-                scores.append(score)
-        combined = round(sum(scores) / len(scores)) if scores else 0
-        teachers_list.append({
-            "id": teacher.user.id,
-            "name": teacher.user.name,
-            "surname": teacher.user.surname,
-            "percentage": combined
-        })
+    if type_rating == "deleted_students":
+        teachers_list = _build_deleted_students_list(teachers, group_reasons, cal_year, cal_month)
+    else:
+        for teacher in teachers:
+            records = _get_teacher_records(teacher, type_rating, cal_year, cal_month)
+            teachers_list += analyze(records, teacher, type_rating)
 
     teachers_list = sorted(teachers_list, key=lambda d: d['percentage'], reverse=True)
     return jsonify({"teachers_list": teachers_list})
