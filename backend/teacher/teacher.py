@@ -30,6 +30,7 @@ def analyze(attendances, teacher, type_rating=None):
     ball = 0
     teacher_list = []
     info = {
+        "id": teacher.user.id,
         "name": teacher.user.name,
         "surname": teacher.user.surname,
         "percentage": 0
@@ -85,6 +86,104 @@ def statistics_dates():
         })
 
 
+def _resolve_year_month(year_raw, month_raw, current_calendar_year):
+    """Parse year/month filter values, return (calendar_year_obj_or_None, calendar_month_obj_or_None, is_all)."""
+    is_all = year_raw == "all"
+    cal_year = None
+    cal_month = None
+    if not is_all:
+        cal_year = CalendarYear.query.filter(
+            CalendarYear.date == datetime.strptime(year_raw, "%Y")
+        ).first()
+    if month_raw:
+        cal_month = CalendarMonth.query.filter(CalendarMonth.date == month_raw).first()
+    return cal_year, cal_month, is_all
+
+
+def _get_teacher_records(teacher, type_rating, cal_year, cal_month):
+    """Return the list of model instances for a single teacher given the active filters."""
+    year_id = cal_year.id if cal_year else None
+    month_id = cal_month.id if cal_month else None
+
+    if type_rating in ("attendance", "attendances"):
+        filters = [Attendance.teacher_id == teacher.id, Attendance.ball_percentage != None]
+        if year_id:
+            filters.append(Attendance.calendar_year == year_id)
+        if month_id:
+            filters.append(Attendance.calendar_month == month_id)
+        return Attendance.query.filter(*filters).all()
+
+    if type_rating == "observation":
+        filters = [TeacherObservationDay.teacher_id == teacher.id]
+        if year_id:
+            filters.append(TeacherObservationDay.calendar_year == year_id)
+        if month_id:
+            filters.append(TeacherObservationDay.calendar_month == month_id)
+        return TeacherObservationDay.query.filter(*filters).all()
+
+    if type_rating == "lesson_plan":
+        filters = [LessonPlan.teacher_id == teacher.id, LessonPlan.ball.isnot(None)]
+        if cal_month:
+            date_start = cal_month.date
+            date_end = datetime(date_start.year + 1, 1, 1) if date_start.month == 12 \
+                else datetime(date_start.year, date_start.month + 1, 1)
+        elif cal_year:
+            date_start = cal_year.date
+            date_end = datetime(date_start.year + 1, 1, 1)
+        else:
+            date_start = date_end = None
+        if date_start:
+            filters += [LessonPlan.date >= date_start, LessonPlan.date < date_end]
+        return LessonPlan.query.filter(*filters).all()
+
+    return []
+
+
+def _calc_score(records, type_rating):
+    """Return the average percentage score for a list of records of the given type."""
+    if not records:
+        return None  # no data – excluded from the average
+    ball = 0
+    if type_rating in ("attendance", "attendances"):
+        for att in records:
+            if att.ball_percentage:
+                ball += att.ball_percentage
+    elif type_rating == "observation":
+        for att in records:
+            ball += att.average
+    elif type_rating == "lesson_plan":
+        for lp in records:
+            if lp.ball:
+                ball += lp.ball
+    return round(ball / len(records)) if ball else 0
+
+
+def _build_deleted_students_list(teachers, group_reasons, cal_year, cal_month):
+    """Build the reason-breakdown list for deleted_students type_rating."""
+    teacher_ids = [t.id for t in teachers]
+    base_filters = [TeacherGroupStatistics.teacher_id.in_(teacher_ids)]
+    if cal_year:
+        base_filters.append(TeacherGroupStatistics.calendar_year == cal_year.id)
+    if cal_month:
+        base_filters.append(TeacherGroupStatistics.calendar_month == cal_month.id)
+
+    all_stats = TeacherGroupStatistics.query.filter(*base_filters).order_by(
+        TeacherGroupStatistics.calendar_year).all()
+    all_percentage = sum(st.percentage for st in all_stats)
+
+    result = []
+    for reason in group_reasons:
+        reason_stats = TeacherGroupStatistics.query.filter(
+            *base_filters, TeacherGroupStatistics.reason_id == reason.id
+        ).order_by(TeacherGroupStatistics.calendar_year).all()
+        percentage = sum(st.percentage for st in reason_stats)
+        result.append({
+            "name": reason.reason,
+            "percentage": round((percentage / all_percentage) * 100) if all_stats else 0
+        })
+    return result
+
+
 @teachers_bp.route(f'/teacher_statistics/<location_id>', methods=['POST'])
 @jwt_required()
 def teacher_statistics(location_id):
@@ -93,229 +192,67 @@ def teacher_statistics(location_id):
         Teachers.deleted == None, Teachers.group != None, Locations.id == location_id).join(Teachers.group).filter(
         Groups.deleted != True).order_by(Teachers.id).all()
     group_reasons = GroupReason.query.order_by(GroupReason.id).all()
+
+    data = request.get_json()
+    year = data.get('year', calendar_year.date)
+    month_raw = data.get('month')
+    month = datetime.strptime(month_raw, "%Y-%m") if month_raw else None
+    type_rating = data.get('type_rating')
+
+    cal_year, cal_month, is_all = _resolve_year_month(year, month, calendar_year)
+
     teachers_list = []
-
-    year = get_json_field('year') if 'year' in request.get_json() else calendar_year.date
-    month = get_json_field('month') if 'month' in request.get_json() else None
-    month = datetime.strptime(month, "%Y-%m") if month else None
-    type_rating = get_json_field('type_rating') if 'type_rating' in request.get_json() else None
-    if year != "all" and not month:
-        calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
-        for teacher in teachers:
-            if type_rating == "attendances":
-                attendances = Attendance.query.filter(Attendance.calendar_year == calendar_year.id,
-                                                      Attendance.teacher_id == teacher.id,
-                                                      Attendance.ball_percentage != None
-                                                      ).all()
-                teachers_list += analyze(attendances, teacher, type_rating)
-            elif type_rating == "observation":
-                observations = TeacherObservationDay.query.filter(
-                    TeacherObservationDay.calendar_year == calendar_year.id,
-                    TeacherObservationDay.teacher_id == teacher.id).all()
-                teachers_list += analyze(observations, teacher, type_rating)
-            elif type_rating == "lesson_plan":
-                year_start = calendar_year.date
-                year_end = datetime(year_start.year + 1, 1, 1)
-                lesson_plans = LessonPlan.query.filter(
-                    LessonPlan.teacher_id == teacher.id,
-                    LessonPlan.ball.isnot(None),
-                    LessonPlan.date >= year_start,
-                    LessonPlan.date < year_end
-                ).all()
-                teachers_list += analyze(lesson_plans, teacher, type_rating)
-        if type_rating == "deleted_students":
-            del_st_statistics_num = TeacherGroupStatistics.query.filter(
-                TeacherGroupStatistics.calendar_year == calendar_year.id,
-                TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
-            ).order_by(
-                TeacherGroupStatistics.calendar_year).all()
-            all_percentage = 0
-            for st in del_st_statistics_num:
-                all_percentage += st.percentage
-            for reason in group_reasons:
-                del_st_statistics = TeacherGroupStatistics.query.filter(
-                    TeacherGroupStatistics.calendar_year == calendar_year.id,
-                    TeacherGroupStatistics.reason_id == reason.id,
-                    TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
-                ).order_by(
-                    TeacherGroupStatistics.calendar_year).all()
-                percentage = 0
-                for st in del_st_statistics:
-                    percentage += st.percentage
-
-                info = {
-                    "name": reason.reason,
-                    "percentage": round((percentage / all_percentage) * 100) if del_st_statistics_num else 0
-                }
-                teachers_list.append(info)
-
-        teachers_list = sorted(teachers_list, key=lambda d: d['percentage'])
-        teachers_list.reverse()
-
-        return jsonify({
-            "teachers_list": teachers_list
+    for teacher in teachers:
+        scores = []
+        for t in ("attendance", "observation", "lesson_plan"):
+            score = _calc_score(_get_teacher_records(teacher, t, cal_year, cal_month), t)
+            if score is not None:
+                scores.append(score)
+        combined = round(sum(scores) / len(scores)) if scores else 0
+        teachers_list.append({
+            "id": teacher.user.id,
+            "name": teacher.user.name,
+            "surname": teacher.user.surname,
+            "percentage": combined
         })
-    elif year != "all" and month:
-        calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
-        # date = year + "-" + month
-        calendar_month = CalendarMonth.query.filter(CalendarMonth.date == month).first()
 
-        for teacher in teachers:
-
-            if type_rating == "attendance":
-                attendances = Attendance.query.filter(Attendance.calendar_year == calendar_year.id,
-                                                      Attendance.teacher_id == teacher.id,
-                                                      Attendance.calendar_month == calendar_month.id,
-                                                      Attendance.ball_percentage != None
-                                                      ).all()
-
-                teachers_list += analyze(attendances, teacher, type_rating)
-            elif type_rating == "observation":
-                observations = TeacherObservationDay.query.filter(
-                    TeacherObservationDay.calendar_year == calendar_year.id,
-                    TeacherObservationDay.calendar_month == calendar_month.id,
-                    TeacherObservationDay.teacher_id == teacher.id).all()
-                teachers_list += analyze(observations, teacher, type_rating)
-            elif type_rating == "lesson_plan":
-                month_start = month
-                if month.month == 12:
-                    month_end = datetime(month.year + 1, 1, 1)
-                else:
-                    month_end = datetime(month.year, month.month + 1, 1)
-                lesson_plans = LessonPlan.query.filter(
-                    LessonPlan.teacher_id == teacher.id,
-                    LessonPlan.ball.isnot(None),
-                    LessonPlan.date >= month_start,
-                    LessonPlan.date < month_end
-                ).all()
-                teachers_list += analyze(lesson_plans, teacher, type_rating)
-        if type_rating == "deleted_students":
-            del_st_statistics_num = TeacherGroupStatistics.query.filter(
-                TeacherGroupStatistics.calendar_year == calendar_year.id,
-                TeacherGroupStatistics.calendar_month == calendar_month.id,
-                TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
-            ).order_by(
-                TeacherGroupStatistics.calendar_year).all()
-            all_percentage = 0
-            for st in del_st_statistics_num:
-                all_percentage += st.percentage
-            for reason in group_reasons:
-                del_st_statistics = TeacherGroupStatistics.query.filter(
-                    TeacherGroupStatistics.calendar_year == calendar_year.id,
-                    TeacherGroupStatistics.calendar_month == calendar_month.id,
-                    TeacherGroupStatistics.reason_id == reason.id,
-                    TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
-                ).order_by(
-                    TeacherGroupStatistics.calendar_year).all()
-                percentage = 0
-                for st in del_st_statistics:
-                    percentage += st.percentage
-                info = {
-                    "name": reason.reason,
-                    "percentage": round((percentage / all_percentage) * 100) if del_st_statistics_num else 0
-                }
-                teachers_list.append(info)
-        teachers_list = sorted(teachers_list, key=lambda d: d['percentage'])
-        teachers_list.reverse()
-        return jsonify({
-            "teachers_list": teachers_list
-        })
-    else:
-        for teacher in teachers:
-            if type_rating == "attendance":
-                attendances = Attendance.query.filter(Attendance.teacher_id == teacher.id,
-                                                      Attendance.ball_percentage != None
-                                                      ).all()
-                teachers_list += analyze(attendances, teacher, type_rating)
-            elif type_rating == "observation":
-                observations = TeacherObservationDay.query.filter(
-                    TeacherObservationDay.teacher_id == teacher.id).all()
-                teachers_list += analyze(observations, teacher, type_rating)
-            elif type_rating == "lesson_plan":
-                lesson_plans = LessonPlan.query.filter(
-                    LessonPlan.teacher_id == teacher.id,
-                    LessonPlan.ball.isnot(None)
-                ).all()
-                teachers_list += analyze(lesson_plans, teacher, type_rating)
-        if type_rating == "deleted_students":
-            del_st_statistics_num = TeacherGroupStatistics.query.filter(
-                TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
-            ).order_by(
-                TeacherGroupStatistics.calendar_year).all()
-            all_percentage = 0
-            for st in del_st_statistics_num:
-                all_percentage += st.percentage
-            for reason in group_reasons:
-                del_st_statistics = TeacherGroupStatistics.query.filter(
-                    TeacherGroupStatistics.reason_id == reason.id,
-                    TeacherGroupStatistics.teacher_id.in_([teacher.id for teacher in teachers])
-                ).order_by(
-                    TeacherGroupStatistics.calendar_year).all()
-                percentage = 0
-                for st in del_st_statistics:
-                    percentage += st.percentage
-                info = {
-                    "name": reason.reason,
-                    "percentage": round((percentage / all_percentage) * 100) if del_st_statistics_num else 0
-                }
-                teachers_list.append(info)
-        teachers_list = sorted(teachers_list, key=lambda d: d['percentage'])
-        teachers_list.reverse()
-        return jsonify({
-            "teachers_list": teachers_list
-        })
+    teachers_list = sorted(teachers_list, key=lambda d: d['percentage'], reverse=True)
+    return jsonify({"teachers_list": teachers_list})
 
 
 @teachers_bp.route(f'/teacher_statistics_deleted_students/<location_id>', methods=['POST'])
 @jwt_required()
 def teacher_statistics_deleted_students(location_id):
     calendar_year, calendar_month, calendar_day = find_calendar_date()
+    data = request.get_json()
     reason_name = get_json_field('reason_name')
-    year = get_json_field('year') if 'year' in request.get_json() else calendar_year.date
-    month = get_json_field('month') if 'month' in request.get_json() else None
-    month = datetime.strptime(month, "%Y-%m") if month else None
+    year = data.get('year', calendar_year.date)
+    month_raw = data.get('month')
+    month = datetime.strptime(month_raw, "%Y-%m") if month_raw else None
+
     reason = GroupReason.query.filter(GroupReason.reason == reason_name).first()
     teachers = db.session.query(Teachers).join(Teachers.locations).options(contains_eager(Teachers.locations)).filter(
         Teachers.deleted == None, Teachers.group != None, Locations.id == location_id).join(Teachers.group).filter(
         Groups.deleted != True).order_by(Teachers.id).all()
-    teachers_list = []
-    if year != "all" and not month:
-        calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
 
-        for teacher in teachers:
-            del_st_statistics = TeacherGroupStatistics.query.filter(
-                TeacherGroupStatistics.calendar_year == calendar_year.id,
-                TeacherGroupStatistics.reason_id == reason.id,
-                TeacherGroupStatistics.teacher_id == teacher.id
-            ).order_by(
-                TeacherGroupStatistics.calendar_year).all()
-            teachers_list += analyze(del_st_statistics, teacher, "deleted_students")
-    elif year != "all" and month:
-        calendar_year = CalendarYear.query.filter(CalendarYear.date == datetime.strptime(year, "%Y")).first()
-        # date = year + "-" + month
-        calendar_month = CalendarMonth.query.filter(CalendarMonth.date == month).first()
-        for teacher in teachers:
-            del_st_statistics = TeacherGroupStatistics.query.filter(
-                TeacherGroupStatistics.calendar_year == calendar_year.id,
-                TeacherGroupStatistics.calendar_month == calendar_month.id,
-                TeacherGroupStatistics.reason_id == reason.id,
-                TeacherGroupStatistics.teacher_id == teacher.id
-            ).order_by(
-                TeacherGroupStatistics.calendar_year).all()
-            teachers_list += analyze(del_st_statistics, teacher, "deleted_students")
-    else:
-        for teacher in teachers:
-            del_st_statistics = TeacherGroupStatistics.query.filter(
-                TeacherGroupStatistics.reason_id == reason.id,
-                TeacherGroupStatistics.teacher_id == teacher.id
-            ).order_by(
-                TeacherGroupStatistics.calendar_year).all()
-            teachers_list += analyze(del_st_statistics, teacher, "deleted_students")
-    teachers_list = sorted(teachers_list, key=lambda d: d['percentage'])
-    teachers_list.reverse()
-    return jsonify({
-        "teachers_list": teachers_list
-    })
+    cal_year, cal_month, is_all = _resolve_year_month(year, month, calendar_year)
+
+    teachers_list = []
+    for teacher in teachers:
+        filters = [
+            TeacherGroupStatistics.reason_id == reason.id,
+            TeacherGroupStatistics.teacher_id == teacher.id,
+        ]
+        if cal_year:
+            filters.append(TeacherGroupStatistics.calendar_year == cal_year.id)
+        if cal_month:
+            filters.append(TeacherGroupStatistics.calendar_month == cal_month.id)
+        stats = TeacherGroupStatistics.query.filter(*filters).order_by(
+            TeacherGroupStatistics.calendar_year).all()
+        teachers_list += analyze(stats, teacher, "deleted_students")
+
+    teachers_list = sorted(teachers_list, key=lambda d: d['percentage'], reverse=True)
+    return jsonify({"teachers_list": teachers_list})
 
 
 @teachers_bp.route(f'/attendance/<int:group_id>', methods=['GET'])
