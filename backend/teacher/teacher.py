@@ -201,10 +201,15 @@ def teacher_statistics(location_id):
 
     cal_year, cal_month, is_all = _resolve_year_month(year, month, calendar_year)
 
+    types_to_calc = (
+        [type_rating] if type_rating in ("attendance", "observation", "lesson_plan")
+        else ["attendance", "observation", "lesson_plan"]
+    )
+
     teachers_list = []
     for teacher in teachers:
         scores = []
-        for t in ("attendance", "observation", "lesson_plan"):
+        for t in types_to_calc:
             score = _calc_score(_get_teacher_records(teacher, t, cal_year, cal_month), t)
             if score is not None:
                 scores.append(score)
