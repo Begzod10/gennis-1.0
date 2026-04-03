@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
-from sqlalchemy import desc, and_, func, or_
+from sqlalchemy import desc, and_, func, or_, extract
 from sqlalchemy.orm import contains_eager
 
 from backend.functions.filters import old_current_dates, iterate_models
@@ -11,6 +11,7 @@ from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes,
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
     CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead
+from backend.account.models import ManagementDividend, ManagementInvestment
 from backend.teacher.assistent.models import AssistentSalaries, DeletedAsistentSalaries, Assistent
 from backend.models.settings import sum_money
 
@@ -278,16 +279,14 @@ def account_info_prepayments():
 @jwt_required()
 def account_info_dividends():
     location = request.args.get('locationId')
-    type_filter = request.args.get('typeFilter')
     deleted = request.args.get('deleted')
-    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     if not deleted:
-        query = Dividend.query.filter(Dividend.location_id == location)
+        query = ManagementDividend.query.filter(ManagementDividend.location_id == location,
+                                                ManagementDividend.deleted != True)
     else:
-        query = Dividend.query.filter(Dividend.location_id == location, Dividend.deleted == True)
-    if not type_filter:
-        query = query.filter(Dividend.account_period_id == accounting_period)
-    dividends = query.order_by(desc(Dividend.id)).all()
+        query = ManagementDividend.query.filter(ManagementDividend.location_id == location,
+                                                ManagementDividend.deleted == True)
+    dividends = query.order_by(desc(ManagementDividend.id)).all()
     payments_list = iterate_models(dividends)
     pagination_data = None
     limit = request.args.get("limit", type=int)
@@ -306,7 +305,6 @@ def account_info_dividends():
 @jwt_required()
 def account_info_investments():
     location = request.args.get('locationId')
-    type_filter = request.args.get('typeFilter')
     payment_type = request.args.get('paymentType')
     deleted = request.args.get('deleted')
     year = request.args.get('year')
@@ -315,30 +313,30 @@ def account_info_investments():
     calendar_year = None
     calendar_month = None
     calendar_day = None
-    if payment_type:
-        payment_type = PaymentTypes.query.filter(PaymentTypes.name == payment_type).first()
     if year:
         calendar_year = CalendarYear.query.filter(CalendarYear.id == year).first()
     if month:
         calendar_month = CalendarMonth.query.filter(CalendarMonth.id == month).first()
     if day:
         calendar_day = CalendarDay.query.filter(CalendarDay.id == day).first()
-    accounting_period = AccountingPeriod.query.join(CalendarMonth).order_by(desc(CalendarMonth.id)).first().id
     if not deleted:
-        query = Investment.query.filter(Investment.location_id == location)
+        query = ManagementInvestment.query.filter(ManagementInvestment.location_id == location,
+                                                  ManagementInvestment.deleted != True)
     else:
-        query = Investment.query.filter(Investment.location_id == location, Investment.deleted_status == True)
-    if not type_filter:
-        query = query.filter(Investment.account_period_id == accounting_period)
+        query = ManagementInvestment.query.filter(ManagementInvestment.location_id == location,
+                                                  ManagementInvestment.deleted == True)
     if payment_type:
-        query = query.filter(Investment.payment_type_id == payment_type.id)
+        query = query.filter(ManagementInvestment.payment_type == payment_type)
     if calendar_year:
-        query = query.filter(Investment.calendar_year == calendar_year.id)
+        query = query.filter(extract('year', ManagementInvestment.date) == calendar_year.date.year)
     if calendar_month:
-        query = query.filter(Investment.calendar_month == calendar_month.id)
+        query = query.filter(
+            extract('year', ManagementInvestment.date) == calendar_month.date.year,
+            extract('month', ManagementInvestment.date) == calendar_month.date.month
+        )
     if calendar_day:
-        query = query.filter(Investment.calendar_day == calendar_day.id)
-    investments = query.order_by(desc(Investment.id)).all()
+        query = query.filter(ManagementInvestment.date == calendar_day.date)
+    investments = query.order_by(desc(ManagementInvestment.id)).all()
     payments_list = iterate_models(investments)
     pagination_data = None
     limit = request.args.get("limit", type=int)
@@ -1517,10 +1515,13 @@ def account_details(location_id):
                  StudentPayments.payment_type_id == payment_type.id, StudentPayments.payment == True, )).first()[
             0] if student_payments else 0
 
-        investments = db.session.query(Investment).join(Investment.day).options(contains_eager(Investment.day)).filter(
-            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Investment.location_id == location_id,
-                 Investment.payment_type_id == payment_type.id, Investment.deleted_status == False, )).order_by(
-            desc(Investment.id)).all()
+        investments = ManagementInvestment.query.filter(
+            ManagementInvestment.location_id == location_id,
+            ManagementInvestment.date >= ot,
+            ManagementInvestment.date <= do,
+            ManagementInvestment.payment_type == payment_type.name,
+            ManagementInvestment.deleted != True
+        ).order_by(desc(ManagementInvestment.id)).all()
 
         teacher_salaries = db.session.query(TeacherSalaries).join(TeacherSalaries.day).options(
             contains_eager(TeacherSalaries.day)).filter(
@@ -1606,15 +1607,14 @@ def account_details(location_id):
                                                                                    CalendarDay.id == CapitalExpenditure.calendar_day).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, CapitalExpenditure.location_id == location_id,
                  CapitalExpenditure.payment_type_id == payment_type.id)).first()[0] if capitals else 0
-        dividends = db.session.query(Dividend).join(Dividend.day).options(contains_eager(Dividend.day)).filter(
-            and_(CalendarDay.date >= ot, CalendarDay.date <= do, Dividend.location_id == location_id,
-                 Dividend.payment_type_id == payment_type.id, Dividend.deleted == False)).order_by(
-            desc(Dividend.id)).all()
-        all_dividend = \
-            db.session.query(func.sum(Dividend.amount_sum)).join(CalendarDay, CalendarDay.id == Dividend.day_id).filter(
-                and_(CalendarDay.date >= ot, CalendarDay.date <= do, Dividend.location_id == location_id,
-                     Dividend.deleted == False, Dividend.payment_type_id == payment_type.id, )).first()[
-                0] if dividends else 0
+        dividends = ManagementDividend.query.filter(
+            ManagementDividend.location_id == location_id,
+            ManagementDividend.date >= ot,
+            ManagementDividend.date <= do,
+            ManagementDividend.payment_type == payment_type.name,
+            ManagementDividend.deleted != True
+        ).order_by(desc(ManagementDividend.id)).all()
+        all_dividend = sum(d.amount for d in dividends) if dividends else 0
 
         payments_list = [{"id": payment.id, "name": payment.student.user.name.title(),
                           "surname": payment.student.user.surname.title(), "payment": payment.payment_sum,
@@ -1755,15 +1755,14 @@ def get_location_money(location_id):
                                            AssistentSalaries.payment_type_id, payment_type.id)
         overhead = sum_money(Overhead.item_sum, Overhead.account_period_id, accounting_period.id, Overhead.location_id,
                              location_id, Overhead.payment_type_id, payment_type.id)
-        dividends = db.session.query(Dividend).join(Dividend.day).options(contains_eager(Dividend.day)).filter(
-            and_(Dividend.location_id == location_id, Dividend.account_period_id == accounting_period.id,
-                 Dividend.payment_type_id == payment_type.id, Dividend.deleted == False)).order_by(
-            desc(Dividend.id)).all()
-        all_dividend = \
-            db.session.query(func.sum(Dividend.amount_sum)).join(CalendarDay, CalendarDay.id == Dividend.day_id).filter(
-                and_(Dividend.location_id == location_id, Dividend.deleted == False,
-                     Dividend.account_period_id == accounting_period.id,
-                     Dividend.payment_type_id == payment_type.id, )).first()[0] if dividends else 0
+        dividends = ManagementDividend.query.filter(
+            ManagementDividend.location_id == location_id,
+            ManagementDividend.date >= accounting_period.from_date,
+            ManagementDividend.date <= accounting_period.to_date,
+            ManagementDividend.payment_type == payment_type.name,
+            ManagementDividend.deleted != True
+        ).order_by(desc(ManagementDividend.id)).all()
+        all_dividend = sum(d.amount for d in dividends) if dividends else 0
         # center_balance = CenterBalance.query.filter(CenterBalance.location_id == location_id,
         #                                             CenterBalance.account_period_id == accounting_period).first()
 

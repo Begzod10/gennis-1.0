@@ -741,9 +741,6 @@ def make_attendance_classroom_mobile():
         joinedload(Groups.subject),
         joinedload(Groups.course_type)
     ).filter(Groups.id == group_id).first()
-    assistent = None
-    if group.assistent:
-        assistent = group.assistent
     if not group:
         return jsonify({
             "errors": [{
@@ -752,6 +749,9 @@ def make_attendance_classroom_mobile():
                 "status": "danger"
             }]
         }), 404
+    assistent = None
+    if group.assistent:
+        assistent = group.assistent
 
     teacher = group.teacher[0]
     subject = group.subject
@@ -865,6 +865,7 @@ def make_attendance_classroom_mobile():
 
     fine = 0
     assistent_fine = 0
+    assistent_salary_per_day = 0
     if today_lesson_plan or ball < 5:
         fine = round(salary_per_day / group.attendance_days)
         if assistent:
@@ -1057,20 +1058,19 @@ def make_attendance_classroom_mobile():
                 Attendance.query.filter(Attendance.id == attendance_id).update({
                     "ball_percentage": result
                 })
-            year_date = attendance.year.date
-            month_date = attendance.month.date
-            group_attendance = db.session.query(GroupAttendance).join(
-                CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
-            ).join(
-                CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
-            ).filter(
-                GroupAttendance.group_id == group_id,
-                CalendarYear.date == year_date,
-                CalendarMonth.date == month_date
-            ).first()
 
-            if group_attendance:
-                group_attendance.status = False
+        group_attendance = db.session.query(GroupAttendance).join(
+            CalendarYear, GroupAttendance.calendar_year == CalendarYear.id
+        ).join(
+            CalendarMonth, GroupAttendance.calendar_month == CalendarMonth.id
+        ).filter(
+            GroupAttendance.group_id == group_id,
+            CalendarYear.date == calendar_year.date,
+            CalendarMonth.date == calendar_month.date
+        ).first()
+
+        if group_attendance:
+            group_attendance.status = False
         # Commit all changes at once
         db.session.commit()
 
