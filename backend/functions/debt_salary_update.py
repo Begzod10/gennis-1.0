@@ -268,11 +268,8 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
             AssistentSalary.calendar_year == prev_calendar_year.id
         ).first()
         if old_salary:
-            if old_salary:
-                if old_salary.remaining_salary < 0:
-                    salary_location.debt = old_salary.remaining_salary
-                else:
-                    salary_location.debt = 0
+            remaining = old_salary.remaining_salary or 0
+            salary_location.debt = remaining if remaining < 0 else 0
 
         debt = salary_location.debt if salary_location.debt else 0
         if salary_location.taken_money:
