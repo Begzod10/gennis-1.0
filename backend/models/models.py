@@ -830,3 +830,14 @@ from backend.chat_analyzer.models import (
     ReportMember,
     ChatAnalysisReport,
 )
+
+
+class ApiLog(db.Model):
+    __tablename__ = "api_log"
+    id = Column(Integer, primary_key=True)
+    method = Column(String(10), nullable=False)
+    path = Column(String(500), nullable=False)
+    status_code = Column(Integer, nullable=True)
+    user_id = Column(Integer, nullable=True)
+    response_time_ms = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

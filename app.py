@@ -313,6 +313,40 @@ def register_middleware(app):
     def auto_recurring_run():
         recurring_check()
 
+    @app.before_request
+    def _start_timer():
+        request._api_log_start = time.time()
+
+    @app.after_request
+    def _log_api(response):
+        skip = ('/static', '/media', '/flask_static', '/health', '/admin')
+        if any(request.path.startswith(p) for p in skip):
+            return response
+        elapsed_ms = round((time.time() - getattr(request, '_api_log_start', time.time())) * 1000, 2)
+        user_id = None
+        try:
+            from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+            verify_jwt_in_request(optional=True)
+            identity = get_jwt_identity()
+            if identity:
+                user_id = identity if isinstance(identity, int) else identity.get('id')
+        except Exception:
+            pass
+        try:
+            from backend.models.models import db, ApiLog
+            log = ApiLog(
+                method=request.method,
+                path=request.path,
+                status_code=response.status_code,
+                user_id=user_id,
+                response_time_ms=elapsed_ms,
+            )
+            db.session.add(log)
+            db.session.commit()
+        except Exception:
+            pass
+        return response
+
 
 def check_auth(username, password):
     """Verify username and password"""
