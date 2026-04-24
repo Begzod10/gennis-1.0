@@ -61,6 +61,7 @@ def create_branch_transaction():
         date_year=year_dt.date()
     )
 
+    current_user = Users.query.filter_by(user_id=get_jwt_identity()).first()
     tx = BranchTransaction(
         amount=amount,
         is_give=is_give,
@@ -70,7 +71,7 @@ def create_branch_transaction():
         calendar_day=calendar_day.id,
         calendar_month=calendar_month.id,
         calendar_year=calendar_year.id,
-        created_by=get_jwt_identity(),
+        created_by=current_user.id if current_user else None,
         person_id=person_id,
         person_name=person_name if not person_id else None,
         person_surname=person_surname if not person_id else None,

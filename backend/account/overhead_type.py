@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import find_calendar_date, get_or_create
 from backend.models.models import (
     CalendarMonth, CalendarYear, CalendarDay,
-    Overhead, OverheadType, OverheadTypeLog, db, func
+    Overhead, OverheadType, OverheadTypeLog, Users, db, func
 )
 
 overhead_type_bp = Blueprint('overhead_type_bp', __name__)
@@ -254,6 +254,8 @@ def pay_overhead_type_log():
     paid_for_month_str = data.get('paid_for_month')
 
     is_prepaid = paid_for_month_str is not None
+    current_user = Users.query.filter_by(user_id=get_jwt_identity()).first()
+    current_user_id = current_user.id if current_user else None
 
     if not is_prepaid and not log_id:
         return jsonify({'success': False, 'message': 'log_id yoki paid_for_month kerak'}), 400
@@ -310,7 +312,7 @@ def pay_overhead_type_log():
             calendar_year=calendar_year.id,
             paid_for_month=target_month.id,
             paid_for_year=target_year.id,
-            by_who=get_jwt_identity()
+            by_who=current_user_id
         )
         db.session.add(overhead)
         db.session.flush()
@@ -344,7 +346,7 @@ def pay_overhead_type_log():
             calendar_year=calendar_year.id,
             paid_for_month=None,
             paid_for_year=None,
-            by_who=get_jwt_identity()
+            by_who=current_user_id
         )
         db.session.add(overhead)
         db.session.flush()
