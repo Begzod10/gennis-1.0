@@ -211,3 +211,38 @@ def delete_branch_transaction(tx_id):
     tx.deleted = True
     db.session.commit()
     return jsonify({'success': True, 'message': "Tranzaksiya o'chirildi"})
+
+
+# ---------------------------------------------------------------------------
+# Deleted list
+# ---------------------------------------------------------------------------
+
+@branch_transaction_bp.route('/branch_transaction/deleted/<int:month>/<int:year>', methods=['GET'])
+@jwt_required()
+def get_deleted_branch_transactions(month, year):
+    """
+    Query params:
+        location_id — filter by branch (optional)
+    """
+    from datetime import date
+    year_obj = CalendarYear.query.filter_by(date=date(year, 1, 1)).first()
+    month_obj = CalendarMonth.query.filter_by(date=date(year, month, 1)).first() if year_obj else None
+
+    if not year_obj or not month_obj:
+        return jsonify({'success': True, 'data': []})
+
+    location_id = request.args.get('location_id', type=int)
+
+    query = BranchTransaction.query.filter_by(
+        calendar_month=month_obj.id,
+        calendar_year=year_obj.id,
+        deleted=True
+    )
+    if location_id:
+        query = query.filter(BranchTransaction.location_id == location_id)
+
+    transactions = query.order_by(BranchTransaction.id.desc()).all()
+    return jsonify({
+        'success': True,
+        'data': [tx.convert_json() for tx in transactions]
+    })

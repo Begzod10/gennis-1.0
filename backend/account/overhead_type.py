@@ -70,6 +70,26 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
 # OverheadType CRUD
 # ---------------------------------------------------------------------------
 
+@overhead_type_bp.route('/overhead_type/deleted', methods=['GET'])
+@jwt_required()
+def get_deleted_overhead_types():
+    location_id = request.args.get('location_id', type=int)
+    query = OverheadType.query.filter_by(deleted=True)
+    if location_id:
+        query = query.filter(OverheadType.location_id == location_id)
+    types = query.order_by(OverheadType.id).all()
+    return jsonify({
+        'success': True,
+        'data': [{
+            'id': t.id,
+            'name': t.name,
+            'cost': t.cost,
+            'changeable': t.changeable,
+            'location_id': t.location_id
+        } for t in types]
+    })
+
+
 @overhead_type_bp.route('/overhead_type', methods=['GET'])
 @jwt_required()
 def get_overhead_types():

@@ -2,6 +2,8 @@
   NEW ROUTES — OVERHEAD & BRANCH TRANSACTION
 ========================================
 
+NOTE: <month> and <year> are real numbers (e.g. 4 and 2026), not DB IDs.
+
 ----------------------------------------
   OverheadType
 ----------------------------------------
@@ -15,6 +17,20 @@ GET /api/account/overhead_type
     "data": [
       { "id": 1, "name": "Arenda", "cost": 5000000, "changeable": false, "location_id": 1 },
       { "id": 2, "name": "Kommunal", "cost": null, "changeable": true, "location_id": 1 }
+    ]
+  }
+
+---
+
+GET /api/account/overhead_type/deleted
+  Query params: ?location_id=1
+  Returns soft-deleted overhead types.
+
+  Response:
+  {
+    "success": true,
+    "data": [
+      { "id": 3, "name": "Eski arenda", "cost": 3000000, "changeable": false, "location_id": 1 }
     ]
   }
 
@@ -58,7 +74,8 @@ DELETE /api/account/overhead_type/<type_id>
   OverheadTypeLog
 ----------------------------------------
 
-GET /api/account/overhead_type_logs/<month_id>/<year_id>
+GET /api/account/overhead_type_logs/<month>/<year>
+  Example: /api/account/overhead_type_logs/4/2026
   Query params: ?status=paid|unpaid|all   ?location_id=1
   Auto-generates missing logs for fixed types on every call.
 
@@ -89,7 +106,8 @@ GET /api/account/overhead_type_logs/<month_id>/<year_id>
 
 ---
 
-POST /api/account/overhead_type_logs/generate/<month_id>/<year_id>
+POST /api/account/overhead_type_logs/generate/<month>/<year>
+  Example: /api/account/overhead_type_logs/generate/4/2026
   No body. Manually triggers log generation for a month.
 
 ---
@@ -156,7 +174,8 @@ POST /api/account/branch_transaction
 
 ---
 
-GET /api/account/branch_transaction/<month_id>/<year_id>
+GET /api/account/branch_transaction/<month>/<year>
+  Example: /api/account/branch_transaction/4/2026
   Query params: ?direction=give|receive|all   ?location_id=1
 
   Response:
@@ -178,6 +197,31 @@ GET /api/account/branch_transaction/<month_id>/<year_id>
         "payment_type": "Naqd",
         "location_id": 1,
         "date": "15.04.2026"
+      }
+    ]
+  }
+
+---
+
+GET /api/account/branch_transaction/deleted/<month>/<year>
+  Example: /api/account/branch_transaction/deleted/4/2026
+  Query params: ?location_id=1
+  Returns soft-deleted transactions for the given month.
+
+  Response:
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 2,
+        "amount": 500000,
+        "is_give": true,
+        "direction": "give",
+        "reason": "Test",
+        "person": { "id": null, "name": "Ali", "surname": "Valiyev", "phone": "00000" },
+        "payment_type": "Naqd",
+        "location_id": 4,
+        "date": "24.04.2026"
       }
     ]
   }
