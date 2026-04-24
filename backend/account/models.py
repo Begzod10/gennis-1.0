@@ -626,6 +626,7 @@ class BranchTransaction(db.Model):
     calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
     created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
     deleted = Column(Boolean, default=False)
+    payment_type = relationship('PaymentTypes', foreign_keys=[payment_type_id])
 
     def convert_json(self):
         from backend.models.models import CalendarDay, Users
