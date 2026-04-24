@@ -10,7 +10,8 @@ from backend.functions.utils import get_json_field, find_calendar_date
 from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes, StudentPayments, Students, CalendarDay, \
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
-    CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead
+    CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead, \
+    BranchTransaction, OverheadTypeLog
 from backend.account.models import ManagementDividend, ManagementInvestment
 from backend.teacher.assistent.models import AssistentSalaries, DeletedAsistentSalaries, Assistent
 from backend.models.settings import sum_money
@@ -126,6 +127,35 @@ def get_statistics():
         AssistentSalaries.payment_type_id
     )
 
+    branch_transactions_given_sum = db.session.query(
+        func.coalesce(func.sum(BranchTransaction.amount), 0)
+    ).filter(
+        BranchTransaction.location_id == location_id,
+        BranchTransaction.calendar_day.in_(calendar_day_ids),
+        BranchTransaction.is_give == True,
+        BranchTransaction.deleted == False
+    ).scalar()
+
+    branch_transactions_received_sum = db.session.query(
+        func.coalesce(func.sum(BranchTransaction.amount), 0)
+    ).filter(
+        BranchTransaction.location_id == location_id,
+        BranchTransaction.calendar_day.in_(calendar_day_ids),
+        BranchTransaction.is_give == False,
+        BranchTransaction.deleted == False
+    ).scalar()
+
+    branch_transactions = {
+        "total_given": branch_transactions_given_sum,
+        "total_received": branch_transactions_received_sum,
+        "net": branch_transactions_received_sum - branch_transactions_given_sum,
+        "items": [tx.convert_json() for tx in BranchTransaction.query.filter(
+            BranchTransaction.location_id == location_id,
+            BranchTransaction.calendar_day.in_(calendar_day_ids),
+            BranchTransaction.deleted == False
+        ).all()]
+    }
+
     new_students = get_simple_stats(Students, Students.created_day_id, join_user=True)
     joined_students = get_simple_stats(Students, Students.joined_day_id, join_user=True)
 
@@ -155,8 +185,8 @@ def get_statistics():
         ]
     }
 
-    expenses_sum = teacher_salaries_sum + staff_salaries_sum + assistent_salaries_sum + overheads_sum
-    overall_sum = payments_sum - expenses_sum
+    expenses_sum = teacher_salaries_sum + staff_salaries_sum + assistent_salaries_sum + overheads_sum + branch_transactions_given_sum
+    overall_sum = payments_sum + branch_transactions_received_sum - expenses_sum
 
     data = {
         "payments": payments,
@@ -164,6 +194,7 @@ def get_statistics():
         "staff_salaries": staff_salaries,
         "assistent_salaries": assistent_salaries,
         "overheads": overheads,
+        "branch_transactions": branch_transactions,
         "new_students": new_students,
         "joined_students": joined_students,
         "new_groups": new_groups,
@@ -1055,8 +1086,11 @@ def account_info_overhead():
         if payment_type:
             query = query.filter(OverheadModel.payment_type_id == payment_type.id)
 
+    overhead_type_id = request.args.get('overhead_type_id', type=int)
     if overhead_type:
         query = query.filter(OverheadModel.item_name == overhead_type)
+    if overhead_type_id:
+        query = query.filter(OverheadModel.overhead_type_id == overhead_type_id)
 
     # Get total before pagination
     total = query.count()
@@ -1503,6 +1537,8 @@ def account_details(location_id):
         do = datetime.strptime(do, "%Y-%m-%d")
         activeFilter = request.get_json()['activeFilter']
         payment_type = PaymentTypes.query.filter(PaymentTypes.name == activeFilter).first()
+        if not payment_type:
+            return jsonify({'success': False, 'message': f"'{activeFilter}' payment type topilmadi"}), 404
         student_payments = db.session.query(StudentPayments).join(StudentPayments.day).options(
             contains_eager(StudentPayments.day)).filter(
             and_(CalendarDay.date >= ot, CalendarDay.date <= do, StudentPayments.location_id == location_id,
@@ -1616,6 +1652,19 @@ def account_details(location_id):
         ).order_by(desc(ManagementDividend.id)).all()
         all_dividend = sum(d.amount for d in dividends) if dividends else 0
 
+        branch_txs = BranchTransaction.query.join(
+            CalendarDay, CalendarDay.id == BranchTransaction.calendar_day
+        ).filter(
+            CalendarDay.date >= ot,
+            CalendarDay.date <= do,
+            BranchTransaction.location_id == location_id,
+            BranchTransaction.payment_type_id == payment_type.id,
+            BranchTransaction.deleted == False
+        ).order_by(BranchTransaction.id).all()
+
+        all_branch_given = sum(tx.amount for tx in branch_txs if tx.is_give) if branch_txs else 0
+        all_branch_received = sum(tx.amount for tx in branch_txs if not tx.is_give) if branch_txs else 0
+
         payments_list = [{"id": payment.id, "name": payment.student.user.name.title(),
                           "surname": payment.student.user.surname.title(), "payment": payment.payment_sum,
                           "date": payment.day.date.strftime('%Y-%m-%d'), "user_id": payment.student.user_id} for payment
@@ -1662,8 +1711,8 @@ def account_details(location_id):
         investment_list = iterate_models(investments)
         # all_investment = all_investment if all_investment else 0
         all_investment = sum([investment.amount for investment in investments])
-        result = (all_payment + all_investment) - (
-                all_overhead + all_teacher + all_staff + all_assistent + all_capital + center_balance_all + branch_payments_all + all_dividend)
+        result = (all_payment + all_investment + all_branch_received) - (
+                all_overhead + all_teacher + all_staff + all_assistent + all_capital + center_balance_all + branch_payments_all + all_dividend + all_branch_given)
         return jsonify({"data": {"data": {"studentPayment": {"list": payments_list, "value": all_payment},
                                           "teacherSalary": {"list": teacher_salary, "value": all_teacher},
                                           "employeeSalary": {"list": staff_salary, "value": all_staff},
@@ -1672,6 +1721,12 @@ def account_details(location_id):
                                           "capitals": {"list": capital_list, "value": all_capital},
                                           "investments": {"list": investment_list, "value": all_investment},
                                           "dividends": {"list": iterate_models(dividends), "value": all_dividend},
+                                          "branchTransactions": {
+                                              "list": [tx.convert_json() for tx in branch_txs],
+                                              "given": all_branch_given,
+                                              "received": all_branch_received,
+                                              "net": all_branch_received - all_branch_given
+                                          },
                                           "result": result}, }})
 
 
@@ -1792,14 +1847,32 @@ def get_location_money(location_id):
         else:
             center_balance_overhead = 0
 
-        current_cash = student_payments - (
-                teacher_salaries + staff_salaries + assistent_salaries_sum + overhead + capital + center_balance_overhead + branch_payments + all_dividend)
+        branch_tx_given = db.session.query(func.coalesce(func.sum(BranchTransaction.amount), 0)).filter(
+            BranchTransaction.location_id == location_id,
+            BranchTransaction.calendar_month == accounting_period.month_id,
+            BranchTransaction.is_give == True,
+            BranchTransaction.deleted == False,
+            BranchTransaction.payment_type_id == payment_type.id
+        ).scalar()
+
+        branch_tx_received = db.session.query(func.coalesce(func.sum(BranchTransaction.amount), 0)).filter(
+            BranchTransaction.location_id == location_id,
+            BranchTransaction.calendar_month == accounting_period.month_id,
+            BranchTransaction.is_give == False,
+            BranchTransaction.deleted == False,
+            BranchTransaction.payment_type_id == payment_type.id
+        ).scalar()
+
+        current_cash = (student_payments + branch_tx_received) - (
+                teacher_salaries + staff_salaries + assistent_salaries_sum + overhead + capital + center_balance_overhead + branch_payments + all_dividend + branch_tx_given)
 
         account_list += [{"value": current_cash, "type": payment_type.name, "student_payments": student_payments,
                           "teacher_salaries": teacher_salaries, "staff_salaries": staff_salaries,
                           "assistent_salaries": assistent_salaries_sum,
                           "overhead": overhead + branch_payments + center_balance_overhead, "capital": capital,
-                          "dividend": all_dividend}]
+                          "dividend": all_dividend,
+                          "branch_tx_given": branch_tx_given,
+                          "branch_tx_received": branch_tx_received}]
 
         account_get = AccountingInfo.query.filter(AccountingInfo.account_period_id == accounting_period.id,
                                                   AccountingInfo.location_id == location_id,

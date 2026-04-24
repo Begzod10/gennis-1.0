@@ -5,7 +5,7 @@ class Parent(db.Model):
     __tablename__ = "parent"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))
-    student_get = relationship("Students", secondary="parent_child", backref="parent", order_by="Students.id")
+    student_get = relationship("Students", secondary="parent_child", backref=db.backref("parent", overlaps="parent_get,student"), order_by="Students.id", overlaps="parent_get,student")
 
     def convert_json(self, entire=False):
         return {

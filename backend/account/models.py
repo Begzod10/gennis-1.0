@@ -510,11 +510,54 @@ class DeletedStaffSalaries(db.Model):
     reason_deleted = Column(String)
 
 
+class OverheadType(db.Model):
+    __tablename__ = "overheadtype"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    cost = Column(Integer, nullable=True)
+    changeable = Column(Boolean, default=True, nullable=False)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+    deleted = Column(Boolean, default=False)
+    overhead_data = relationship('Overhead', backref="overhead_type", order_by="Overhead.id")
+    logs = relationship('OverheadTypeLog', backref="overhead_type", order_by="OverheadTypeLog.id")
+
+
+class OverheadTypeLog(db.Model):
+    __tablename__ = "overheadtypelog"
+    id = Column(Integer, primary_key=True)
+    overhead_type_id = Column(Integer, ForeignKey('overheadtype.id'), nullable=False)
+    cost = Column(Integer, nullable=False)
+    is_paid = Column(Boolean, default=False, nullable=False)
+    is_prepaid = Column(Boolean, default=False, nullable=False)
+    paid_date = Column(DateTime, nullable=True)
+    overhead_id = Column(Integer, ForeignKey('overhead.id'), nullable=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
+    deleted = Column(Boolean, default=False)
+
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "overhead_type_id": self.overhead_type_id,
+            "overhead_type_name": self.overhead_type.name,
+            "cost": self.cost,
+            "is_paid": self.is_paid,
+            "is_prepaid": self.is_prepaid,
+            "paid_date": self.paid_date.strftime("%d.%m.%Y") if self.paid_date else None,
+            "overhead_id": self.overhead_id,
+            "location_id": self.location_id,
+            "calendar_month": self.calendar_month,
+            "calendar_year": self.calendar_year,
+        }
+
+
 class Overhead(db.Model):
     __tablename__ = "overhead"
     id = Column(Integer, primary_key=True)
     item_sum = Column(Integer)
     item_name = Column(String)
+    overhead_type_id = Column(Integer, ForeignKey('overheadtype.id'), nullable=True)
     payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'))
     location_id = Column(Integer, ForeignKey('locations.id'))
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
@@ -522,6 +565,8 @@ class Overhead(db.Model):
     calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     by_who = Column(Integer, ForeignKey("users.id"))
+    paid_for_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=True)
+    paid_for_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=True)
     old_id = Column(Integer)
 
     def convert_json(self, entire=False):
@@ -539,7 +584,11 @@ class Overhead(db.Model):
             "day": self.calendar_day,
             "month": self.calendar_month,
             "year": self.calendar_year,
+            "paid_for_month": self.paid_for_month,
+            "paid_for_year": self.paid_for_year,
             "typePayment": self.payment_type.name,
+            "overhead_type_id": self.overhead_type_id,
+            "overhead_type_name": self.overhead_type.name if self.overhead_type else None,
             "reason": "",
 
         }
@@ -558,6 +607,54 @@ class DeletedOverhead(db.Model):
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     deleted_date = Column(DateTime)
     reason = Column(String)
+
+
+class BranchTransaction(db.Model):
+    __tablename__ = "branchtransaction"
+    id = Column(Integer, primary_key=True)
+    amount = Column(Integer, nullable=False)
+    is_give = Column(Boolean, nullable=False)
+    reason = Column(String, nullable=True)
+    person_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    person_name = Column(String, nullable=True)
+    person_surname = Column(String, nullable=True)
+    person_phone = Column(String, nullable=True)
+    payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'), nullable=False)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'), nullable=False)
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    deleted = Column(Boolean, default=False)
+
+    def convert_json(self):
+        from backend.models.models import CalendarDay, Users
+        person = None
+        if self.person_id:
+            user = Users.query.get(self.person_id)
+            if user:
+                person = {'id': user.id, 'name': user.name, 'surname': user.surname}
+        else:
+            person = {
+                'id': None,
+                'name': self.person_name,
+                'surname': self.person_surname,
+                'phone': self.person_phone
+            }
+        return {
+            'id': self.id,
+            'amount': self.amount,
+            'is_give': self.is_give,
+            'direction': 'give' if self.is_give else 'receive',
+            'reason': self.reason,
+            'person': person,
+            'payment_type': self.payment_type.name,
+            'location_id': self.location_id,
+            'date': CalendarDay.query.get(self.calendar_day).date.strftime('%d.%m.%Y'),
+            'calendar_day': self.calendar_day,
+            'calendar_month': self.calendar_month,
+            'calendar_year': self.calendar_year,
+        }
 
 
 class CapitalCategory(db.Model):

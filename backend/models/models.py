@@ -52,7 +52,9 @@ class CalendarYear(db.Model):
     charity = relationship('StudentCharity', backref="year", order_by="StudentCharity.id")
     stuff_salary = relationship('StaffSalary', backref="year", order_by="StaffSalary.id")
     staff_given_salary = relationship("StaffSalaries", backref="year", order_by="StaffSalaries.id")
-    overhead_data = relationship('Overhead', backref="year", order_by="Overhead.id")
+    overhead_data = relationship('Overhead', foreign_keys='Overhead.calendar_year', backref="year", order_by="Overhead.id")
+    overhead_type_logs = relationship("OverheadTypeLog", backref="year", order_by="OverheadTypeLog.id", lazy="select")
+    branch_transactions = relationship("BranchTransaction", foreign_keys="BranchTransaction.calendar_year", backref="year", order_by="BranchTransaction.id", lazy="select")
     accounting = relationship("AccountingInfo", backref="year", order_by="AccountingInfo.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="year", order_by="DeletedStudentPayments.id")
     deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="year",
@@ -131,7 +133,7 @@ class CalendarMonth(db.Model):
     charity = relationship('StudentCharity', backref="month", order_by="StudentCharity.id")
     stuff_salary = relationship('StaffSalary', backref="month", order_by="StaffSalary.id")
     staff_given_salary = relationship("StaffSalaries", backref="month", order_by="StaffSalaries.id")
-    overhead_data = relationship('Overhead', backref="month", order_by="Overhead.id")
+    overhead_data = relationship('Overhead', foreign_keys='Overhead.calendar_month', backref="month", order_by="Overhead.id")
     capital_data = relationship("CapitalExpenditure", backref="month", order_by="CapitalExpenditure.id")
     # accounting = relationship("AccountingInfo", backref="month", order_by="AccountingInfo.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="month", order_by="DeletedStudentPayments.id")
@@ -167,6 +169,8 @@ class CalendarMonth(db.Model):
     account_payable = relationship("AccountPayable", backref="month", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="month", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="month", order_by="MainOverhead.id")
+    overhead_type_logs = relationship("OverheadTypeLog", backref="month", order_by="OverheadTypeLog.id", lazy="select")
+    branch_transactions = relationship("BranchTransaction", foreign_keys="BranchTransaction.calendar_month", backref="month", order_by="BranchTransaction.id", lazy="select")
     account_payable_history = relationship("AccountPayableHistory", backref="month",
                                            order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
@@ -333,6 +337,7 @@ class Locations(db.Model):
     calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
     calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
     overhead_data = relationship('Overhead', backref="location", order_by="Overhead.id")
+    branch_transactions = relationship("BranchTransaction", foreign_keys="BranchTransaction.location_id", backref="location", order_by="BranchTransaction.id", lazy="select")
     contract_students_data = relationship('Contract_Students_Data', backref="location",
                                           order_by="Contract_Students_Data.id")
     attendance_days_get = relationship("AttendanceDays", backref="location", order_by="AttendanceDays.id")

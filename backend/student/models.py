@@ -152,7 +152,7 @@ class Students(db.Model):
     user_id = Column(Integer, ForeignKey('users.id'))
     subject = relationship('Subjects', secondary="student_subject", backref="student", order_by="Subjects.id")
     group = relationship('Groups', secondary="student_group", backref="student", lazy="select")
-    parent_get = relationship('Parent', secondary="parent_child", backref="student", lazy="select")
+    parent_get = relationship('Parent', secondary="parent_child", backref=db.backref("student", overlaps="student_get,parent"), lazy="select", overlaps="student_get,parent")
     ball_time = Column(DateTime)
     attendance = relationship("Attendance", backref="student", order_by="Attendance.id")
     attendance_days = relationship("AttendanceDays", backref="student", order_by="AttendanceDays.id")
@@ -162,7 +162,7 @@ class Students(db.Model):
     charity = relationship('StudentCharity', backref="student", order_by="StudentCharity.id", lazy="select")
     history_group = relationship('StudentHistoryGroups', backref="student", order_by="StudentHistoryGroups.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="student", order_by="DeletedStudentPayments.id")
-    excuses = relationship("StudentExcuses", backref="student", order_by="StudentExcuses.id")
+    excuses = relationship("StudentExcuses", backref="student", order_by="StudentExcuses.id", overlaps="reasons_list,student_get")
     combined_debt = Column(Integer)
     debtor = Column(Integer)
     extra_payment = Column(Integer)
@@ -180,7 +180,7 @@ class Students(db.Model):
     night_shift = Column(Boolean)
     created_day_id = db.Column(db.Integer, db.ForeignKey("calendarday.id"))
     joined_day_id = db.Column(db.Integer, db.ForeignKey("calendarday.id"))
-    reasons_list = relationship("StudentExcuses", backref="student_get", order_by="StudentExcuses.id", lazy="select")
+    reasons_list = relationship("StudentExcuses", backref=db.backref("student_get", overlaps="excuses,student"), order_by="StudentExcuses.id", lazy="select", overlaps="excuses,student")
     time_table = relationship("Group_Room_Week", secondary="time_table_student", backref="student",
                               order_by="Group_Room_Week.id",
                               lazy="select")
