@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from backend.functions.utils import find_calendar_date
-from backend.models.models import BranchTransaction, Users, db, func
+from backend.models.models import BranchTransaction, CalendarMonth, CalendarYear, Users, db, func
 
 branch_transaction_bp = Blueprint('branch_transaction_bp', __name__)
 
@@ -91,14 +91,24 @@ def create_branch_transaction():
 # List with filters + summary
 # ---------------------------------------------------------------------------
 
-@branch_transaction_bp.route('/branch_transaction/<int:month_id>/<int:year_id>', methods=['GET'])
+@branch_transaction_bp.route('/branch_transaction/<int:month>/<int:year>', methods=['GET'])
 @jwt_required()
-def get_branch_transactions(month_id, year_id):
+def get_branch_transactions(month, year):
     """
     Query params:
-        direction  — 'give' | 'receive' | 'all' (default: all)
+        direction   — 'give' | 'receive' | 'all' (default: all)
         location_id — filter by branch (optional)
     """
+    from datetime import date
+    year_obj = CalendarYear.query.filter_by(date=date(year, 1, 1)).first()
+    month_obj = CalendarMonth.query.filter_by(date=date(year, month, 1)).first() if year_obj else None
+
+    if not year_obj or not month_obj:
+        return jsonify({'success': True, 'summary': {'total_given': 0, 'total_received': 0, 'net': 0}, 'data': []})
+
+    month_id = month_obj.id
+    year_id = year_obj.id
+
     direction = request.args.get('direction', 'all')
     location_id = request.args.get('location_id', type=int)
 

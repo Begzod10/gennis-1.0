@@ -155,9 +155,9 @@ def delete_overhead_type(type_id):
 # OverheadTypeLog — reminders
 # ---------------------------------------------------------------------------
 
-@overhead_type_bp.route('/overhead_type_logs/<int:month_id>/<int:year_id>', methods=['GET'])
+@overhead_type_bp.route('/overhead_type_logs/<int:month>/<int:year>', methods=['GET'])
 @jwt_required()
-def get_overhead_type_logs(month_id, year_id):
+def get_overhead_type_logs(month, year):
     """
     Return the reminder list for a given month filtered by paid status.
     Auto-generates missing log entries.
@@ -165,6 +165,16 @@ def get_overhead_type_logs(month_id, year_id):
     Query params:
         status — 'paid' | 'unpaid' | 'all' (default: 'all')
     """
+    from datetime import date
+    year_obj = CalendarYear.query.filter_by(date=date(year, 1, 1)).first()
+    month_obj = CalendarMonth.query.filter_by(date=date(year, month, 1)).first() if year_obj else None
+
+    if not year_obj or not month_obj:
+        return jsonify({'success': True, 'summary': {'total_count': 0, 'paid_count': 0, 'unpaid_count': 0, 'total_sum': 0, 'paid_sum': 0, 'unpaid_sum': 0}, 'data': []})
+
+    month_id = month_obj.id
+    year_id = year_obj.id
+
     location_id = request.args.get('location_id', type=int)
     status = request.args.get('status', 'all')
 
@@ -212,11 +222,16 @@ def get_overhead_type_logs(month_id, year_id):
     })
 
 
-@overhead_type_bp.route('/overhead_type_logs/generate/<int:month_id>/<int:year_id>', methods=['POST'])
+@overhead_type_bp.route('/overhead_type_logs/generate/<int:month>/<int:year>', methods=['POST'])
 @jwt_required()
-def generate_overhead_type_logs(month_id, year_id):
+def generate_overhead_type_logs(month, year):
     """Manually trigger log generation for a month."""
-    _generate_logs_for_month(month_id, year_id)
+    from datetime import date
+    year_obj = CalendarYear.query.filter_by(date=date(year, 1, 1)).first()
+    month_obj = CalendarMonth.query.filter_by(date=date(year, month, 1)).first() if year_obj else None
+    if not year_obj or not month_obj:
+        return jsonify({'success': False, 'message': 'Oy yoki yil topilmadi'}), 404
+    _generate_logs_for_month(month_obj.id, year_obj.id)
     return jsonify({'success': True, 'message': 'Loglar yaratildi'})
 
 
