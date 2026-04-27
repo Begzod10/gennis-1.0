@@ -268,12 +268,13 @@ def check_time_group(group_id):
                                                                       datetime) else schedule.end_time
 
                 if check_time_overlap(start_time, end_time, schedule_start, schedule_end):
-                    teacher_error = (
-                        f"{schedule.room.name} da soat: '{schedule_start.strftime('%H:%M')} - "
-                        f"{schedule_end.strftime('%H:%M')}' da {schedule.group.name} ni darsi bor"
-                    )
-                    teacher_errors.append(teacher_error)
-                    break  # Only need first conflict per lesson
+                    if not schedule.group.assistent:
+                        teacher_error = (
+                            f"{schedule.room.name} da soat: '{schedule_start.strftime('%H:%M')} - "
+                            f"{schedule_end.strftime('%H:%M')}' da {schedule.group.name} ni darsi bor"
+                        )
+                        teacher_errors.append(teacher_error)
+                        break  # real conflict — teacher has no assistant covering that group
 
         # Check room conflicts (in-memory)
         for schedule in all_room_schedules:
