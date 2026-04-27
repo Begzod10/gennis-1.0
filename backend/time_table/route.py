@@ -1,4 +1,4 @@
-from backend.models.models import Week, Group_Room_Week, Rooms, Groups, db
+from backend.models.models import Week, Group_Room_Week, Rooms, Groups, db, Teachers, Users
 from backend.functions.utils import update_week
 
 from flask_jwt_extended import jwt_required
@@ -21,7 +21,7 @@ def view_table(location_id, day):
     week_days = Week.query.filter(Week.location_id == location_id).order_by(Week.order).all()
 
     time_table_data = db.session.query(Group_Room_Week).options(
-        joinedload(Group_Room_Week.teacher).joinedload('user'),
+        joinedload(Group_Room_Week.teacher).joinedload(Teachers.user),
         joinedload(Group_Room_Week.group)
     ).filter(
         Group_Room_Week.location_id == location_id,
