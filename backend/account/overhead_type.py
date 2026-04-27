@@ -67,28 +67,8 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
 
 
 # ---------------------------------------------------------------------------
-# OverheadType CRUD
+# OverheadType — list only (CRUD managed by management project)
 # ---------------------------------------------------------------------------
-
-@overhead_type_bp.route('/overhead_type/deleted', methods=['GET'])
-@jwt_required()
-def get_deleted_overhead_types():
-    location_id = request.args.get('location_id', type=int)
-    query = OverheadType.query.filter_by(deleted=True)
-    if location_id:
-        query = query.filter(OverheadType.location_id == location_id)
-    types = query.order_by(OverheadType.id).all()
-    return jsonify({
-        'success': True,
-        'data': [{
-            'id': t.id,
-            'name': t.name,
-            'cost': t.cost,
-            'changeable': t.changeable,
-            'location_id': t.location_id
-        } for t in types]
-    })
-
 
 @overhead_type_bp.route('/overhead_type', methods=['GET'])
 @jwt_required()
@@ -108,67 +88,6 @@ def get_overhead_types():
             'location_id': t.location_id
         } for t in types]
     })
-
-
-@overhead_type_bp.route('/overhead_type', methods=['POST'])
-@jwt_required()
-def create_overhead_type():
-    data = request.get_json()
-    name = data.get('name')
-    cost = data.get('cost')
-    changeable = data.get('changeable', True)
-
-    location_id = data.get('location_id')
-
-    if not name:
-        return jsonify({'success': False, 'message': 'name required'}), 400
-    if not changeable and cost is None:
-        return jsonify({'success': False, 'message': 'cost required for fixed overhead type'}), 400
-
-    ot = OverheadType(name=name, cost=cost if not changeable else None, changeable=changeable, location_id=location_id)
-    db.session.add(ot)
-    db.session.commit()
-    return jsonify({
-        'success': True,
-        'data': {'id': ot.id, 'name': ot.name, 'cost': ot.cost, 'changeable': ot.changeable},
-        'message': f"{ot.name} yaratildi"
-    }), 201
-
-
-@overhead_type_bp.route('/overhead_type/<int:type_id>', methods=['PUT'])
-@jwt_required()
-def update_overhead_type(type_id):
-    ot = OverheadType.query.get_or_404(type_id)
-    data = request.get_json()
-    if 'name' in data:
-        ot.name = data['name']
-    if 'cost' in data:
-        ot.cost = data['cost']
-    if 'changeable' in data:
-        ot.changeable = data['changeable']
-    if 'location_id' in data:
-        ot.location_id = data['location_id']
-    db.session.commit()
-    return jsonify({
-        'success': True,
-        'data': {'id': ot.id, 'name': ot.name, 'cost': ot.cost, 'changeable': ot.changeable},
-        'message': f"{ot.name} yangilandi"
-    })
-
-
-@overhead_type_bp.route('/overhead_type/<int:type_id>', methods=['DELETE'])
-@jwt_required()
-def delete_overhead_type(type_id):
-    ot = OverheadType.query.get_or_404(type_id)
-    has_logs = OverheadTypeLog.query.filter_by(overhead_type_id=type_id, deleted=False).first()
-    if has_logs:
-        return jsonify({
-            'success': False,
-            'message': f"{ot.name} uchun loglar mavjud, o'chirib bo'lmaydi"
-        }), 400
-    ot.deleted = True
-    db.session.commit()
-    return jsonify({'success': True, 'message': f"{ot.name} o'chirildi"})
 
 
 # ---------------------------------------------------------------------------

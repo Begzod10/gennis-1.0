@@ -518,6 +518,7 @@ class OverheadType(db.Model):
     changeable = Column(Boolean, default=True, nullable=False)
     location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
     deleted = Column(Boolean, default=False)
+    management_id = Column(Integer, nullable=True, unique=True)
     overhead_data = relationship('Overhead', backref="overhead_type", order_by="Overhead.id")
     logs = relationship('OverheadTypeLog', backref="overhead_type", order_by="OverheadTypeLog.id")
 
