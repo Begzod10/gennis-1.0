@@ -71,7 +71,12 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
 @overhead_type_bp.route('/overhead_type', methods=['GET'])
 @jwt_required()
 def get_overhead_types():
-    types = OverheadType.query.filter_by(deleted=False).order_by(OverheadType.id).all()
+    """List active overhead types. Pass ?location_id= to scope to one location."""
+    location_id = request.args.get('location_id', type=int)
+    query = OverheadType.query.filter_by(deleted=False)
+    if location_id:
+        query = query.filter(OverheadType.location_id == location_id)
+    types = query.order_by(OverheadType.id).all()
     return jsonify({
         'success': True,
         'data': [{
@@ -79,6 +84,7 @@ def get_overhead_types():
             'name': t.name,
             'cost': t.cost,
             'changeable': t.changeable,
+            'location_id': t.location_id,
         } for t in types]
     })
 
