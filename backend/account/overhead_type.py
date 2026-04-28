@@ -42,13 +42,11 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
         OverheadType.cost != None,
         OverheadType.deleted == False
     )
-    if location_id:
-        query = query.filter(OverheadType.location_id == location_id)
 
     for ot in query.all():
         exists = OverheadTypeLog.query.filter_by(
             overhead_type_id=ot.id,
-            location_id=ot.location_id,
+            location_id=location_id,
             calendar_month=month_id,
             calendar_year=year_id
         ).first()
@@ -58,7 +56,7 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
                 cost=ot.cost,
                 is_paid=False,
                 is_prepaid=False,
-                location_id=ot.location_id,
+                location_id=location_id,
                 calendar_month=month_id,
                 calendar_year=year_id
             )
@@ -73,11 +71,7 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
 @overhead_type_bp.route('/overhead_type', methods=['GET'])
 @jwt_required()
 def get_overhead_types():
-    location_id = request.args.get('location_id', type=int)
-    query = OverheadType.query.filter_by(deleted=False)
-    if location_id:
-        query = query.filter(OverheadType.location_id == location_id)
-    types = query.order_by(OverheadType.id).all()
+    types = OverheadType.query.filter_by(deleted=False).order_by(OverheadType.id).all()
     return jsonify({
         'success': True,
         'data': [{
@@ -85,7 +79,6 @@ def get_overhead_types():
             'name': t.name,
             'cost': t.cost,
             'changeable': t.changeable,
-            'location_id': t.location_id
         } for t in types]
     })
 
@@ -248,7 +241,7 @@ def pay_overhead_type_log():
             target_log = OverheadTypeLog(
                 overhead_type_id=ot.id,
                 cost=ot.cost,
-                location_id=ot.location_id,
+                location_id=location_id,
                 calendar_month=target_month.id,
                 calendar_year=target_year.id
             )
