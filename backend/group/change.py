@@ -79,8 +79,8 @@ def add_teacher_group(teacher_id, group_id):
         old_teacher.group.remove(group)
         db.session.commit()
     if asistent:
-        if group in asistent.group:
-            asistent.group.remove(group)
+        if group in asistent.groups:
+            asistent.groups.remove(group)
             db.session.commit()
     if group not in new_teacher.group:
         new_teacher.group.append(group)

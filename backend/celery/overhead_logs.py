@@ -6,7 +6,7 @@ import pytz
 from backend.celery.celery_app import celery
 from backend.functions.utils import get_or_create
 from backend.models.models import (
-    CalendarYear, CalendarMonth, OverheadType, OverheadTypeLog, db
+    CalendarYear, CalendarMonth, Locations, OverheadType, OverheadTypeLog, db
 )
 
 logger = logging.getLogger(__name__)
@@ -40,26 +40,29 @@ def generate_monthly_overhead_logs():
             OverheadType.deleted == False
         ).all()
 
+        locations = Locations.query.all()
+
         created = 0
         for ot in fixed_types:
-            exists = OverheadTypeLog.query.filter_by(
-                overhead_type_id=ot.id,
-                location_id=ot.location_id,
-                calendar_month=month.id,
-                calendar_year=year.id
-            ).first()
-            if not exists:
-                log = OverheadTypeLog(
+            for loc in locations:
+                exists = OverheadTypeLog.query.filter_by(
                     overhead_type_id=ot.id,
-                    cost=ot.cost,
-                    is_paid=False,
-                    is_prepaid=False,
-                    location_id=ot.location_id,
+                    location_id=loc.id,
                     calendar_month=month.id,
                     calendar_year=year.id
-                )
-                db.session.add(log)
-                created += 1
+                ).first()
+                if not exists:
+                    log = OverheadTypeLog(
+                        overhead_type_id=ot.id,
+                        cost=ot.cost,
+                        is_paid=False,
+                        is_prepaid=False,
+                        location_id=loc.id,
+                        calendar_month=month.id,
+                        calendar_year=year.id
+                    )
+                    db.session.add(log)
+                    created += 1
 
         db.session.commit()
 
