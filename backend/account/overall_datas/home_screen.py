@@ -531,14 +531,15 @@ def overhead():
             total_arenda += item_sum
         else:
             total_other += item_sum
+        overhead_type_name = overhead.overhead_type.name if overhead.overhead_type else None
         overhead_list.append({
             'id': overhead.id,
-            'item_name': overhead.item_name,
+            'item_name': overhead_type_name if overhead.overhead_type_id is not None else overhead.item_name,
             'item_sum': item_sum,
             'month': month_date_obj.strftime("%Y-%m"),
             "payment_type": overhead.payment_type.name,
             "overhead_type_id": overhead.overhead_type_id,
-            "overhead_type_name": overhead.overhead_type.name if overhead.overhead_type else None,
+            "overhead_type_name": overhead_type_name,
         })
 
     return jsonify({

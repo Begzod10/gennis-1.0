@@ -1104,10 +1104,14 @@ def account_info_overhead():
 
     overheads = query.all()
 
-    payments_list = [
-        {
+    payments_list = []
+    for o in overheads:
+        ot = getattr(o, "overhead_type", None)
+        ot_id = getattr(o, "overhead_type_id", None)
+        ot_name = ot.name if ot is not None else None
+        payments_list.append({
             "id": o.id,
-            "name": o.item_name,
+            "name": ot_name if ot_id is not None else o.item_name,
             "price": int(o.item_sum),
             "typePayment": o.payment_type.name if o.payment_type else None,
             "date": o.day.date.strftime("%Y-%m-%d") if o.day else None,
@@ -1116,15 +1120,9 @@ def account_info_overhead():
             "year": str(o.calendar_year),
             "reason": "",
             "type": "overhead",
-            "overhead_type_id": getattr(o, "overhead_type_id", None),
-            "overhead_type_name": (
-                o.overhead_type.name
-                if getattr(o, "overhead_type", None) is not None
-                else None
-            ),
-        }
-        for o in overheads
-    ]
+            "overhead_type_id": ot_id,
+            "overhead_type_name": ot_name,
+        })
 
     pagination_data = None
     if limit:
@@ -1697,11 +1695,18 @@ def account_details(location_id):
              "date": salary.day.date.strftime('%Y-%m-%d'),
              "user_id": salary.assistent.user_id if salary.assistent else None} for salary in assistent_salaries]
 
-        overhead_list = [{"id": salary.id, "name": salary.item_name, "payment": salary.item_sum,
-                          "date": salary.day.date.strftime('%Y-%m-%d'),
-                          "overhead_type_id": salary.overhead_type_id,
-                          "overhead_type_name": salary.overhead_type.name if salary.overhead_type else None}
-                         for salary in overhead]
+        overhead_list = []
+        for salary in overhead:
+            ot = salary.overhead_type
+            ot_name = ot.name if ot is not None else None
+            overhead_list.append({
+                "id": salary.id,
+                "name": ot_name if salary.overhead_type_id is not None else salary.item_name,
+                "payment": salary.item_sum,
+                "date": salary.day.date.strftime('%Y-%m-%d'),
+                "overhead_type_id": salary.overhead_type_id,
+                "overhead_type_name": ot_name,
+            })
         overhead_list += [{"id": branch_payment.id, "name": "Kitobchiga pul ", "payment": branch_payment.payment_sum,
                            "date": branch_payment.day.date.strftime('%Y-%m-%d')} for branch_payment in branch_payments]
 
