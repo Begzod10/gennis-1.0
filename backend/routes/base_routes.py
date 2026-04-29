@@ -773,6 +773,7 @@ def get_price_course():
 @base_bp.route(f'/profile/<int:user_id>')
 @jwt_required()
 def profile(user_id):
+    location_id = request.args.get('location_id', type=int)
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     user_get = Users.query.filter(Users.id == user_id).first()
     student_get = Students.query.filter(Students.user_id == user_id).first()
@@ -1079,7 +1080,7 @@ def profile(user_id):
 
             group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "teacherImg": "", "count": len(gr.student)}
                           for gr in teacher_get.group if
-                          not gr.deleted]
+                          not gr.deleted and (not location_id or gr.location_id == location_id)]
 
             for count in group_list:
                 i += count["count"]
