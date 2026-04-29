@@ -16,6 +16,7 @@ from backend.functions.utils import get_json_field, find_calendar_date, iterate_
 from backend.models.models import Overhead, AccountingPeriod, PaymentTypes, DeletedOverhead, \
     CalendarMonth, CalendarDay, Category, ConnectedCategory, Capital, CapitalTerm, CapitalExpenditure, \
     DeletedCapitalExpenditure, db
+from backend.account.models import OverheadType
 from backend.models.models import func
 from .utils import update_capital
 from pprint import pprint
@@ -337,9 +338,32 @@ def add_overhead(location_id):
     type_of_data = get_json_field('typePayment')
     sum = int(get_json_field('price'))
     name_item = get_json_field('typeItem')
+    overhead_type_id = request.get_json().get('overhead_type_id')
     payment_type = PaymentTypes.query.filter(PaymentTypes.id == type_of_data).first()
 
+    overhead_type = None
+    if overhead_type_id:
+        overhead_type = OverheadType.query.filter(
+            OverheadType.id == overhead_type_id,
+            OverheadType.deleted == False,
+        ).first()
+        if not overhead_type:
+            return jsonify({"success": False, "msg": "Xarajat turi topilmadi"}), 404
+        if overhead_type.location_id and overhead_type.location_id != location_id:
+            return jsonify({
+                "success": False,
+                "msg": "Xarajat turi boshqa filialga tegishli"
+            }), 400
+        if not overhead_type.changeable and overhead_type.cost is not None and sum != overhead_type.cost:
+            return jsonify({
+                "success": False,
+                "msg": f"Bu xarajat turi o'zgartirib bo'lmaydi, narxi: {overhead_type.cost}"
+            }), 400
+        if not name_item:
+            name_item = overhead_type.name
+
     add = Overhead(item_sum=sum, item_name=name_item, payment_type_id=payment_type.id, location_id=location_id,
+                   overhead_type_id=overhead_type.id if overhead_type else None,
                    calendar_day=calendar_day.id, calendar_month=calendar_month.id, calendar_year=calendar_year.id,
                    account_period_id=account_period.id)
     db.session.add(add)
