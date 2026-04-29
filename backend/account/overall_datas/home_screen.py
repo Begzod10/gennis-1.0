@@ -536,7 +536,9 @@ def overhead():
             'item_name': overhead.item_name,
             'item_sum': item_sum,
             'month': month_date_obj.strftime("%Y-%m"),
-            "payment_type": overhead.payment_type.name
+            "payment_type": overhead.payment_type.name,
+            "overhead_type_id": overhead.overhead_type_id,
+            "overhead_type_name": overhead.overhead_type.name if overhead.overhead_type else None,
         })
 
     return jsonify({

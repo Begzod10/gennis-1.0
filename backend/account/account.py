@@ -1116,6 +1116,12 @@ def account_info_overhead():
             "year": str(o.calendar_year),
             "reason": "",
             "type": "overhead",
+            "overhead_type_id": getattr(o, "overhead_type_id", None),
+            "overhead_type_name": (
+                o.overhead_type.name
+                if getattr(o, "overhead_type", None) is not None
+                else None
+            ),
         }
         for o in overheads
     ]
@@ -1692,7 +1698,10 @@ def account_details(location_id):
              "user_id": salary.assistent.user_id if salary.assistent else None} for salary in assistent_salaries]
 
         overhead_list = [{"id": salary.id, "name": salary.item_name, "payment": salary.item_sum,
-                          "date": salary.day.date.strftime('%Y-%m-%d')} for salary in overhead]
+                          "date": salary.day.date.strftime('%Y-%m-%d'),
+                          "overhead_type_id": salary.overhead_type_id,
+                          "overhead_type_name": salary.overhead_type.name if salary.overhead_type else None}
+                         for salary in overhead]
         overhead_list += [{"id": branch_payment.id, "name": "Kitobchiga pul ", "payment": branch_payment.payment_sum,
                            "date": branch_payment.day.date.strftime('%Y-%m-%d')} for branch_payment in branch_payments]
 
