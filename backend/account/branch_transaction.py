@@ -2,9 +2,20 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import desc, or_
 
+from backend.functions.filters import old_current_dates
 from backend.functions.utils import find_calendar_date
-from backend.models.models import BranchTransaction, CalendarMonth, CalendarYear, Users, db, func
+from backend.models.models import (
+    BranchTransaction,
+    CalendarDay,
+    CalendarMonth,
+    CalendarYear,
+    PaymentTypes,
+    Users,
+    db,
+    func,
+)
 
 branch_transaction_bp = Blueprint('branch_transaction_bp', __name__)
 
@@ -245,4 +256,115 @@ def get_deleted_branch_transactions(month, year):
     return jsonify({
         'success': True,
         'data': [tx.convert_json() for tx in transactions]
+    })
+
+
+# ---------------------------------------------------------------------------
+# account_info/branch_transaction (paginated, account-info shape)
+# ---------------------------------------------------------------------------
+
+@branch_transaction_bp.route('/account_info/branch_transaction/', methods=['GET'])
+@jwt_required()
+def account_info_branch_transaction():
+    """
+    Mirrors /account_info/staff_salary/ shape.
+    Query params:
+        locationId   — required: filial ID
+        paymentType  — optional: PaymentTypes.name
+        year, month, day — optional: calendar IDs
+        deleted      — optional: 1 = soft-deleted only
+        direction    — optional: 'give' | 'receive'
+        is_give      — optional: 'true' | 'false'
+        limit, offset — pagination
+    """
+    location = request.args.get('locationId', type=int)
+    payment_type_name = request.args.get('paymentType')
+    year_id = request.args.get('year', type=int)
+    month_id = request.args.get('month', type=int)
+    day_id = request.args.get('day', type=int)
+    deleted = request.args.get('deleted', type=int)
+    direction = (request.args.get('direction') or '').strip().lower()
+    is_give_param = request.args.get('is_give')
+
+    limit = request.args.get('limit', type=int)
+    offset = request.args.get('offset', default=0, type=int)
+
+    if not location:
+        return jsonify({'success': False, 'message': 'locationId kerak'}), 400
+
+    query = BranchTransaction.query.filter(BranchTransaction.location_id == location)
+
+    if deleted:
+        query = query.filter(BranchTransaction.deleted == True)
+    else:
+        query = query.filter(BranchTransaction.deleted == False)
+
+    if payment_type_name:
+        payment_type_obj = PaymentTypes.query.filter_by(name=payment_type_name).first()
+        if payment_type_obj:
+            query = query.filter(BranchTransaction.payment_type_id == payment_type_obj.id)
+        else:
+            # No payment type with that name — return empty rather than ignoring
+            query = query.filter(False)
+
+    if year_id:
+        query = query.filter(BranchTransaction.calendar_year == year_id)
+    if month_id:
+        query = query.filter(BranchTransaction.calendar_month == month_id)
+    if day_id:
+        query = query.filter(BranchTransaction.calendar_day == day_id)
+
+    if direction == 'give':
+        query = query.filter(BranchTransaction.is_give == True)
+    elif direction == 'receive':
+        query = query.filter(BranchTransaction.is_give == False)
+    elif is_give_param is not None:
+        if str(is_give_param).lower() in ('true', '1'):
+            query = query.filter(BranchTransaction.is_give == True)
+        elif str(is_give_param).lower() in ('false', '0'):
+            query = query.filter(BranchTransaction.is_give == False)
+
+    query = query.order_by(desc(BranchTransaction.id))
+
+    total = query.count()
+
+    given_total = db.session.query(func.coalesce(func.sum(BranchTransaction.amount), 0)).filter(
+        BranchTransaction.location_id == location,
+        BranchTransaction.deleted == bool(deleted),
+        BranchTransaction.is_give == True,
+    ).scalar()
+    received_total = db.session.query(func.coalesce(func.sum(BranchTransaction.amount), 0)).filter(
+        BranchTransaction.location_id == location,
+        BranchTransaction.deleted == bool(deleted),
+        BranchTransaction.is_give == False,
+    ).scalar()
+
+    if limit:
+        query = query.offset(offset).limit(limit)
+
+    transactions = query.all()
+
+    payments_list = [tx.convert_json() for tx in transactions]
+
+    pagination_data = {
+        "total": total,
+        "page": offset,
+        "limit": limit,
+        "has_more": (offset + (limit or total)) < total,
+    } if limit else None
+
+    return jsonify({
+        "data": {
+            "typeOfMoney": "branch_transaction",
+            "data": payments_list,
+            "pagination": pagination_data,
+            "summary": {
+                "total_given": int(given_total or 0),
+                "total_received": int(received_total or 0),
+                "net": int((received_total or 0) - (given_total or 0)),
+            },
+            "overhead_tools": old_current_dates(observation=True),
+            "capital_tools": old_current_dates(observation=True),
+            "location": location,
+        }
     })
