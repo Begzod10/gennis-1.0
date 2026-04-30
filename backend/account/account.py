@@ -11,7 +11,7 @@ from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes,
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
     CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead, \
-    BranchTransaction, OverheadTypeLog
+    BranchTransaction, BranchLoan, OverheadTypeLog
 from backend.account.models import ManagementDividend, ManagementInvestment
 from backend.teacher.assistent.models import AssistentSalaries, DeletedAsistentSalaries, Assistent
 from backend.models.settings import sum_money
@@ -1669,6 +1669,121 @@ def account_details(location_id):
         all_branch_given = sum(tx.amount for tx in branch_txs if tx.is_give) if branch_txs else 0
         all_branch_received = sum(tx.amount for tx in branch_txs if not tx.is_give) if branch_txs else 0
 
+        # ── Branch loans ──────────────────────────────────────────────────
+        # Scope: loans whose disbursement transaction matches the active payment type.
+        # We identify those loans by joining to the disbursement BranchTransaction
+        # (the one whose is_give matches loan.direction='out').
+        loan_payment_subq = db.session.query(BranchTransaction.loan_id).filter(
+            BranchTransaction.location_id == location_id,
+            BranchTransaction.payment_type_id == payment_type.id,
+            BranchTransaction.loan_id.isnot(None),
+            BranchTransaction.deleted == False,
+        ).distinct().subquery()
+
+        loan_base = BranchLoan.query.filter(
+            BranchLoan.location_id == location_id,
+            BranchLoan.deleted == False,
+            BranchLoan.id.in_(db.session.query(loan_payment_subq.c.loan_id)),
+        )
+
+        # Active during period: issued by `do`, not settled before `ot`, not cancelled
+        active_loans = loan_base.filter(
+            BranchLoan.issued_date <= do,
+            or_(BranchLoan.settled_date.is_(None), BranchLoan.settled_date >= ot),
+            BranchLoan.status != 'cancelled',
+        ).order_by(desc(BranchLoan.issued_date), desc(BranchLoan.id)).all()
+
+        newly_issued_loans = loan_base.filter(
+            BranchLoan.issued_date >= ot,
+            BranchLoan.issued_date <= do,
+        ).order_by(desc(BranchLoan.issued_date), desc(BranchLoan.id)).all()
+
+        settled_loans = loan_base.filter(
+            BranchLoan.status == 'settled',
+            BranchLoan.settled_date >= ot,
+            BranchLoan.settled_date <= do,
+        ).order_by(desc(BranchLoan.settled_date), desc(BranchLoan.id)).all()
+
+        cancelled_loans = loan_base.filter(
+            BranchLoan.status == 'cancelled',
+            BranchLoan.updated_at >= ot,
+            BranchLoan.updated_at <= do,
+        ).order_by(desc(BranchLoan.updated_at), desc(BranchLoan.id)).all()
+
+        # Activity-in-period: any linked transaction in [ot, do] (any payment type)
+        activity_loan_ids = {tx.loan_id for tx in branch_txs if tx.loan_id}
+        activity_loans = (
+            BranchLoan.query.filter(
+                BranchLoan.id.in_(activity_loan_ids),
+                BranchLoan.deleted == False,
+            ).order_by(desc(BranchLoan.id)).all()
+            if activity_loan_ids else []
+        )
+
+        def _loan_outstanding_as_of(loan, as_of):
+            """principal − sum(repayments dated <= as_of)"""
+            opposite_is_give = (loan.direction == 'in')
+            paid = db.session.query(func.coalesce(func.sum(BranchTransaction.amount), 0)).join(
+                CalendarDay, CalendarDay.id == BranchTransaction.calendar_day,
+            ).filter(
+                BranchTransaction.loan_id == loan.id,
+                BranchTransaction.deleted == False,
+                BranchTransaction.is_give == opposite_is_give,
+                CalendarDay.date <= as_of,
+            ).scalar() or 0
+            return max(0, int(loan.principal_amount or 0) - int(paid))
+
+        def _loan_payload(loan, as_of):
+            data = loan.convert_json()
+            data['outstanding_as_of'] = _loan_outstanding_as_of(loan, as_of)
+            return data
+
+        active_payload = [_loan_payload(l, do) for l in active_loans]
+        active_outstanding_total = sum(p['outstanding_as_of'] for p in active_payload)
+
+        out_payloads = [p for p, l in zip(active_payload, active_loans) if l.direction == 'out']
+        in_payloads  = [p for p, l in zip(active_payload, active_loans) if l.direction == 'in']
+
+        branch_loans_block = {
+            "active": {
+                "list": active_payload,
+                "count": len(active_loans),
+                "principal_total": sum(int(l.principal_amount or 0) for l in active_loans),
+                "outstanding_total": active_outstanding_total,
+            },
+            "newly_issued": {
+                "list": [l.convert_json() for l in newly_issued_loans],
+                "count": len(newly_issued_loans),
+                "principal_total": sum(int(l.principal_amount or 0) for l in newly_issued_loans),
+            },
+            "settled_in_period": {
+                "list": [l.convert_json() for l in settled_loans],
+                "count": len(settled_loans),
+                "principal_total": sum(int(l.principal_amount or 0) for l in settled_loans),
+            },
+            "cancelled_in_period": {
+                "list": [l.convert_json() for l in cancelled_loans],
+                "count": len(cancelled_loans),
+                "principal_total": sum(int(l.principal_amount or 0) for l in cancelled_loans),
+            },
+            "activity_in_period": {
+                "list": [_loan_payload(l, do) for l in activity_loans],
+                "count": len(activity_loans),
+            },
+            "by_direction": {
+                "lent_out": {
+                    "count": len(out_payloads),
+                    "principal_total": sum(p['principal_amount'] for p in out_payloads),
+                    "outstanding_total": sum(p['outstanding_as_of'] for p in out_payloads),
+                },
+                "borrowed_in": {
+                    "count": len(in_payloads),
+                    "principal_total": sum(p['principal_amount'] for p in in_payloads),
+                    "outstanding_total": sum(p['outstanding_as_of'] for p in in_payloads),
+                },
+            },
+        }
+
         payments_list = [{"id": payment.id, "name": payment.student.user.name.title(),
                           "surname": payment.student.user.surname.title(), "payment": payment.payment_sum,
                           "date": payment.day.date.strftime('%Y-%m-%d'), "user_id": payment.student.user_id} for payment
@@ -1741,6 +1856,7 @@ def account_details(location_id):
                                               "received": all_branch_received,
                                               "net": all_branch_received - all_branch_given
                                           },
+                                          "branchLoans": branch_loans_block,
                                           "result": result}, }})
 
 

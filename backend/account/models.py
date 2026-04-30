@@ -610,6 +610,117 @@ class DeletedOverhead(db.Model):
     reason = Column(String)
 
 
+class BranchLoan(db.Model):
+    __tablename__ = "branch_loan"
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
+
+    counterparty_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    counterparty_name = Column(String, nullable=True)
+    counterparty_surname = Column(String, nullable=True)
+    counterparty_phone = Column(String, nullable=True)
+
+    direction = Column(String(8), nullable=False)  # 'out' = lent, 'in' = borrowed
+    principal_amount = Column(Integer, nullable=False)
+
+    issued_date = Column(DateTime, nullable=False)
+    due_date = Column(DateTime, nullable=True)
+    settled_date = Column(DateTime, nullable=True)
+
+    reason = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+
+    status = Column(String(12), default='active')  # active | settled | cancelled
+    cancelled_reason = Column(String, nullable=True)
+
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    management_id = Column(Integer, unique=True, nullable=True)
+    deleted = Column(Boolean, default=False)
+
+    transactions = relationship(
+        'BranchTransaction',
+        backref='loan',
+        primaryjoin='BranchLoan.id == BranchTransaction.loan_id',
+        foreign_keys='BranchTransaction.loan_id',
+    )
+
+    def paid_total(self):
+        opposite_is_give = (self.direction == 'in')
+        total = 0
+        for tx in self.transactions or []:
+            if tx.deleted:
+                continue
+            if tx.is_give == opposite_is_give:
+                total += int(tx.amount or 0)
+        return total
+
+    def remaining_amount(self):
+        return max(0, int(self.principal_amount or 0) - self.paid_total())
+
+    def is_settled(self):
+        return self.paid_total() >= int(self.principal_amount or 0)
+
+    def recompute_status(self):
+        from datetime import date
+        if self.status == 'cancelled':
+            return
+        if self.is_settled():
+            self.status = 'settled'
+            if not self.settled_date:
+                self.settled_date = date.today()
+        else:
+            self.status = 'active'
+            self.settled_date = None
+
+    def counterparty_payload(self):
+        from backend.models.models import Users
+        if self.counterparty_id:
+            user = Users.query.get(self.counterparty_id)
+            return {
+                'id': self.counterparty_id,
+                'name': user.name if user else None,
+                'surname': user.surname if user else None,
+                'phone': getattr(user, 'phone', None) if user else None,
+            }
+        return {
+            'id': None,
+            'name': self.counterparty_name,
+            'surname': self.counterparty_surname,
+            'phone': self.counterparty_phone,
+        }
+
+    def convert_json(self, with_transactions=False):
+        principal = int(self.principal_amount or 0)
+        paid = self.paid_total()
+        data = {
+            'id': self.id,
+            'location_id': self.location_id,
+            'counterparty': self.counterparty_payload(),
+            'direction': self.direction,
+            'principal_amount': principal,
+            'paid_total': paid,
+            'remaining_amount': max(0, principal - paid),
+            'is_settled': paid >= principal,
+            'issued_date': self.issued_date.strftime('%Y-%m-%d') if self.issued_date else None,
+            'due_date': self.due_date.strftime('%Y-%m-%d') if self.due_date else None,
+            'settled_date': self.settled_date.strftime('%Y-%m-%d') if self.settled_date else None,
+            'reason': self.reason,
+            'notes': self.notes,
+            'status': self.status,
+            'cancelled_reason': self.cancelled_reason,
+            'management_id': self.management_id,
+        }
+        if with_transactions:
+            data['transactions'] = [
+                tx.convert_json() for tx in (self.transactions or [])
+                if not tx.deleted
+            ]
+        return data
+
+
 class BranchTransaction(db.Model):
     __tablename__ = "branchtransaction"
     id = Column(Integer, primary_key=True)
@@ -626,6 +737,7 @@ class BranchTransaction(db.Model):
     calendar_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
     calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
     created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    loan_id = Column(Integer, ForeignKey('branch_loan.id'), nullable=True)
     deleted = Column(Boolean, default=False)
     payment_type = relationship('PaymentTypes', foreign_keys=[payment_type_id])
 
@@ -656,6 +768,7 @@ class BranchTransaction(db.Model):
             'calendar_day': self.calendar_day,
             'calendar_month': self.calendar_month,
             'calendar_year': self.calendar_year,
+            'loan_id': self.loan_id,
         }
 
 
