@@ -837,6 +837,59 @@ from backend.chat_analyzer.models import (
 )
 
 
+
+class AdminRequest(db.Model):
+    __tablename__ = "admin_request"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    deadline = Column(Date)
+    comment = Column(Text)
+    branch_id = Column(Integer, ForeignKey('locations.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    comments = relationship("RequestComment", backref="request", cascade="all, delete-orphan", order_by="RequestComment.id")
+    location = relationship("Locations", backref="admin_requests")
+    user = relationship("Users", backref="admin_requests")
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "deadline": self.deadline.strftime("%Y-%m-%d") if self.deadline else None,
+            "comment": self.comment,
+            "branch": self.location.convert_json() if self.location else None,
+            "user": self.user.convert_json(entire=True) if self.user else None,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "comments": [c.convert_json() for c in self.comments] if not entire else []
+        }
+
+
+class RequestComment(db.Model):
+    __tablename__ = "request_comment"
+    id = Column(Integer, primary_key=True)
+    request_id = Column(Integer, ForeignKey('admin_request.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user_info = relationship("Users", backref="request_comments")
+
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "request_id": self.request_id,
+            "user": self.user_info.convert_json(entire=True) if self.user_info else None,
+            "text": self.text,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+
 class ApiLog(db.Model):
     __tablename__ = "api_log"
     id = Column(Integer, primary_key=True)

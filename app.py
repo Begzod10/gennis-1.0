@@ -192,6 +192,7 @@ def register_all_routes(api, app):
     from backend.tasks.missions.views import register_missions_views
     from backend.chat_analyzer.views import register_chat_analyzer_routes
     from backend.reports.urls import register_report_views
+    from backend.admin_request.views import register_admin_request_views
 
     # Register all routes
     routes = [
@@ -214,7 +215,8 @@ def register_all_routes(api, app):
         register_overall_datas_routes,
         register_missions_views,
         register_chat_analyzer_routes,
-        register_report_views
+        register_report_views,
+        register_admin_request_views
     ]
 
     for register_func in routes:
