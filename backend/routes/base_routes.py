@@ -1084,7 +1084,8 @@ def profile(user_id):
 
             for count in group_list:
                 i += count["count"]
-            assitents = Assistent.query.filter(Assistent.teacher_id == teacher_get.id).all()
+            assitents = Assistent.query.filter(Assistent.teacher_id == teacher_get.id,
+                                                Assistent.deleted == False).all()
             for assistent in assitents:
                 assistent_list.append(assistent.convert_json())
             type_role = "Teacher"
