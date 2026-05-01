@@ -52,7 +52,9 @@ class CalendarYear(db.Model):
     charity = relationship('StudentCharity', backref="year", order_by="StudentCharity.id")
     stuff_salary = relationship('StaffSalary', backref="year", order_by="StaffSalary.id")
     staff_given_salary = relationship("StaffSalaries", backref="year", order_by="StaffSalaries.id")
-    overhead_data = relationship('Overhead', backref="year", order_by="Overhead.id")
+    overhead_data = relationship('Overhead', foreign_keys='Overhead.calendar_year', backref="year", order_by="Overhead.id")
+    overhead_type_logs = relationship("OverheadTypeLog", backref="year", order_by="OverheadTypeLog.id", lazy="select")
+    branch_transactions = relationship("BranchTransaction", foreign_keys="BranchTransaction.calendar_year", backref="year", order_by="BranchTransaction.id", lazy="select")
     accounting = relationship("AccountingInfo", backref="year", order_by="AccountingInfo.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="year", order_by="DeletedStudentPayments.id")
     deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="year",
@@ -131,7 +133,7 @@ class CalendarMonth(db.Model):
     charity = relationship('StudentCharity', backref="month", order_by="StudentCharity.id")
     stuff_salary = relationship('StaffSalary', backref="month", order_by="StaffSalary.id")
     staff_given_salary = relationship("StaffSalaries", backref="month", order_by="StaffSalaries.id")
-    overhead_data = relationship('Overhead', backref="month", order_by="Overhead.id")
+    overhead_data = relationship('Overhead', foreign_keys='Overhead.calendar_month', backref="month", order_by="Overhead.id")
     capital_data = relationship("CapitalExpenditure", backref="month", order_by="CapitalExpenditure.id")
     # accounting = relationship("AccountingInfo", backref="month", order_by="AccountingInfo.id")
     deleted_payments = relationship("DeletedStudentPayments", backref="month", order_by="DeletedStudentPayments.id")
@@ -167,6 +169,8 @@ class CalendarMonth(db.Model):
     account_payable = relationship("AccountPayable", backref="month", order_by="AccountPayable.id")
     dividend = relationship("Dividend", backref="month", order_by="Dividend.id")
     main_overhead = relationship("MainOverhead", backref="month", order_by="MainOverhead.id")
+    overhead_type_logs = relationship("OverheadTypeLog", backref="month", order_by="OverheadTypeLog.id", lazy="select")
+    branch_transactions = relationship("BranchTransaction", foreign_keys="BranchTransaction.calendar_month", backref="month", order_by="BranchTransaction.id", lazy="select")
     account_payable_history = relationship("AccountPayableHistory", backref="month",
                                            order_by="AccountPayableHistory.id")
     task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
@@ -333,6 +337,7 @@ class Locations(db.Model):
     calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
     calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
     overhead_data = relationship('Overhead', backref="location", order_by="Overhead.id")
+    branch_transactions = relationship("BranchTransaction", foreign_keys="BranchTransaction.location_id", backref="location", order_by="BranchTransaction.id", lazy="select")
     contract_students_data = relationship('Contract_Students_Data', backref="location",
                                           order_by="Contract_Students_Data.id")
     attendance_days_get = relationship("AttendanceDays", backref="location", order_by="AttendanceDays.id")
@@ -830,3 +835,67 @@ from backend.chat_analyzer.models import (
     ReportMember,
     ChatAnalysisReport,
 )
+
+
+
+class AdminRequest(db.Model):
+    __tablename__ = "admin_request"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    deadline = Column(Date)
+    comment = Column(Text)
+    branch_id = Column(Integer, ForeignKey('locations.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    comments = relationship("RequestComment", backref="request", cascade="all, delete-orphan", order_by="RequestComment.id")
+    location = relationship("Locations", backref="admin_requests")
+    user = relationship("Users", backref="admin_requests")
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "deadline": self.deadline.strftime("%Y-%m-%d") if self.deadline else None,
+            "comment": self.comment,
+            "branch": self.location.convert_json() if self.location else None,
+            "user": self.user.convert_json(entire=True) if self.user else None,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "comments": [c.convert_json() for c in self.comments] if not entire else []
+        }
+
+
+class RequestComment(db.Model):
+    __tablename__ = "request_comment"
+    id = Column(Integer, primary_key=True)
+    request_id = Column(Integer, ForeignKey('admin_request.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user_info = relationship("Users", backref="request_comments")
+
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "request_id": self.request_id,
+            "user": self.user_info.convert_json(entire=True) if self.user_info else None,
+            "text": self.text,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+
+class ApiLog(db.Model):
+    __tablename__ = "api_log"
+    id = Column(Integer, primary_key=True)
+    method = Column(String(10), nullable=False)
+    path = Column(String(500), nullable=False)
+    status_code = Column(Integer, nullable=True)
+    user_id = Column(Integer, nullable=True)
+    response_time_ms = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

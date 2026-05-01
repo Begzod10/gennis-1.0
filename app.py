@@ -192,6 +192,7 @@ def register_all_routes(api, app):
     from backend.tasks.missions.views import register_missions_views
     from backend.chat_analyzer.views import register_chat_analyzer_routes
     from backend.reports.urls import register_report_views
+    from backend.admin_request.views import register_admin_request_views
 
     # Register all routes
     routes = [
@@ -214,7 +215,8 @@ def register_all_routes(api, app):
         register_overall_datas_routes,
         register_missions_views,
         register_chat_analyzer_routes,
-        register_report_views
+        register_report_views,
+        register_admin_request_views
     ]
 
     for register_func in routes:
@@ -312,6 +314,40 @@ def register_middleware(app):
     @app.before_request
     def auto_recurring_run():
         recurring_check()
+
+    @app.before_request
+    def _start_timer():
+        request._api_log_start = time.time()
+
+    @app.after_request
+    def _log_api(response):
+        skip = ('/static', '/media', '/flask_static', '/health', '/admin')
+        if any(request.path.startswith(p) for p in skip):
+            return response
+        elapsed_ms = round((time.time() - getattr(request, '_api_log_start', time.time())) * 1000, 2)
+        user_id = None
+        try:
+            from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+            verify_jwt_in_request(optional=True)
+            identity = get_jwt_identity()
+            if identity:
+                user_id = identity if isinstance(identity, int) else identity.get('id')
+        except Exception:
+            pass
+        try:
+            from backend.models.models import db, ApiLog
+            log = ApiLog(
+                method=request.method,
+                path=request.path,
+                status_code=response.status_code,
+                user_id=user_id,
+                response_time_ms=elapsed_ms,
+            )
+            db.session.add(log)
+            db.session.commit()
+        except Exception:
+            pass
+        return response
 
 
 def check_auth(username, password):

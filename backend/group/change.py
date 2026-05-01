@@ -79,8 +79,8 @@ def add_teacher_group(teacher_id, group_id):
         old_teacher.group.remove(group)
         db.session.commit()
     if asistent:
-        if group in asistent.group:
-            asistent.group.remove(group)
+        if group in asistent.groups:
+            asistent.groups.remove(group)
             db.session.commit()
     if group not in new_teacher.group:
         new_teacher.group.append(group)
@@ -257,6 +257,7 @@ def check_time_group(group_id):
         room_id = lesson['selectedRoom'].get('id')
 
         # Check teacher conflicts (in-memory)
+        conflicting_schedules = []
         for schedule in teacher.time_table:
             if (schedule.week_id == week_id and
                     schedule.location_id == group.location_id and
@@ -268,16 +269,31 @@ def check_time_group(group_id):
                                                                       datetime) else schedule.end_time
 
                 if check_time_overlap(start_time, end_time, schedule_start, schedule_end):
-                    teacher_error = (
-                        f"{schedule.room.name} da soat: '{schedule_start.strftime('%H:%M')} - "
-                        f"{schedule_end.strftime('%H:%M')}' da {schedule.group.name} ni darsi bor"
-                    )
-                    teacher_errors.append(teacher_error)
-                    break  # Only need first conflict per lesson
+                    conflicting_schedules.append(schedule)
+
+        if len(conflicting_schedules) >= 2:
+            s = conflicting_schedules[0]
+            s_start = s.start_time.time() if isinstance(s.start_time, datetime) else s.start_time
+            s_end = s.end_time.time() if isinstance(s.end_time, datetime) else s.end_time
+            teacher_errors.append(
+                f"{s.room.name} da soat: '{s_start.strftime('%H:%M')} - "
+                f"{s_end.strftime('%H:%M')}' da allaqachon 2 ta dars bor"
+            )
+        elif len(conflicting_schedules) == 1:
+            s = conflicting_schedules[0]
+            if not s.group.assistent:
+                s_start = s.start_time.time() if isinstance(s.start_time, datetime) else s.start_time
+                s_end = s.end_time.time() if isinstance(s.end_time, datetime) else s.end_time
+                teacher_errors.append(
+                    f"{s.room.name} da soat: '{s_start.strftime('%H:%M')} - "
+                    f"{s_end.strftime('%H:%M')}' da {s.group.name} ni darsi bor"
+                )
 
         # Check room conflicts (in-memory)
         for schedule in all_room_schedules:
             if schedule.week_id == week_id and schedule.room_id == room_id:
+                if schedule.group.teacher_id == group.teacher_id:
+                    continue  # same teacher can share a room across their own groups
                 schedule_start = schedule.start_time.time() if isinstance(schedule.start_time,
                                                                           datetime) else schedule.start_time
                 schedule_end = schedule.end_time.time() if isinstance(schedule.end_time,
@@ -289,7 +305,7 @@ def check_time_group(group_id):
                         f"{schedule_end.strftime('%H:%M')}' da {schedule.group.name} ni darsi bor"
                     )
                     gr_errors.append(gr_error)
-                    break  # Only need first conflict per lesson
+                    break
 
     # Check student conflicts (in-memory)
     for student in students:

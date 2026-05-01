@@ -364,7 +364,13 @@ def make_attendance():
     lesson_plan_today = LessonPlan.query.filter_by(
         group_id=group.id,
         teacher_id=teacher.id,
-        date=calendar_day.date
+        date=calendar_day.date,
+        main_lesson = None,
+        homework = None,
+        activities = None,
+        objective =None,
+        resources = None,
+        assessment = None
     ).first()
     fine = 0
     assistent_fine = 0

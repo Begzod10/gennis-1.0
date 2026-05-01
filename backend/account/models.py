@@ -510,11 +510,55 @@ class DeletedStaffSalaries(db.Model):
     reason_deleted = Column(String)
 
 
+class OverheadType(db.Model):
+    __tablename__ = "overheadtype"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    cost = Column(Integer, nullable=True)
+    changeable = Column(Boolean, default=True, nullable=False)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+    deleted = Column(Boolean, default=False)
+    management_id = Column(Integer, nullable=True)
+    overhead_data = relationship('Overhead', backref="overhead_type", order_by="Overhead.id")
+    logs = relationship('OverheadTypeLog', backref="overhead_type", order_by="OverheadTypeLog.id")
+
+
+class OverheadTypeLog(db.Model):
+    __tablename__ = "overheadtypelog"
+    id = Column(Integer, primary_key=True)
+    overhead_type_id = Column(Integer, ForeignKey('overheadtype.id'), nullable=False)
+    cost = Column(Integer, nullable=False)
+    is_paid = Column(Boolean, default=False, nullable=False)
+    is_prepaid = Column(Boolean, default=False, nullable=False)
+    paid_date = Column(DateTime, nullable=True)
+    overhead_id = Column(Integer, ForeignKey('overhead.id'), nullable=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
+    deleted = Column(Boolean, default=False)
+
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "overhead_type_id": self.overhead_type_id,
+            "overhead_type_name": self.overhead_type.name,
+            "cost": self.cost,
+            "is_paid": self.is_paid,
+            "is_prepaid": self.is_prepaid,
+            "paid_date": self.paid_date.strftime("%d.%m.%Y") if self.paid_date else None,
+            "overhead_id": self.overhead_id,
+            "location_id": self.location_id,
+            "calendar_month": self.calendar_month,
+            "calendar_year": self.calendar_year,
+        }
+
+
 class Overhead(db.Model):
     __tablename__ = "overhead"
     id = Column(Integer, primary_key=True)
     item_sum = Column(Integer)
     item_name = Column(String)
+    overhead_type_id = Column(Integer, ForeignKey('overheadtype.id'), nullable=True)
     payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'))
     location_id = Column(Integer, ForeignKey('locations.id'))
     calendar_day = Column(Integer, ForeignKey('calendarday.id'))
@@ -522,6 +566,8 @@ class Overhead(db.Model):
     calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     by_who = Column(Integer, ForeignKey("users.id"))
+    paid_for_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=True)
+    paid_for_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=True)
     old_id = Column(Integer)
 
     def convert_json(self, entire=False):
@@ -539,7 +585,11 @@ class Overhead(db.Model):
             "day": self.calendar_day,
             "month": self.calendar_month,
             "year": self.calendar_year,
+            "paid_for_month": self.paid_for_month,
+            "paid_for_year": self.paid_for_year,
             "typePayment": self.payment_type.name,
+            "overhead_type_id": self.overhead_type_id,
+            "overhead_type_name": self.overhead_type.name if self.overhead_type else None,
             "reason": "",
 
         }
@@ -558,6 +608,168 @@ class DeletedOverhead(db.Model):
     account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
     deleted_date = Column(DateTime)
     reason = Column(String)
+
+
+class BranchLoan(db.Model):
+    __tablename__ = "branch_loan"
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
+
+    counterparty_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    counterparty_name = Column(String, nullable=True)
+    counterparty_surname = Column(String, nullable=True)
+    counterparty_phone = Column(String, nullable=True)
+
+    direction = Column(String(8), nullable=False)  # 'out' = lent, 'in' = borrowed
+    principal_amount = Column(Integer, nullable=False)
+
+    issued_date = Column(DateTime, nullable=False)
+    due_date = Column(DateTime, nullable=True)
+    settled_date = Column(DateTime, nullable=True)
+
+    reason = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+
+    status = Column(String(12), default='active')  # active | settled | cancelled
+    cancelled_reason = Column(String, nullable=True)
+
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    management_id = Column(Integer, unique=True, nullable=True)
+    deleted = Column(Boolean, default=False)
+
+    transactions = relationship(
+        'BranchTransaction',
+        backref='loan',
+        primaryjoin='BranchLoan.id == BranchTransaction.loan_id',
+        foreign_keys='BranchTransaction.loan_id',
+    )
+
+    def paid_total(self):
+        opposite_is_give = (self.direction == 'in')
+        total = 0
+        for tx in self.transactions or []:
+            if tx.deleted:
+                continue
+            if tx.is_give == opposite_is_give:
+                total += int(tx.amount or 0)
+        return total
+
+    def remaining_amount(self):
+        return max(0, int(self.principal_amount or 0) - self.paid_total())
+
+    def is_settled(self):
+        return self.paid_total() >= int(self.principal_amount or 0)
+
+    def recompute_status(self):
+        from datetime import date
+        if self.status == 'cancelled':
+            return
+        if self.is_settled():
+            self.status = 'settled'
+            if not self.settled_date:
+                self.settled_date = date.today()
+        else:
+            self.status = 'active'
+            self.settled_date = None
+
+    def counterparty_payload(self):
+        from backend.models.models import Users
+        if self.counterparty_id:
+            user = Users.query.get(self.counterparty_id)
+            return {
+                'id': self.counterparty_id,
+                'name': user.name if user else None,
+                'surname': user.surname if user else None,
+                'phone': getattr(user, 'phone', None) if user else None,
+            }
+        return {
+            'id': None,
+            'name': self.counterparty_name,
+            'surname': self.counterparty_surname,
+            'phone': self.counterparty_phone,
+        }
+
+    def convert_json(self, with_transactions=False):
+        principal = int(self.principal_amount or 0)
+        paid = self.paid_total()
+        data = {
+            'id': self.id,
+            'location_id': self.location_id,
+            'counterparty': self.counterparty_payload(),
+            'direction': self.direction,
+            'principal_amount': principal,
+            'paid_total': paid,
+            'remaining_amount': max(0, principal - paid),
+            'is_settled': paid >= principal,
+            'issued_date': self.issued_date.strftime('%Y-%m-%d') if self.issued_date else None,
+            'due_date': self.due_date.strftime('%Y-%m-%d') if self.due_date else None,
+            'settled_date': self.settled_date.strftime('%Y-%m-%d') if self.settled_date else None,
+            'reason': self.reason,
+            'notes': self.notes,
+            'status': self.status,
+            'cancelled_reason': self.cancelled_reason,
+            'management_id': self.management_id,
+        }
+        if with_transactions:
+            data['transactions'] = [
+                tx.convert_json() for tx in (self.transactions or [])
+                if not tx.deleted
+            ]
+        return data
+
+
+class BranchTransaction(db.Model):
+    __tablename__ = "branchtransaction"
+    id = Column(Integer, primary_key=True)
+    amount = Column(Integer, nullable=False)
+    is_give = Column(Boolean, nullable=False)
+    reason = Column(String, nullable=True)
+    person_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    person_name = Column(String, nullable=True)
+    person_surname = Column(String, nullable=True)
+    person_phone = Column(String, nullable=True)
+    payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'), nullable=False)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
+    calendar_day = Column(Integer, ForeignKey('calendarday.id'), nullable=False)
+    calendar_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
+    calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    loan_id = Column(Integer, ForeignKey('branch_loan.id'), nullable=True)
+    deleted = Column(Boolean, default=False)
+    payment_type = relationship('PaymentTypes', foreign_keys=[payment_type_id])
+
+    def convert_json(self):
+        from backend.models.models import CalendarDay, Users
+        person = None
+        if self.person_id:
+            user = Users.query.get(self.person_id)
+            if user:
+                person = {'id': user.id, 'name': user.name, 'surname': user.surname}
+        else:
+            person = {
+                'id': None,
+                'name': self.person_name,
+                'surname': self.person_surname,
+                'phone': self.person_phone
+            }
+        return {
+            'id': self.id,
+            'amount': self.amount,
+            'is_give': self.is_give,
+            'direction': 'give' if self.is_give else 'receive',
+            'reason': self.reason,
+            'person': person,
+            'payment_type': self.payment_type.name,
+            'location_id': self.location_id,
+            'date': CalendarDay.query.get(self.calendar_day).date.strftime('%d.%m.%Y'),
+            'calendar_day': self.calendar_day,
+            'calendar_month': self.calendar_month,
+            'calendar_year': self.calendar_year,
+            'loan_id': self.loan_id,
+        }
 
 
 class CapitalCategory(db.Model):

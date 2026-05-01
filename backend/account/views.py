@@ -1,4 +1,7 @@
 from backend.account.account import account_bp
+from backend.account.overhead_type import overhead_type_bp
+from backend.account.branch_loan import branch_loan_bp
+from backend.account.branch_transaction import branch_transaction_bp
 from backend.account.debit_credit.views import account_debit_credit
 from backend.account.overhead_capital import account_capital_bp
 from backend.account.payment import account_payment_bp
@@ -25,3 +28,6 @@ def register_account_views(api, app):
     app.register_blueprint(account_payment_bp, url_prefix=f"/api/account")
     app.register_blueprint(account_test_bp, url_prefix=f"/api/account")
     app.register_blueprint(account_salary_bp, url_prefix=f"/api/account")
+    app.register_blueprint(overhead_type_bp, url_prefix=f"/api/account")
+    app.register_blueprint(branch_transaction_bp, url_prefix=f"/api/account")
+    app.register_blueprint(branch_loan_bp, url_prefix=f"/api/account")

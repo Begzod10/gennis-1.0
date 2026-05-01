@@ -688,8 +688,8 @@ def student_attendances(student_id, group_id, month):
                 "surname": student.user.surname.title(),
                 "present": present_list,
                 "absent": absent_list,
-                "totalBall": attendance_student_history.average_ball,
-                "main_attendance": attendance_student_history.id,
+                "totalBall": attendance_student_history.average_ball if attendance_student_history else 0,
+                "main_attendance": attendance_student_history.id if attendance_student_history else 0,
                 "status": False
             }
 

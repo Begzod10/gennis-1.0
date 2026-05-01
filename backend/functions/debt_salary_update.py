@@ -23,6 +23,14 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
         return None
 
     attendance = attendancedays.attendance
+    months = int(attendance.month.date.strftime('%m'))
+    current_year = int(attendance.year.date.strftime('%Y'))
+
+    # Delete attendance day FIRST so deletion is not blocked by missing
+    # group/teacher relationships further down. Recalc still proceeds best-effort.
+    if status_attendance:
+        db.session.delete(attendancedays)
+        db.session.flush()
 
     # OPTIMIZATION: Single query for group with all related data
     group = db.session.query(Groups).options(
@@ -32,21 +40,15 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
     ).filter(Groups.id == group_id).first()
 
     if not group:
+        db.session.commit()
         return None
 
     subject = group.subject
     teacher = group.teacher[0] if group.teacher else None
 
     if not teacher:
+        db.session.commit()
         return None
-
-    months = int(attendance.month.date.strftime('%m'))
-    current_year = int(attendance.year.date.strftime('%Y'))
-
-    # Delete attendance day if needed
-    if status_attendance:
-        db.session.delete(attendancedays)
-        db.session.flush()
 
     # Get or create attendance history
     attendance_history_student = AttendanceHistoryStudent.query.filter(
@@ -268,11 +270,8 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
             AssistentSalary.calendar_year == prev_calendar_year.id
         ).first()
         if old_salary:
-            if old_salary:
-                if old_salary.remaining_salary < 0:
-                    salary_location.debt = old_salary.remaining_salary
-                else:
-                    salary_location.debt = 0
+            remaining = old_salary.remaining_salary or 0
+            salary_location.debt = remaining if remaining < 0 else 0
 
         debt = salary_location.debt if salary_location.debt else 0
         if salary_location.taken_money:

@@ -1,0 +1,242 @@
+========================================
+  NEW ROUTES — OVERHEAD & BRANCH TRANSACTION
+========================================
+
+NOTE: <month> and <year> are real numbers (e.g. 4 and 2026), not DB IDs.
+
+----------------------------------------
+  OverheadType
+----------------------------------------
+
+GET /api/account/overhead_type
+  Query params: ?location_id=1
+
+  Response:
+  {
+    "success": true,
+    "data": [
+      { "id": 1, "name": "Arenda", "cost": 5000000, "changeable": false, "location_id": 1 },
+      { "id": 2, "name": "Kommunal", "cost": null, "changeable": true, "location_id": 1 }
+    ]
+  }
+
+---
+
+GET /api/account/overhead_type/deleted
+  Query params: ?location_id=1
+  Returns soft-deleted overhead types.
+
+  Response:
+  {
+    "success": true,
+    "data": [
+      { "id": 3, "name": "Eski arenda", "cost": 3000000, "changeable": false, "location_id": 1 }
+    ]
+  }
+
+---
+
+POST /api/account/overhead_type
+  Body:
+  {
+    "name": "Arenda",
+    "cost": 5000000,
+    "changeable": false,
+    "location_id": 1
+  }
+  Note: cost is required only when changeable is false.
+
+  Response:
+  {
+    "success": true,
+    "message": "Arenda yaratildi",
+    "data": { "id": 1, "name": "Arenda", "cost": 5000000, "changeable": false }
+  }
+
+---
+
+PUT /api/account/overhead_type/<type_id>
+  Body:
+  {
+    "name": "Arenda yangi",
+    "cost": 6000000,
+    "changeable": false,
+    "location_id": 1
+  }
+
+---
+
+DELETE /api/account/overhead_type/<type_id>
+  No body.
+  Soft-delete (deleted = true). Fails if active logs exist.
+
+----------------------------------------
+  OverheadTypeLog
+----------------------------------------
+
+GET /api/account/overhead_type_logs/<month>/<year>
+  Example: /api/account/overhead_type_logs/4/2026
+  Query params: ?status=paid|unpaid|all   ?location_id=1
+  Auto-generates missing logs for fixed types on every call.
+
+  Response:
+  {
+    "success": true,
+    "summary": {
+      "total_count": 3,
+      "paid_count": 1,
+      "unpaid_count": 2,
+      "total_sum": 15000000,
+      "paid_sum": 5000000,
+      "unpaid_sum": 10000000
+    },
+    "data": [
+      {
+        "id": 1,
+        "overhead_type_id": 1,
+        "overhead_type_name": "Arenda",
+        "cost": 5000000,
+        "is_paid": false,
+        "is_prepaid": false,
+        "paid_date": null,
+        "location_id": 1
+      }
+    ]
+  }
+
+---
+
+POST /api/account/overhead_type_logs/generate/<month>/<year>
+  Example: /api/account/overhead_type_logs/generate/4/2026
+  No body. Manually triggers log generation for a month.
+
+---
+
+POST /api/account/overhead_type_logs/pay
+
+  Same-month payment:
+  {
+    "log_id": 1,
+    "payment_type_id": 2,
+    "location_id": 1,
+    "date": "2026-04-15"
+  }
+
+  Prepayment for a future month:
+  {
+    "overhead_type_id": 1,
+    "paid_for_month": "2026-05",
+    "payment_type_id": 2,
+    "location_id": 1,
+    "date": "2026-04-15"
+  }
+
+  Response:
+  {
+    "success": true,
+    "message": "Arenda to'landi",
+    "overhead": { ... },
+    "log": { ... }
+  }
+
+----------------------------------------
+  BranchTransaction
+----------------------------------------
+
+POST /api/account/branch_transaction
+
+  With system user:
+  {
+    "amount": 2000000,
+    "is_give": true,
+    "reason": "Xarajat uchun",
+    "payment_type_id": 1,
+    "location_id": 1,
+    "date": "2026-04-15",
+    "person_id": 5
+  }
+
+  With manual person:
+  {
+    "amount": 2000000,
+    "is_give": false,
+    "reason": "Qarz qaytarildi",
+    "payment_type_id": 1,
+    "location_id": 1,
+    "date": "2026-04-15",
+    "person_name": "Ali",
+    "person_surname": "Valiyev",
+    "person_phone": "+998901234567"
+  }
+
+  Note: is_give true = branch gave money out. is_give false = branch received money.
+  Note: use either person_id OR person_name/surname/phone, not both.
+
+---
+
+GET /api/account/branch_transaction/<month>/<year>
+  Example: /api/account/branch_transaction/4/2026
+  Query params: ?direction=give|receive|all   ?location_id=1
+
+  Response:
+  {
+    "success": true,
+    "summary": {
+      "total_given": 5000000,
+      "total_received": 2000000,
+      "net": -3000000
+    },
+    "data": [
+      {
+        "id": 1,
+        "amount": 2000000,
+        "is_give": true,
+        "direction": "give",
+        "reason": "Xarajat uchun",
+        "person": { "id": 5, "name": "Ali", "surname": "Valiyev" },
+        "payment_type": "Naqd",
+        "location_id": 1,
+        "date": "15.04.2026"
+      }
+    ]
+  }
+
+---
+
+GET /api/account/branch_transaction/deleted/<month>/<year>
+  Example: /api/account/branch_transaction/deleted/4/2026
+  Query params: ?location_id=1
+  Returns soft-deleted transactions for the given month.
+
+  Response:
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 2,
+        "amount": 500000,
+        "is_give": true,
+        "direction": "give",
+        "reason": "Test",
+        "person": { "id": null, "name": "Ali", "surname": "Valiyev", "phone": "00000" },
+        "payment_type": "Naqd",
+        "location_id": 4,
+        "date": "24.04.2026"
+      }
+    ]
+  }
+
+---
+
+PUT /api/account/branch_transaction/<tx_id>
+  Body:
+  {
+    "amount": 3000000,
+    "reason": "Yangilandi",
+    "payment_type_id": 2
+  }
+
+---
+
+DELETE /api/account/branch_transaction/<tx_id>
+  No body. Soft-delete (deleted = true).

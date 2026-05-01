@@ -48,9 +48,6 @@ def create_group_tools():
 def check_time_asistent(teacher_id, location_id):
     lessons = request.get_json()['lessons']
 
-    # Get all unique week IDs from lessons
-    week_ids = list(set(lesson['selectedDay'].get('id') for lesson in lessons))
-
     # Single query to get all assistants with their schedules
     assistents = db.session.query(Assistent).join(
         Assistent.user
@@ -114,8 +111,8 @@ def check_time_asistent(teacher_id, location_id):
                             schedule_start < end_time <= schedule_end or
                             (start_time <= schedule_start and end_time >= schedule_end)):
                         conflict_msg = (
-                            f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M') if hasattr(schedule_start, 'strftime') else schedule_start} dan "
-                            f"{schedule_end.strftime('%H:%M') if hasattr(schedule_end, 'strftime') else schedule_end}' gacha "
+                            f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
+                            f"{schedule_end.strftime('%H:%M')}' gacha "
                             f"{schedule.group.name} da darsi bor."
                         )
 
@@ -135,10 +132,6 @@ def check_time_asistent(teacher_id, location_id):
 @group_create_bp.route(f'/get_students/<int:location_id>', methods=['POST'])
 def get_students(location_id):
     lessons = request.get_json()['lessons']
-
-    # Extract all week IDs and room IDs upfront
-    week_ids = list(set(lesson['selectedDay'].get('id') for lesson in lessons))
-    room_ids = list(set(lesson['selectedRoom'].get('id') for lesson in lessons))
 
     # Get roles once
     role_student = Roles.query.filter(Roles.type_role == "student").first()
@@ -221,9 +214,6 @@ def get_students(location_id):
             week_id = lesson['selectedDay'].get('id')
             room_id = lesson['selectedRoom'].get('id')
 
-            # Check if teacher has any assistants
-            teacher_has_assistant = teacher.assistent and len(teacher.assistent) > 0
-
             # ✅ Count how many lessons teacher already has at this time
             conflicting_lessons = []
 
@@ -246,28 +236,7 @@ def get_students(location_id):
 
             # ✅ Now check if adding this new lesson would cause a conflict
             if conflicting_lessons:
-                # Check for same room conflict (always a conflict)
-                same_room_conflict = any(schedule.room_id == room_id for schedule in conflicting_lessons)
-
-                if same_room_conflict:
-                    # Same room - always a conflict
-                    same_room_schedule = next(s for s in conflicting_lessons if s.room_id == room_id)
-                    schedule_start = same_room_schedule.start_time.time() if isinstance(same_room_schedule.start_time,
-                                                                                        datetime) else same_room_schedule.start_time
-                    schedule_end = same_room_schedule.end_time.time() if isinstance(same_room_schedule.end_time,
-                                                                                    datetime) else same_room_schedule.end_time
-
-                    conflict_msg = (
-                        f"{same_room_schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
-                        f"{schedule_end.strftime('%H:%M')}' gacha {same_room_schedule.group.name} da "
-                        f"bir xil xonada ({same_room_schedule.room.name}) darsi bor"
-                    )
-                    info["conflicts"].append(conflict_msg)
-                    info["color"] = "red"
-                    info["error"] = True
-
-                # Check for "too many lessons" conflict
-                elif len(conflicting_lessons) >= 2:
+                if len(conflicting_lessons) >= 2:
                     # Already has 2 lessons at this time - can't add a 3rd
                     first_schedule = conflicting_lessons[0]
                     schedule_start = first_schedule.start_time.time() if isinstance(first_schedule.start_time,
@@ -285,15 +254,11 @@ def get_students(location_id):
                     info["error"] = True
 
                 elif len(conflicting_lessons) == 1:
-                    # Already has 1 lesson - can add 2nd only if has assistant and different room
-                    if not teacher_has_assistant:
-                        # No assistant - can't have 2 lessons at once
-                        schedule = conflicting_lessons[0]
-                        schedule_start = schedule.start_time.time() if isinstance(schedule.start_time,
-                                                                                  datetime) else schedule.start_time
-                        schedule_end = schedule.end_time.time() if isinstance(schedule.end_time,
-                                                                              datetime) else schedule.end_time
-
+                    # Can add 2nd lesson only if the conflicting group has an assistant covering it
+                    schedule = conflicting_lessons[0]
+                    if not schedule.group.assistent:
+                        schedule_start = schedule.start_time.time() if isinstance(schedule.start_time, datetime) else schedule.start_time
+                        schedule_end = schedule.end_time.time() if isinstance(schedule.end_time, datetime) else schedule.end_time
                         conflict_msg = (
                             f"{schedule.week.name} da soat: '{schedule_start.strftime('%H:%M')} dan "
                             f"{schedule_end.strftime('%H:%M')}' gacha {schedule.group.name} da darsi bor "
@@ -314,9 +279,8 @@ def get_students(location_id):
     end_time = datetime.strptime(first_lesson.get('endTime'), "%H:%M")
 
     time_start_night = datetime.strptime("14:00", "%H:%M")
-    time_end_night = datetime.strptime("07:00", "%H:%M")
 
-    night_shift = start_time >= time_start_night and end_time <= time_end_night
+    night_shift = start_time >= time_start_night
 
     # Get available students based on shift
     if night_shift:

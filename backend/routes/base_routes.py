@@ -167,10 +167,8 @@ def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
     username_sign = Users.query.filter_by(user_id=identity).first()
-    # if username_sign.username == "zavxos":
-    #     role = Roles.query.filter(Roles.type_role == "zavxos").first()
-    #     username_sign.role_id = role.id
-    #     db.session.commit()
+    if not username_sign:
+        return jsonify({'success': False, 'message': 'User not found'}), 401
     create_school()
     role = Roles.query.filter(Roles.id == username_sign.role_id).first() if username_sign else {}
     if username_sign and username_sign.teacher:
@@ -775,6 +773,7 @@ def get_price_course():
 @base_bp.route(f'/profile/<int:user_id>')
 @jwt_required()
 def profile(user_id):
+    location_id = request.args.get('location_id', type=int)
     calendar_year, calendar_month, calendar_day = find_calendar_date()
     user_get = Users.query.filter(Users.id == user_id).first()
     student_get = Students.query.filter(Students.user_id == user_id).first()
@@ -1081,11 +1080,12 @@ def profile(user_id):
 
             group_list = [{"id": gr.id, "nameGroup": gr.name.title(), "teacherImg": "", "count": len(gr.student)}
                           for gr in teacher_get.group if
-                          not gr.deleted]
+                          not gr.deleted and (not location_id or gr.location_id == location_id)]
 
             for count in group_list:
                 i += count["count"]
-            assitents = Assistent.query.filter(Assistent.teacher_id == teacher_get.id).all()
+            assitents = Assistent.query.filter(Assistent.teacher_id == teacher_get.id,
+                                                Assistent.deleted == False).all()
             for assistent in assitents:
                 assistent_list.append(assistent.convert_json())
             type_role = "Teacher"
