@@ -1,0 +1,755 @@
+import os
+import uuid
+from datetime import datetime
+
+# import pandas as pd
+import docx
+from flask import Blueprint, request, jsonify, send_file
+from flask_jwt_extended import jwt_required
+from sqlalchemy import desc
+from sqlalchemy.orm import contains_eager, joinedload
+from werkzeug.utils import secure_filename
+from sqlalchemy import or_
+from io import BytesIO
+from backend.functions.small_info import checkFile, user_contract_folder
+from backend.functions.utils import find_calendar_date, update_week, iterate_models
+from backend.models.models import Students, AttendanceHistoryStudent, DeletedStudents, Users, RegisterDeletedStudents, \
+    Contract_Students, BookPayments, StudentPayments, Teachers, Roles, Locations, StudentHistoryGroups, Groups, \
+    Contract_Students_Data, StudentCharity, GroupReason, CalendarDay, db,EducationLanguage
+from openpyxl import Workbook
+
+student_functions = Blueprint('student_functions', __name__)
+
+
+@student_functions.route(f'/student_history2/<int:user_id>')
+@jwt_required()
+def student_history(user_id):
+    years = []
+    student_get = Students.query.filter(Students.user_id == user_id).first()
+    history_rates = AttendanceHistoryStudent.query.filter(
+        AttendanceHistoryStudent.student_id == student_get.id).order_by(desc(AttendanceHistoryStudent.id)).all()
+
+    history_rate_list = [
+        {"group_id": rate.group.id if rate.group else 0, "group_name": rate.group.name.title() if rate.group else "",
+         "subject": rate.subject.name if rate.subject else "", "degree": rate.average_ball if rate.average_ball else 0,
+         "month": rate.month.date.strftime("%h") if rate.month else "",
+         "year": rate.year.date.strftime("%Y") if rate.year else "",
+         "teacher_id": rate.group.teacher_id if rate.group else 0, "teacher_name": Teachers.query.filter(
+            Teachers.id == rate.group.teacher_id).first().user.name if rate.group else "",
+         "teacher_surname": Teachers.query.filter(
+             Teachers.id == rate.group.teacher_id).first().user.surname if rate.group else "", } for rate in
+        history_rates]
+    years = [rate.year.date.strftime("%Y") for rate in history_rates]
+    student_groups = StudentHistoryGroups.query.filter(StudentHistoryGroups.student_id == student_get.id).order_by(
+        desc(StudentHistoryGroups.id)).all()
+    history_group_list = [
+        {"group_id": gr.group.id if gr.group else 0, "group_name": gr.group.name.title() if gr.group else "",
+         "reason": gr.reason if gr.reason else "",
+         "joined_day": gr.joined_day.strftime("%Y-%m-%d") if gr.joined_day else "",
+         "left_day": gr.left_day.strftime("%Y-%m-%d") if gr.left_day else "" if gr.left_day else "",
+         "teacher_id": gr.group.teacher_id if gr.group else 0, "teacher_name": Teachers.query.filter(
+            Teachers.id == gr.group.teacher_id).first().user.name.title() if gr.group else "",
+         "teacher_surname": Teachers.query.filter(
+             Teachers.id == gr.group.teacher_id).first().user.surname.title() if gr.group else "", } for gr in
+        student_groups]
+    years = list(dict.fromkeys(years))
+    return jsonify({"data": {"history_rate": history_rate_list, "years": years, "history_groups": history_group_list}})
+
+
+@student_functions.route(f'/delete_newStudent/<int:user_id>', methods=["GET", "POST"])
+@jwt_required()
+def delete_newStudent(user_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    student = Students.query.filter(Students.user_id == user_id).first()
+    reason = request.get_json()['reason']
+    del_new_student = RegisterDeletedStudents(student_id=student.id, reason=reason, calendar_day=calendar_day)
+    db.session.add(del_new_student)
+    db.session.commit()
+    return jsonify({"success": True, "msg": "Student ro'yxatdan o'chirildi"})
+
+
+@student_functions.route(f'/get_back_student/<int:user_id>')
+@jwt_required()
+def get_back_student(user_id):
+    student = Students.query.filter(Students.user_id == user_id).first()
+    if student is None:
+        return jsonify({"success": False, "msg": "Student not found"}), 404
+    del_new_student = RegisterDeletedStudents.query.filter(RegisterDeletedStudents.student_id == student.id).first()
+    if del_new_student is None:
+        return jsonify({"success": False, "msg": "Record not found in RegisterDeletedStudents"}), 404
+    db.session.delete(del_new_student)
+    db.session.commit()
+
+    return jsonify({"success": True, "msg": "Student ro'yxatga qaytarildi"})
+
+
+from sqlalchemy import or_
+
+
+@student_functions.route(f'/studyingStudents/<int:id>', methods=['POST', 'GET'])
+@jwt_required()
+def studyingStudents(id):
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
+
+    students_query = (
+        Students.query
+        .join(Students.user)
+        .join(Students.group)
+        .filter(
+            Students.group != None,
+            Groups.status == True,
+            Users.location_id == id
+        )
+        .distinct(Students.id)
+        .order_by(Students.id, Students.user_id)
+    )
+
+    if search:
+        search_pattern = f"%{search}%"
+        students_query = students_query.filter(
+            or_(
+                Users.name.ilike(search_pattern),
+                Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern)
+            )
+        )
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                students_query = students_query.filter(Users.age.between(start_age, end_age))
+        else:
+            students_query = students_query.filter(Users.age == int(age))
+    if language:
+        students_query = (
+            students_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
+
+    students_query = students_query.order_by(Students.user_id)
+
+    total = students_query.count()
+
+    if limit:
+        students_query = students_query.offset(offset).limit(limit)
+    else:
+        students_query = students_query.offset(offset)
+
+    students_list = students_query.all()
+
+    role = Roles.query.filter(Roles.type_role == "student").first()
+
+    list_students = [
+        {
+            "id": st.user.id,
+            "student_id": st.id,
+            "name": st.user.name.title(),
+            "surname": st.user.surname.title(),
+            "username": st.user.username,
+            "language": st.user.language.name,
+            "age": st.user.age,
+            "reg_date": st.user.day.date.strftime("%Y-%m-%d"),
+            "comment": st.user.comment,
+            "money": st.user.balance,
+            "role": role.role,
+            "phone": st.user.phone[0].phone if st.user.phone and st.user.phone[0].phone != 0 else 0,
+            "subjects": [sub.name for sub in st.subject],
+            "photo_profile": st.user.photo_profile,
+            "moneyType": ["green", "yellow", "red", "navy", "black"][st.debtor] if st.debtor else 0
+        }
+        for st in students_list
+    ]
+
+    return jsonify({
+        "studyingStudents": list_students,
+        "pagination": {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + (limit or total)) < total
+        }
+    })
+@student_functions.route(f'/studyingStudents/<int:id>/excel', methods=['GET'])
+# @jwt_required()
+def studyingStudentExcel(id):
+    students_query = (
+        Students.query
+        .options(joinedload(Students.user).joinedload(Users.phone))
+        .join(Students.user)
+        .join(Students.group)
+        .filter(
+            Students.group != None,
+            Groups.status == True,
+            Users.location_id == id
+        )
+        .distinct(Students.id)
+        .order_by(Students.id)
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Students"
+
+    # Header qatori
+    ws.append(["ID", "Name", "Surname", "Username", "Personal Phone", "Parent Phone"])
+
+    for st in students_query.all():
+        user = st.user
+        if not user:
+            continue
+
+        personal_phone = ""
+        parent_phone = ""
+
+        for ph in user.phone:
+            if ph.personal:
+                personal_phone = ph.phone
+            if ph.parent:
+                parent_phone = ph.phone
+
+        ws.append([
+            user.id,
+            user.name or "",
+            user.surname or "",
+            user.username or "",
+            personal_phone,
+            parent_phone
+        ])
+
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    return send_file(
+        file_stream,
+        as_attachment=True,
+        download_name=f"studying_students_{id}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@student_functions.route(f'/deletedStudents/<int:id>', methods=['POST'])
+@jwt_required()
+def deletedStudents(id):
+    data = request.get_json()
+    reason = data.get('type')
+
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
+    teacher_id = request.args.get("teacher", default=None, type=int)
+    group_id = request.args.get("group", default=None, type=int)
+    from_date = request.args.get('from',default=None, type=str)
+    to_date = request.args.get('to', default=None, type=str)
+    subject_id = request.args.get("subject", default=None, type=int)
+
+    base_students = (
+        db.session.query(Students.id)
+        .join(Users, Students.user_id == Users.id)
+        .filter(
+            Students.deleted_from_group != None,
+            Students.group == None,
+            Users.location_id == id
+        )
+        .distinct()
+        .subquery()
+    )
+
+    students_query = DeletedStudents.query.join(CalendarDay, DeletedStudents.calendar_day == CalendarDay.id).filter(
+        DeletedStudents.student_id.in_(db.session.query(base_students.c.id)))
+
+    if reason != "Hammasi":
+        group_reason = GroupReason.query.filter_by(id=reason).first()
+        if group_reason:
+            students_query = students_query.filter(DeletedStudents.reason_id == group_reason.id)
+
+    if search:
+        search_pattern = f"%{search}%"
+        students_query = (students_query.join(DeletedStudents.student).join(Students.user).filter(
+            or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
+                Users.username.ilike(search_pattern))))
+    if teacher_id:
+        students_query = students_query.filter(DeletedStudents.teacher_id == teacher_id)
+    if group_id:
+        students_query = students_query.filter(DeletedStudents.group_id == group_id)
+
+    students_query = students_query.order_by(desc(CalendarDay.date))
+    if from_date and to_date:
+        try:
+            from_date_obj = datetime.strptime(from_date, "%Y-%m-%d")
+            to_date_obj = datetime.strptime(to_date, "%Y-%m-%d")
+            students_query = students_query.filter(
+                CalendarDay.date.between(from_date_obj, to_date_obj)
+            )
+        except ValueError:
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+    if subject_id:
+        students_query = students_query.join(DeletedStudents.group).filter(Groups.subject_id == subject_id)
+
+    total = students_query.count()
+
+    if limit:
+        students_query = students_query.offset(offset).limit(limit)
+    else:
+        students_query = students_query.offset(offset)
+
+    students_list = students_query.all()
+
+
+    role = Roles.query.filter(Roles.type_role == "student").first()
+
+    list_students = []
+    for st in students_list:
+        student_history_groups = StudentHistoryGroups.query.filter(
+            StudentHistoryGroups.student_id == st.student.id
+        ).order_by(desc(StudentHistoryGroups.id)).all()
+        group_subject = []
+        for student_history_group in student_history_groups:
+            if student_history_group.group and student_history_group.group.teacher_id == st.teacher_id:
+                group_subject.append(student_history_group.group.subject.name)
+                break
+        try:
+            list_students.append({"id": st.student.user.id, "name": st.student.user.name.title(),
+                                  "surname": st.student.user.surname.title(), "username": st.student.user.username,
+                                  "language": st.student.user.language.name, "age": st.student.user.age,
+                                  "reg_date": st.student.user.day.date.strftime("%Y-%m-%d"),
+                                  "deleted_date": st.day.date.strftime("%Y-%m-%d"), "day": st.calendar_day,
+                                  "teacher": st.teacher_id, "comment": st.student.user.comment,
+                                  "money": st.student.user.balance, "role": role.role,
+                                  "photo_profile": st.student.user.photo_profile,
+                                  "moneyType": ["green", "yellow", "red", "navy", "black"][
+                                      st.student.debtor] if st.student.debtor else 0,
+                                  "phone": st.student.user.phone[0].phone if st.student.user.phone else None,
+                                  "reason": st.reason, "group": st.group.id if st.group else None,
+                                  "subjects": group_subject})
+        except Exception:
+            continue
+
+    return jsonify({"data": list_students, "pagination": {"total": total, "offset": offset, "limit": limit,
+                                                          "has_more": (offset + (limit or total)) < total}})
+
+
+@student_functions.route(f"/newStudents/<int:location_id>", methods=["GET"])
+@jwt_required()
+def newStudents(location_id):
+    update_week(location_id)
+
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
+
+    base_query = (Students.query.filter(Students.subject != None, Students.deleted_from_register == None).join(
+        Students.user).filter(Users.location_id == int(location_id)).distinct(Students.id))
+
+    if search:
+        search_pattern = f"%{search}%"
+        base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
+                                           Users.username.ilike(search_pattern)))
+
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                base_query = base_query.filter(Users.age.between(start_age, end_age))
+        else:
+            base_query = base_query.filter(Users.age == int(age))
+    if language:
+        base_query = (
+            base_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
+
+    base_query = base_query.order_by(desc(Students.id))
+
+    total = base_query.count()
+
+    if limit:
+        base_query = base_query.offset(offset).limit(limit)
+    else:
+        base_query = base_query.offset(offset)
+
+    students = base_query.all()
+
+    return jsonify({"newStudents": iterate_models(students),
+                    "pagination": {"total": total, "offset": offset, "limit": limit,
+                                   "has_more": (offset + (limit or total)) < total}})
+
+
+@student_functions.route(f'/get_filtered_students_list/<int:location_id>', methods=["GET"])
+@jwt_required()
+def get_filtered_students_list(location_id):
+    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
+                                                 Students.subject != None,
+                                                 Students.deleted_from_register == None).order_by(
+        desc(Students.id)).all()
+    subjects_with_students = {}
+
+    for student in students:
+        for subject in student.subject:
+            if subject.id not in subjects_with_students:
+                subjects_with_students[subject.id] = {"id": subject.id, "name": subject.name, "students": []}
+            subjects_with_students[subject.id]["students"].append(student.convert_json())
+    return jsonify(list(subjects_with_students.values()))
+
+
+@student_functions.route(f"/newStudentsDeleted/<int:location_id>", methods=["GET"])
+@jwt_required()
+def newStudentsDeleted(location_id):
+    update_week(location_id)
+
+    offset = request.args.get("offset", default=0, type=int)
+    limit = request.args.get("limit", default=None, type=int)
+    search = request.args.get("search", default=None, type=str)
+    age = request.args.get("age", default=None, type=str)
+    language = request.args.get("language", default=None, type=str)
+
+    base_query = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
+                                                   Students.subject != None, Students.deleted_from_register != None)
+
+    if search:
+        search_pattern = f"%{search}%"
+        base_query = base_query.filter(or_(Users.name.ilike(search_pattern), Users.surname.ilike(search_pattern),
+                                           Users.username.ilike(search_pattern)))
+    if age:
+        if '-' in age:
+            parts = age.split('-')
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start_age, end_age = map(int, parts)
+                base_query = base_query.filter(Users.age.between(start_age, end_age))
+        else:
+            base_query = base_query.filter(Users.age == int(age))
+    if language:
+        base_query = (
+            base_query
+            .join(Users.language)
+            .filter(EducationLanguage.name == language)
+        )
+
+    base_query = base_query.order_by(desc(Students.id))
+
+    total = base_query.count()
+
+    if limit:
+        base_query = base_query.offset(offset).limit(limit)
+    else:
+        base_query = base_query.offset(offset)
+
+    students = base_query.all()
+    list_students = [st.convert_json() for st in students]
+
+    return jsonify({"newStudents": list_students, "pagination": {"total": total, "offset": offset, "limit": limit,
+                                                                 "has_more": (offset + (limit or total)) < total}})
+
+
+@student_functions.route(f'/new_del_students/<location_id>')
+@jwt_required()
+def newStudents_deleted(location_id):
+    role = Roles.query.filter(Roles.type_role == "student").first()
+    students = db.session.query(Users).join(Users.student).options(contains_eager(Users.student)).filter(
+        Users.location_id == location_id, Users.student != None, Students.deleted_from_register != None, ).join(
+        Users.day).options(contains_eager(Users.month)).order_by(desc(Users.id)).all()
+    students = Students.query.join(Users).filter(Users.location_id == location_id, Users.student != None,
+                                                 Students.subject != None,
+                                                 Students.deleted_from_register != None).order_by(
+        desc(Students.id)).all()
+    subjects_with_students = {}
+    for student in students:
+        for subject in student.subject:
+            if subject.id not in subjects_with_students:
+                subjects_with_students[subject.id] = {"id": subject.id, "name": subject.name, "students": []}
+            subjects_with_students[subject.id]["students"].append(student.convert_json())
+    return jsonify(list(subjects_with_students.values()))
+
+
+@student_functions.route(f'/create_contract/<int:user_id>', methods=["POST"])
+@jwt_required()
+def create_contract(user_id):
+    calendar_year, calendar_month, calendar_day = find_calendar_date()
+    name = request.get_json()['name']
+    surname = request.get_json()['surname']
+    passportSeries = request.get_json()['passportSeries']
+    fatherName = request.get_json()['fatherName']
+    givenPlace = request.get_json()['givenPlace']
+    givenTime = request.get_json()['givenTime']
+    place = request.get_json()['place']
+    Students.query.filter(Students.user_id == user_id).update(
+        {"representative_name": name, "representative_surname": surname})
+    db.session.commit()
+
+    ot = request.get_json()['date']['ot']
+    do = request.get_json()['date']['do']
+    ot = datetime.strptime(ot, "%Y-%m-%d")
+    do = datetime.strptime(do, "%Y-%m-%d")
+    ot_month = datetime.strftime(ot, "%m")
+    do_month = datetime.strftime(do, "%m")
+    do_year = datetime.strftime(do, "%Y")
+    if int(do_year) > int(calendar_year.date.strftime("%Y")):
+        do_month = int(do_month) + 12
+    month = int(do_month) - int(ot_month) + 1
+    ot = datetime.strftime(ot, "%Y-%m-%d")
+    do = datetime.strftime(do, "%Y-%m-%d")
+
+    user = Users.query.filter(Users.id == user_id).first()
+
+    student = Students.query.filter(Students.user_id == user_id).first()
+    location = Locations.query.filter(Locations.id == user.location_id).first()
+    contract = Contract_Students.query.filter(Contract_Students.student_id == student.id).first()
+
+    if student.contract_word_url:
+        if os.path.exists(student.contract_word_url):
+            os.remove(student.contract_word_url)
+    Students.query.filter(Students.id == student.id).update({"contract_word_url": ""})
+    db.session.commit()
+    student_charity = StudentCharity.query.filter(StudentCharity.student_id == student.id).all()
+    all_charity = 0
+    for char in student_charity:
+        all_charity += char.discount
+    print('all charity', all_charity)
+    contract_data = Contract_Students_Data.query.filter(Contract_Students_Data.location_id == location.id,
+                                                        Contract_Students_Data.year == calendar_year.date).first()
+    if not contract:
+        contract = Contract_Students(student_id=student.id, created_date=ot, expire_date=do, father_name=fatherName,
+                                     given_place=givenPlace, place=place, passport_series=passportSeries,
+                                     given_time=givenTime)
+        db.session.add(contract)
+        db.session.commit()
+
+        if not contract_data:
+            new = Contract_Students_Data(year=calendar_year.date, number=1, location_id=location.id)
+            db.session.add(new)
+            db.session.commit()
+        else:
+            contract_data.number += 1
+            db.session.commit()
+    else:
+        Contract_Students.query.filter(Contract_Students.student_id == student.id, ).update(
+            {"created_date": ot, "expire_date": do, "father_name": fatherName, "given_place": givenPlace,
+             "place": place, "passport_series": passportSeries, "given_time": givenTime
+
+             })
+        db.session.commit()
+    if user.age >= 18:
+        name = user.name
+        surname = user.surname
+        father_name = user.father_name
+    else:
+        name = student.representative_name
+        surname = student.representative_surname
+        father_name = contract.father_name
+    doc = docx.Document('staticfiles/contract_folder/contract.docx')
+    id = uuid.uuid1()
+    text = location.address.split(" ")
+    text_item = ""
+    text_item2 = ""
+    if len(text) > 3:
+        for item in text[0:4]:
+            text_item += f" {item}"
+        for item in text[4:]:
+            text_item2 += f" {item}"
+    else:
+        for item in text:
+            text_item += f" {item}"
+    user_id = id.hex[0:15]
+    campus_name = location.name + " " + location.location_type if location.location_type == "Shahri" else location.district + " " + location.location_type
+    # number = f'{calendar_year.date.strftime("%Y")}/{contract_data.location.code}-{contract_data.number}'
+    number = f'{calendar_year.date.strftime("%Y")}/{location.code}/{contract_data.number}'
+    doc.paragraphs[0].runs[0].text = f"SHARTNOMA N{number}"
+    doc.paragraphs[
+        3].text = f"              {campus_name}			                                             {contract.created_date.strftime('%d-%m-%Y')}"
+    print(doc.paragraphs[4].text)
+    if location.id > 3:
+
+        doc.paragraphs[
+            5].text = "Oʻzbekiston Respublikasi Prezidentining 15.09.2017-yildagi PQ-3276 sonli “Nodavlat taʼlim xizmatlari koʻrsatish faoliyatini yanada rivojlantirish chora-tadbirlari toʻgʻrisida”gi qaroriga."
+        doc.paragraphs[
+            6].text = f"Hamda taʼlim muassasasi Ustaviga asosan faoliyat yurituvchi “{location.campus_name}” nodavlat taʼlim muassasasi (kelgusida “Nodavlat taʼlim muassasasi” deb yuritiluvchi)  nomidan direktor {location.director_fio} bir tomondan va {surname.title()} {name.title()} {father_name[0].title()}{father_name[1:].lower()}"
+    else:
+        doc.paragraphs[
+            6].text = f"№ MTT 0428 Litsenziyaga asosan hamda taʼlim muassasasi Ustaviga asosan faoliyat yurituvchi “{location.campus_name}” nodavlat taʼlim muassasasi (kelgusida “Nodavlat taʼlim muassasasi” deb yuritiluvchi)  nomidan direktor {location.director_fio} bir tomondan va {surname.title()} {name.title()} {father_name[0].title()}{father_name[1:].lower()}"
+    doc.paragraphs[
+        9].text = f"1.1 Mazkur shartnomaga asosan oʻquvchining ota-onasi (yoki qonuniy vakili) nodavlat taʼlim muassasasiga maktabdan tashqari taʼlim olish maqsadida oʻzining voyaga yetmagan farzandi  {user.name.title()} {user.surname.title()} {user.father_name[0].title()}{user.father_name[1:].lower()} ni"
+
+    doc.paragraphs[
+        15].text = f"2.1. Oʻquvchining nodavlat taʼlim muassasasida taʼlim olishi uchun bir oylik toʻlov summasi {abs(student.combined_debt)} va {contract.expire_date.strftime('%d-%m-%Y')} muddatgacha {abs(((student.combined_debt) - all_charity) * month)}  soʻmni tashkil etadi."
+    doc.paragraphs[
+        69].text = f"7.1.Mazkur shartnoma tomonlar oʻrtasida imzolangan kundan boshlab yuridik kuchga ega hisoblanadi va {contract.expire_date.strftime('%d-%m-%Y')} muddatga qadar amal qiladi"
+    info = [{"left_info": f"{location.campus_name} NTM",
+             "right_info": f"F.I.O : {surname.title()} {name.title()} {father_name[0].title()}{father_name[1:].lower()}"},
+            {"left_info": location.address, "right_info": f"Pasport maʼlumoti: Seriya {contract.passport_series}"},
+            {"left_info": f"R/S: {location.bank_sheet}  INN: {location.inn}",
+             "right_info": f"Berilgan vaqti: {contract.given_time}"},
+            {"left_info": f"Bank: {location.bank}", "right_info": f"Manzili: {contract.place}"},
+            {"left_info": f"MFO: {location.mfo}", "right_info": ""},
+            {"left_info": f"Tel: {location.number_location}", "right_info": ""},
+            {"left_info": f"Direktor: __________{location.director_fio}", "right_info": ""},
+            {"left_info": "M.P", "right_info": "Imzo____________"}, ]
+    table = doc.add_table(rows=1, cols=2)
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Nodavlat taʼlim muassasasi'
+    hdr_cells[1].text = 'O`quvchining qonuniy vavakili(ota-onasi)'
+    for item in info:
+        row_cells = table.add_row().cells
+        row_cells[0].text = item['left_info']
+        row_cells[1].text = item['right_info']
+
+    doc.save(
+        f"staticfiles/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx")
+    new_doc = f"staticfiles/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx"
+    Students.query.filter(Students.id == student.id).update({
+        "contract_word_url": f"staticfiles/contract_folder/{user_id} {student.user.name.title()} {student.user.surname.title()}doc.docx"})
+    db.session.commit()
+    return jsonify({"success": True, "msg": "Shartnoma yaratildi", "file": new_doc})
+
+
+@student_functions.route(f'/upload_pdf_contract/<int:user_id>', methods=["POST"])
+@jwt_required()
+def upload_pdf_contract(user_id):
+    student = Students.query.filter(Students.user_id == user_id).first()
+    file = request.files['file']
+    app.config['UPLOAD_FOLDER'] = user_contract_folder()
+
+    url = ""
+    if file and checkFile(file.filename):
+        file.filename = f"{student.id}/{student.user.name}/{student.user.surname}.pdf"
+        file_name = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], file_name))
+        url = "staticfiles" + "/" + "contract_pdf" + "/" + file_name
+    Students.query.filter(Students.user_id == user_id).update({"contract_pdf_url": url})
+    db.session.commit()
+    return jsonify({"success": True, "msg": "Fayl yuklandi", "url": url})
+
+
+@student_functions.route(f'/change_location/<int:user_id>/<int:location_id>')
+@jwt_required()
+def change_location(user_id, location_id):
+    location = Locations.query.filter(Locations.id == location_id).first()
+    user = Users.query.filter(Users.id == user_id).first()
+    if user.location_id != location_id:
+        Users.query.filter(Users.id == user_id).update({"location_id": location_id})
+        db.session.commit()
+        return jsonify({"msg": f"O'quvchi {location.name} flialiga qo'shildi", "success": True})
+    else:
+        return jsonify({"msg": f"O'quvchi allaqachon {location.name} fliada", "success": True})
+
+
+from sqlalchemy.orm import joinedload, contains_eager
+
+
+@student_functions.route("/student_attendance_info/<user_id>")
+@jwt_required()
+def student_attendance_info(user_id):
+    """
+    Get comprehensive student attendance and payment information.
+    Optimized with eager loading to eliminate N+1 queries.
+    """
+    try:
+        # Single query with all relationships loaded
+        student = db.session.query(Students).options(
+            joinedload(Students.user)
+        ).filter(Students.user_id == user_id).first()
+
+        if not student:
+            return jsonify({
+                "success": False,
+                "msg": "Student not found"
+            }), 404
+
+        # Get attendance histories with eager loading
+        attendance_histories = db.session.query(AttendanceHistoryStudent).options(
+            joinedload(AttendanceHistoryStudent.group).joinedload(Groups.subject),
+            joinedload(AttendanceHistoryStudent.month)
+        ).filter(
+            AttendanceHistoryStudent.student_id == student.id
+        ).order_by(AttendanceHistoryStudent.id).all()
+
+        # Get all student payments in one query (both payment types)
+        all_payments = db.session.query(StudentPayments).options(
+            joinedload(StudentPayments.day),
+            joinedload(StudentPayments.payment_type)
+        ).filter(
+            StudentPayments.student_id == student.id
+        ).order_by(StudentPayments.id).all()
+
+        # Get book payments with eager loading
+        book_payments = db.session.query(BookPayments).options(
+            joinedload(BookPayments.day)
+        ).filter(
+            BookPayments.student_id == student.id
+        ).order_by(BookPayments.id).all()
+
+        # Separate payments and discounts in Python (more efficient than 2 queries)
+        payment_list = []
+        discount_list = []
+
+        for payment in all_payments:
+            payment_data = {
+                "id": payment.id,
+                "payment": payment.payment_sum,
+                "date": payment.day.date.strftime("%Y-%m-%d") if payment.day else None
+            }
+
+            if payment.payment:  # True = payment
+                payment_data["type_payment"] = payment.payment_type.name if payment.payment_type else None
+                payment_list.append(payment_data)
+            else:  # False = discount
+                discount_list.append(payment_data)
+
+        # Build attendance history list
+        history_list = [
+            {
+                "group_name": att.group.subject.name if att.group and att.group.subject else "Ma'lumot yo'q",
+                "total_debt": att.total_debt,
+                "payment": att.payment,
+                "remaining_debt": att.remaining_debt,
+                "discount": att.total_discount,
+                "present": (att.present_days or 0) + (att.scored_days or 0),
+                "absent": att.absent_days or 0,
+                "days": (att.present_days or 0) + (att.absent_days or 0),
+                "month": att.month.date.strftime("%Y-%m") if att.month else None
+            }
+            for att in attendance_histories
+        ]
+
+        # Build book payments list
+        book_payment_list = [
+            {
+                "id": bk_payment.id,
+                "payment": bk_payment.payment_sum,
+                "date": bk_payment.day.date.strftime("%Y-%m-%d") if bk_payment.day else None
+            }
+            for bk_payment in book_payments
+        ]
+
+        return jsonify({
+            "data": {
+                "id": student.user.id,
+                "name": student.user.name.title(),
+                "surname": student.user.surname.title(),
+                "debts": history_list,
+                "payments": payment_list,
+                "discounts": discount_list,
+                "bookPayments": book_payment_list
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "msg": "Ma'lumotlarni yuklashda xatolik"
+        }), 500
+
+
+@student_functions.route(f'/get_student_balance/<user_id>')
+def get_student_balance(user_id):
+    user = Users.query.filter(Users.id == user_id).first()
+    return jsonify({"success": True, "balance": user.balance})

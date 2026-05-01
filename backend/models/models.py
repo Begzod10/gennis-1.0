@@ -1,0 +1,832 @@
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from sqlalchemy import String, Integer, Boolean, Float, Column, ForeignKey, DateTime, or_, and_, desc, func, ARRAY, \
+    JSON, \
+    extract, Date, BigInteger, Enum, Text
+from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func, functions
+from pprint import pprint
+import uuid
+from .utils import clone_group_info
+from datetime import datetime
+
+db = SQLAlchemy()
+
+
+# app.config['SQLALCHEMY_ECO'] = True
+# lazy = "dynamic" -> bu relationship bugan table lani 2 tarafdan , filter, order  qb beradi va misol uchun child table orqali parentni ozgartirsa boladi yoki teskarisi
+# lazy = "select" -> bu relationship bugan table lani aloxida query qb beradi
+# lazy = "joined" -> bu relationship bugan table lani bittada hammasini query qb beradi
+# lazy = "subquery" -> "joined" ga oxshidi test qlib iwltib koriw kere farqi tezligida bolishi mumkin
+
+
+def db_setup(app):
+    app.config.from_object('backend.models.config')
+    db.app = app
+    db.init_app(app)
+    from flask_migrate import Migrate
+    Migrate(app, db)
+    return db
+
+
+# from backend.school.models import *
+
+class CalendarYear(db.Model):
+    __tablename__ = "calendaryear"
+    id = Column(Integer, primary_key=True)
+    date = Column(DateTime)
+    users = db.relationship("Users", backref="year", order_by="Users.id")
+    groups = db.relationship("Groups", backref="year", order_by="Groups.id")
+    attendance_history_student = relationship("AttendanceHistoryStudent", backref="year",
+                                              order_by="AttendanceHistoryStudent.id")
+    attendance_history_teacher = relationship("AttendanceHistoryTeacher", backref="year",
+                                              order_by="AttendanceHistoryTeacher.id")
+    month = relationship("CalendarMonth", backref="year", order_by="CalendarMonth.id")
+    accounting_period = relationship("AccountingPeriod", backref="year", order_by="AccountingPeriod.id")
+    teacher_salary_id = relationship("TeacherSalary", backref="year", order_by="TeacherSalary.id")
+    attendance = relationship("Attendance", backref="year", order_by="Attendance.id")
+    location = relationship('Locations', backref="year", order_by="Locations.id")
+    student_payment = relationship('StudentPayments', backref="year", order_by="StudentPayments.id")
+    teacher_cash = relationship('TeacherSalaries', backref="year", order_by="TeacherSalaries.id")
+    charity = relationship('StudentCharity', backref="year", order_by="StudentCharity.id")
+    stuff_salary = relationship('StaffSalary', backref="year", order_by="StaffSalary.id")
+    staff_given_salary = relationship("StaffSalaries", backref="year", order_by="StaffSalaries.id")
+    overhead_data = relationship('Overhead', backref="year", order_by="Overhead.id")
+    accounting = relationship("AccountingInfo", backref="year", order_by="AccountingInfo.id")
+    deleted_payments = relationship("DeletedStudentPayments", backref="year", order_by="DeletedStudentPayments.id")
+    deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="year",
+                                            order_by="DeletedTeacherSalaries.id")
+    staff_deleted_salary = relationship("DeletedStaffSalaries", backref="year", order_by="DeletedStaffSalaries.id")
+    book_overhead = relationship("BookOverhead", backref="year", lazy="select", order_by="BookOverhead.id")
+    center_balances = relationship("CenterBalance", backref="year", lazy="select", order_by="CenterBalance.id")
+    center_balances_overheads = relationship("CenterBalanceOverhead", backref="year", lazy="select",
+                                             order_by="CenterBalanceOverhead.id")
+    editor_balances = relationship("EditorBalance", backref="year", lazy="select", order_by="EditorBalance.id")
+    book_debts = relationship("CollectedBookPayments", backref="year", lazy="select",
+                              order_by="CollectedBookPayments.id")
+    observation = relationship("TeacherObservationDay", backref="year",
+                               order_by="TeacherObservationDay.id",
+                               lazy='select')
+    black_salary = relationship("TeacherBlackSalary", backref="year", order_by="TeacherBlackSalary.id",
+                                lazy="select")
+    teacher_group_statistics = relationship("TeacherGroupStatistics", backref="year",
+                                            order_by="TeacherGroupStatistics.id",
+                                            lazy="select")
+    capitals = relationship("Capital", backref="year", lazy="select", order_by="Capital.id")
+    test = relationship("GroupTest", backref="year", order_by="GroupTest.id")
+
+    capital_term = relationship("CapitalTerm", backref="year", order_by="CapitalTerm.id", lazy="select")
+    tasks_statistics = relationship("TasksStatistics", backref="year", order_by='TasksStatistics.id')
+    tasks_daily_statistics = relationship("TaskDailyStatistics", backref="year", order_by='TaskDailyStatistics.id')
+    investment = relationship("Investment", backref="year", order_by="Investment.id")
+    camp_staff_salary = relationship("CampStaffSalary", backref="year", order_by="CampStaffSalary.id")
+    account_report = relationship("AccountReport", backref="year", order_by="AccountReport.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="year", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="year", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="year", order_by="Dividend.id")
+    main_overhead = relationship("MainOverhead", backref="year", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="year", order_by="AccountPayableHistory.id")
+    task_rating = relationship("TaskRatings", backref="year", order_by="TaskRatings.id")
+    task_monthly_rating = relationship("TaskRatingsMonthly", backref="year", order_by="TaskRatingsMonthly.id")
+    branch_report = relationship("BranchReport", backref="year", order_by="BranchReport.id")
+    school_user_salary = relationship("SchoolUserSalary", backref="year", order_by="SchoolUserSalary.id")
+    assistent_salary = relationship("AssistentSalary", backref="year", order_by="AssistentSalary.id")
+    finereport = relationship("FineReport", backref="year", order_by="FineReport.id")
+
+    # student_tests = relationship("StudentTest", backref="year", order_by="StudentTest.id")
+
+    def convert_json(self, entire=False):
+        months = (
+            db.session.query(CalendarMonth)
+            .filter(CalendarMonth.year_id == self.id)
+            .distinct(CalendarMonth.date)  # Remove duplicates based on `date`
+            .all()
+        )
+        return {
+            "id": self.id,
+            "value": self.date.strftime("%Y"),
+            "months": [m.convert_json() for m in months]
+        }
+
+
+class CalendarMonth(db.Model):
+    __tablename__ = "calendarmonth"
+    id = Column(Integer, primary_key=True)
+    date = Column(DateTime)
+    users = db.relationship("Users", backref="month", order_by="Users.id")
+    groups = db.relationship("Groups", backref="month", order_by="Groups.id")
+    attendance_history_student = relationship("AttendanceHistoryStudent", backref="month",
+                                              order_by="AttendanceHistoryStudent.id")
+    attendance_history_teacher = relationship("AttendanceHistoryTeacher", backref="month",
+                                              order_by="AttendanceHistoryTeacher.id")
+    accounting_period = relationship("AccountingPeriod", backref="month", order_by="AccountingPeriod.id")
+    teacher_salary_id = relationship("TeacherSalary", backref="month", order_by="TeacherSalary.id")
+    year_id = Column(Integer, ForeignKey('calendaryear.id'))
+    day = relationship('CalendarDay', backref="month", order_by="CalendarDay.id")
+    attendance = relationship("Attendance", backref="month", order_by="Attendance.id")
+    location = relationship('Locations', backref="month", order_by="Locations.id")
+    student_payment = relationship('StudentPayments', backref="month", order_by="StudentPayments.id")
+    teacher_cash = relationship('TeacherSalaries', backref="month", order_by="TeacherSalaries.id")
+    charity = relationship('StudentCharity', backref="month", order_by="StudentCharity.id")
+    stuff_salary = relationship('StaffSalary', backref="month", order_by="StaffSalary.id")
+    staff_given_salary = relationship("StaffSalaries", backref="month", order_by="StaffSalaries.id")
+    overhead_data = relationship('Overhead', backref="month", order_by="Overhead.id")
+    capital_data = relationship("CapitalExpenditure", backref="month", order_by="CapitalExpenditure.id")
+    # accounting = relationship("AccountingInfo", backref="month", order_by="AccountingInfo.id")
+    deleted_payments = relationship("DeletedStudentPayments", backref="month", order_by="DeletedStudentPayments.id")
+    deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="month",
+                                            order_by="DeletedTeacherSalaries.id")
+    staff_deleted_salary = relationship("DeletedStaffSalaries", backref="month", order_by="DeletedStaffSalaries.id")
+    old_id = Column(Integer)
+    book_overhead = relationship("BookOverhead", backref="month", lazy="select", order_by="BookOverhead.id")
+    center_balances = relationship("CenterBalance", backref="month", lazy="select", order_by="CenterBalance.id")
+    center_balances_overheads = relationship("CenterBalanceOverhead", backref="month", lazy="select",
+                                             order_by="CenterBalanceOverhead.id")
+    editor_balances = relationship("EditorBalance", backref="month", lazy="select", order_by="EditorBalance.id")
+    book_debts = relationship("CollectedBookPayments", backref="month", lazy="select",
+                              order_by="CollectedBookPayments.id")
+    observation = relationship("TeacherObservationDay", backref="month",
+                               order_by="TeacherObservationDay.id",
+                               lazy='select')
+    black_salary = relationship("TeacherBlackSalary", backref="month", order_by="TeacherBlackSalary.id",
+                                lazy="select")
+    teacher_group_statistics = relationship("TeacherGroupStatistics", backref="month",
+                                            order_by="TeacherGroupStatistics.id",
+                                            lazy="select")
+    capitals = relationship("Capital", backref="month", lazy="select", order_by="Capital.id")
+    test = relationship("GroupTest", backref="month", order_by="GroupTest.id")
+
+    capital_term = relationship("CapitalTerm", backref="month", order_by="CapitalTerm.id", lazy="select")
+    tasks_statistics = relationship("TasksStatistics", backref="month", order_by='TasksStatistics.id')
+    tasks_daily_statistics = relationship("TaskDailyStatistics", backref="month", order_by='TaskDailyStatistics.id')
+    investment = relationship("Investment", backref="month", order_by="Investment.id")
+    camp_staff_salary = relationship("CampStaffSalary", backref="month", order_by="CampStaffSalary.id")
+    account_report = relationship("AccountReport", backref="month", order_by="AccountReport.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="month", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="month", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="month", order_by="Dividend.id")
+    main_overhead = relationship("MainOverhead", backref="month", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="month",
+                                           order_by="AccountPayableHistory.id")
+    task_rating = relationship("TaskRatings", backref="month", order_by="TaskRatings.id")
+    task_monthly_rating = relationship("TaskRatingsMonthly", backref="month", order_by="TaskRatingsMonthly.id")
+
+    school_user_salary = relationship("SchoolUserSalary", backref="month", order_by="SchoolUserSalary.id")
+    branch_report = relationship("BranchReport", backref="month", order_by="BranchReport.id")
+    assistent_salary = relationship("AssistentSalary", backref="month", order_by="AssistentSalary.id")
+    finereport = relationship("FineReport", backref="month", order_by="FineReport.id")
+
+    # student_tests = relationship("StudentTest", backref="month", order_by="StudentTest.id")
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "month": self.date.strftime("%m"),
+            "year": self.date.strftime("%Y"),
+            "date": self.date.strftime("%Y-%m"),
+        }
+
+
+class AccountingPeriod(db.Model):
+    __tablename__ = "accountingperiod"
+    id = Column(Integer, primary_key=True)
+    from_date = Column(DateTime)
+    to_date = Column(DateTime)
+    student_payments = relationship("StudentPayments", backref="period", order_by="StudentPayments.id", lazy="select")
+    deleted_payments = relationship("DeletedStudentPayments", backref="period", order_by="DeletedStudentPayments.id")
+    teacher_salaries = relationship("TeacherSalaries", backref="period", order_by="TeacherSalaries.id")
+    staff_salaries = relationship("StaffSalaries", backref="period", order_by="StaffSalaries.id")
+    overhead = relationship("Overhead", backref="period", order_by="Overhead.id")
+    capital = relationship("CapitalExpenditure", backref="period", order_by="CapitalExpenditure.id")
+    day = relationship('CalendarDay', backref="period", order_by="CalendarDay.id")
+    charity = relationship('StudentCharity', backref="period", order_by="StudentCharity.id")
+    year_id = Column(Integer, ForeignKey('calendaryear.id'))
+    month_id = Column(Integer, ForeignKey('calendarmonth.id'))
+    deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="period",
+                                            order_by="DeletedTeacherSalaries.id")
+    staff_deleted_salary = relationship("DeletedStaffSalaries", backref="period", order_by="DeletedStaffSalaries.id")
+    old_id = Column(Integer)
+    accounting = relationship("AccountingInfo", backref="period", order_by="AccountingInfo.id")
+    book_overhead = relationship("BookOverhead", backref="period", lazy="select", order_by="BookOverhead.id")
+    center_balances = relationship("CenterBalance", backref="period", lazy="select", order_by="CenterBalance.id")
+    center_balances_overheads = relationship("CenterBalanceOverhead", backref="period", lazy="select",
+                                             order_by="CenterBalanceOverhead.id")
+    editor_balances = relationship("EditorBalance", backref="period", lazy="select", order_by="EditorBalance.id")
+    book_debts = relationship("CollectedBookPayments", backref="period", lazy="select",
+                              order_by="CollectedBookPayments.id")
+    capitals = relationship("Capital", backref="period", lazy="select", order_by="Capital.id")
+    capital_term = relationship("CapitalTerm", backref="period", order_by="CapitalTerm.id", lazy="select")
+    investment = relationship("Investment", backref="period", order_by="Investment.id")
+
+
+class CalendarDay(db.Model):
+    __tablename__ = "calendarday"
+    id = Column(Integer, primary_key=True)
+    date = Column(DateTime, )
+    month_id = Column(Integer, ForeignKey('calendarmonth.id'))
+    users = db.relationship("Users", backref="day", order_by="Users.id")
+    groups = db.relationship("Groups", backref="day", order_by="Groups.id")
+    attendance = relationship("AttendanceDays", backref="day", order_by="AttendanceDays.id")
+    location = relationship('Locations', backref="day", order_by="Locations.id")
+    student_payment = relationship('StudentPayments', backref="day", order_by="StudentPayments.id")
+    teacher_cash = relationship('TeacherSalaries', backref="day", order_by="TeacherSalaries.id")
+    charity = relationship('StudentCharity', backref="day", order_by="StudentCharity.id")
+    staff_given_salary = relationship("StaffSalaries", backref="day", order_by="StaffSalaries.id")
+    overhead_data = relationship('Overhead', backref="day", order_by="Overhead.id")
+    capital_data = relationship('CapitalExpenditure', backref="day", order_by="CapitalExpenditure.id")
+    deleted_capital_data = relationship("DeletedCapitalExpenditure", backref="day",
+                                        order_by="DeletedCapitalExpenditure.id")
+    deleted_overhead_data = relationship("DeletedOverhead", backref="day", order_by="DeletedOverhead.id")
+    account_period_id = Column(Integer, ForeignKey('accountingperiod.id'))
+    deleted_payments = relationship("DeletedStudentPayments", backref="day", order_by="DeletedStudentPayments.id")
+    deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="day",
+                                            order_by="DeletedTeacherSalaries.id")
+    staff_deleted_salary = relationship("DeletedStaffSalaries", backref="day", order_by="DeletedStaffSalaries.id")
+    qr_students_link = relationship("QR_students", backref="day", order_by="QR_students.id")
+    deleted_from_group = relationship("DeletedStudents", backref="day", order_by="DeletedStudents.id", lazy="select")
+    deleted_reg_students = relationship("RegisterDeletedStudents", backref="day", order_by="RegisterDeletedStudents.id",
+                                        lazy="select")
+    reasons = relationship("Debtor_Reasons", backref="day", order_by="Debtor_Reasons.id", lazy="select")
+    book_payments = relationship('BookPayments', backref='day', order_by='BookPayments.id', lazy='select')
+    del_book_payments = relationship("DeletedBookPayments", backref='day', order_by='DeletedBookPayments.id',
+                                     lazy='select')
+    book_order = relationship("BookOrder", backref="day", order_by="BookOrder.id", lazy="select")
+    old_id = Column(Integer)
+    book_overhead = relationship("BookOverhead", backref="day", lazy="select", order_by="BookOverhead.id")
+    center_balances_overheads = relationship("CenterBalanceOverhead", backref="day", lazy="select",
+                                             order_by="CenterBalanceOverhead.id")
+    user_books = relationship("UserBooks", backref="day", lazy="select", order_by="UserBooks.id")
+    branch_payment = relationship("BranchPayment", backref="day", lazy="select", order_by="BranchPayment.id")
+    observation = relationship("TeacherObservationDay", backref="day", order_by="TeacherObservationDay.id",
+                               lazy='select')
+    leads = relationship("Lead", backref="day", order_by="Lead.id", lazy='select')
+
+    teacher_group_statistics = relationship("TeacherGroupStatistics", backref="day",
+                                            order_by="TeacherGroupStatistics.id", lazy="select")
+    capitals = relationship("Capital", backref="day", lazy="select", order_by="Capital.id")
+    test = relationship("GroupTest", backref="day", order_by="GroupTest.id")
+
+    tasks_statistics = relationship("TasksStatistics", backref="day", order_by='TasksStatistics.id')
+    tasks_daily_statistics = relationship("TaskDailyStatistics", backref="day", order_by='TaskDailyStatistics.id')
+
+    student_tests = relationship("StudentTest", backref="day", order_by="StudentTest.id")
+    investment = relationship("Investment", backref="day", order_by="Investment.id")
+    camp_staff_salaries = relationship("CampStaffSalaries", backref="day", order_by="CampStaffSalaries.id")
+    account_payable = relationship("AccountPayable", backref="day", order_by="AccountPayable.id")
+    dividend = relationship("Dividend", backref="day", order_by="Dividend.id")
+    main_overhead = relationship("MainOverhead", backref="day", order_by="MainOverhead.id")
+    account_payable_history = relationship("AccountPayableHistory", backref="day", order_by="AccountPayableHistory.id")
+
+    school_teacher_salary_day = relationship("SchoolUserSalaryDay", backref="day",
+                                             order_by="SchoolUserSalaryDay.id")
+    students_created = db.relationship("Students", foreign_keys="Students.created_day_id", backref="created_day",
+                                       lazy=True)
+    students_joined = db.relationship("Students", foreign_keys="Students.joined_day_id", backref="joined_day",
+                                      lazy=True)
+    deleted_staff = relationship("DeletedStaff", backref="day", order_by="DeletedStaff.id")
+    branch_report = relationship("BranchReport", backref="day", order_by="BranchReport.id")
+    assistent_salaries = relationship("AssistentSalaries", backref="day", order_by="AssistentSalaries.id")
+    deleted_assistent_salaries = relationship("DeletedAsistentSalaries", backref="day",
+                                              order_by="DeletedAsistentSalaries.id")
+    finereport = relationship("FineReport", backref="day", order_by="FineReport.id")
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "day": self.date.strftime("%d"),
+            "month": self.date.strftime("%m"),
+            "year": self.date.strftime("%Y"),
+        }
+
+
+class Locations(db.Model):
+    __tablename__ = "locations"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    number_location = Column(String)
+    location = Column(String)
+    link = Column(String)
+    code = Column(Integer)
+    director_fio = Column(String)
+    location_type = Column(String)
+    district = Column(String)
+    bank_sheet = Column(String)
+    inn = Column(String)
+    bank = Column(String)
+    mfo = Column(String)
+    campus_name = Column(String)
+    address = Column(String)
+    users = relationship('Users', backref="location", order_by="Users.id")
+    groups = relationship("Groups", backref="location", order_by="Groups.id")
+    attendance = relationship("Attendance", backref="location", order_by="Attendance.id")
+    attendance_student = relationship("AttendanceHistoryStudent", backref="location",
+                                      order_by="AttendanceHistoryStudent.id")
+    attendance_teacher = relationship("AttendanceHistoryTeacher", backref="location",
+                                      order_by="AttendanceHistoryTeacher.id")
+    student_payment = relationship('StudentPayments', backref="location", order_by="StudentPayments.id")
+    teacher_cash = relationship('TeacherSalaries', backref="location", order_by="TeacherSalaries.id")
+    attendance_location = relationship("TeacherSalary", backref="location", order_by="TeacherSalary.id")
+    stuff_salary = relationship('StaffSalary', backref="location", order_by="StaffSalary.id")
+    staff_given_salary = relationship("StaffSalaries", backref="location", order_by="StaffSalaries.id")
+    calendar_day = Column(Integer, ForeignKey("calendarday.id"))
+    calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
+    calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
+    overhead_data = relationship('Overhead', backref="location", order_by="Overhead.id")
+    contract_students_data = relationship('Contract_Students_Data', backref="location",
+                                          order_by="Contract_Students_Data.id")
+    attendance_days_get = relationship("AttendanceDays", backref="location", order_by="AttendanceDays.id")
+    accounting = relationship("AccountingInfo", backref="location", order_by="AccountingInfo.id")
+    charity = relationship('StudentCharity', backref="location", order_by="StudentCharity.id")
+    deleted_payments = relationship("DeletedStudentPayments", backref="location", order_by="DeletedStudentPayments.id")
+    deleted_teacher_salaries = relationship("DeletedTeacherSalaries", backref="location",
+                                            order_by="DeletedTeacherSalaries.id")
+    staff_deleted_salary = relationship("DeletedStaffSalaries", backref="location", order_by="DeletedStaffSalaries.id")
+    time_table = relationship("Group_Room_Week", backref="location", order_by="Group_Room_Week.id", lazy="select")
+    book_order = relationship("BookOrder", backref="location", order_by="BookOrder.id", lazy="select")
+    old_id = Column(Integer)
+    center_balances = relationship("CenterBalance", backref="location", lazy="select", order_by="CenterBalance.id")
+    tasks_statistics = relationship("TasksStatistics", backref="location", order_by="TasksStatistics.id")
+    tasks_daily_statistics = relationship("TaskDailyStatistics", backref="location", order_by='TaskDailyStatistics.id')
+    dividend = relationship("Dividend", backref="location", order_by="Dividend.id")
+    investments = relationship("Investment", backref="location", order_by="Investment.id")
+    task_rating = relationship("TaskRatings", backref="location", order_by="TaskRatings.id")
+    branch_report = relationship("BranchReport", backref="location", order_by="BranchReport.id")
+    task_monthly_rating = relationship("TaskRatingsMonthly", backref="location", order_by="TaskRatingsMonthly.id")
+    chat_analysis_reports = relationship("ChatAnalysisReport", backref="location", order_by="ChatAnalysisReport.id")
+
+    def convert_json(self, entire=False):
+        return {
+            "value": self.id,
+            "name": self.name,
+            "number_location": self.number_location,
+            "location": self.location,
+            "link": self.link,
+            "code": self.code,
+            "director_fio": self.director_fio,
+            "location_type": self.location_type,
+            "district": self.district,
+            "bank_sheet": self.bank_sheet,
+            "inn": self.inn,
+            "bank": self.bank,
+            "mfo": self.mfo,
+            "campus_name": self.campus_name,
+            "address": self.address
+
+        }
+
+
+# class Branch(db.Model):
+#     __tablename__ = "branch"
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String)
+#     cost =
+
+
+class QR_students(db.Model):
+    __tablename__ = "qr_students"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    surname = Column(String)
+    phone = Column(Integer)
+    winning_amount = Column(Integer)
+    calendar_day = Column(Integer, ForeignKey("calendarday.id"))
+
+
+class QR_sum(db.Model):
+    __tablename__ = "qr_sum"
+    id = Column(Integer, primary_key=True)
+    sum = Column(Integer)
+
+
+class EducationLanguage(db.Model):
+    __tablename__ = "educationlanguage"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    user = relationship("Users", backref="language", order_by="Users.id")
+    groups = relationship("Groups", backref="language", order_by="Groups.id")
+    old_id = Column(Integer)
+
+
+class Users(db.Model):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey('locations.id'))
+    password = Column(String, nullable=False)
+    student = relationship("Students", uselist=False, backref="user", order_by="Students.id")
+    teacher = relationship("Teachers", uselist=False, backref='user', order_by="Teachers.id")
+    assistent = relationship(
+        "Assistent",
+        backref='user',
+        order_by="Assistent.id"
+    )
+    phone = relationship("PhoneList", backref='user', order_by="PhoneList.id")
+    education_language = Column(Integer, ForeignKey('educationlanguage.id'))
+    staff = relationship("Staff", backref="user", order_by="Staff.id")
+    name = Column(String, nullable=False)
+    surname = Column(String, nullable=False)
+    username = Column(String)
+    user_id = Column(String)
+    director = Column(Boolean)
+    photo_profile = Column(String)
+    born_day = Column(Integer)
+    born_month = Column(Integer)
+    born_year = Column(Integer)
+    age = Column(Integer)
+    comment = Column(String)
+    father_name = Column(String)
+    balance = Column(Integer)
+    calendar_day = Column(Integer, ForeignKey("calendarday.id"))
+    calendar_month = Column(Integer, ForeignKey("calendarmonth.id"))
+    calendar_year = Column(Integer, ForeignKey("calendaryear.id"))
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    taken_payments = relationship("StudentPayments", backref="user", order_by="StudentPayments.id", lazy="select")
+    given_capital = relationship("CapitalExpenditure", backref="user", order_by="CapitalExpenditure.id", lazy="select")
+    given_overhead = relationship("Overhead", backref="user", order_by="Overhead.id", lazy="select")
+    given_st_salaries = relationship("StaffSalaries", backref="user", order_by="StaffSalaries.id", lazy="select")
+    given_tch_salaries = relationship("TeacherSalaries", backref="user", order_by="TeacherSalaries.id", lazy="select")
+    comments = relationship("Comments", backref='user', order_by='Comments.id', lazy='select')
+    likes = relationship("CommentLikes", backref='user', order_by='CommentLikes.id', lazy='select')
+    old_id = Column(Integer)
+    book_order = relationship("BookOrder", backref="user", order_by="BookOrder.id", lazy="select")
+    platform_news = relationship("PlatformNews", backref="user", order_by="PlatformNews.id", lazy="select")
+    observation = relationship("TeacherObservationDay", backref="user", order_by="TeacherObservationDay.id",
+                               lazy='select')
+    observer = Column(Boolean, default=False)
+    tasks_statistics = relationship("TasksStatistics", backref="user", order_by='TasksStatistics.id')
+    tasks_daily_statistics = relationship("TaskDailyStatistics", backref="user", order_by='TaskDailyStatistics.id')
+    camp_staffs = relationship("CampStaff", backref="user", order_by='CampStaff.id')
+    school_user_id = Column(Integer, ForeignKey('school_user.id'))
+    school_users = relationship(
+        "SchoolUser",
+        backref="user",
+        primaryjoin="foreign(SchoolUser.by_who) == Users.id",
+        order_by="SchoolUser.id"
+    )
+    deleted = Column(Boolean, default=False)
+    parent = relationship("Parent", uselist=False, backref="user", order_by="Parent.id")
+    address = Column(String)
+    telegram_id = Column(String)
+    level = Column(Integer, default=4)
+    crm_username = Column(String)
+
+    def convert_json(self, entire=False):
+        if not entire:
+            info = {
+                "id": self.id,
+                "location": {
+                    "id": self.location.id,
+                    "name": self.location.name,
+                },
+                "name": self.name.title(),
+                "surname": self.surname.title(),
+                "username": self.username,
+                "password": self.password,
+                "father_name": self.father_name.title() if self.father_name else "",
+                "user_id": self.user_id,
+                "phone_list": [],
+                "education_language": {
+                    "id": self.language.id if self.education_language else None,
+                    "name": self.language.name if self.education_language else None
+                },
+                "photo_profile": self.photo_profile,
+                "born_day": self.born_day,
+                "born_month": self.born_month,
+                "born_year": self.born_year,
+                "age": self.age,
+                "balance": self.balance,
+                "role": {
+                    "id": self.role_info.id,
+                    "name": self.role_info.type_role,
+                    "role": self.role_info.role
+                },
+                "student": {},
+                "teacher": {},
+                "parent": self.parent.convert_json() if self.parent else {},
+                "phone": [],
+                "level": self.level
+            }
+            for phone in self.phone:
+                phone_info = {
+                    "phone": phone.phone,
+                    "parent": phone.parent,
+                    "personal": phone.personal
+                }
+                info['phone'].append(phone_info)
+            if self.student:
+                info["student"] = {
+                    "subjects": [],
+                    "group": [],
+                    "ball_time": self.student.ball_time.strftime("%Y-%m-%d %H:%M"),
+                    "combined_debt": self.student.combined_debt,
+                    "debtor": self.student.debtor,
+                    "extra_payment": self.student.extra_payment,
+                    "representative_name": self.student.representative_name,
+                    "representative_surname": self.student.representative_surname,
+                    "id": self.student.id
+                }
+                for subject in self.student.subject:
+                    info['student']['subjects'].append(
+                        {
+                            "id": subject.id,
+                            "name": subject.name,
+                            "ball_number": subject.ball_number
+                        }
+                    )
+                for group in self.student.group:
+                    if not group.deleted:
+                        group_info = clone_group_info(group)
+                        info['student']['group'].append(group_info)
+
+            elif self.teacher:
+                info["teacher"] = {
+                    "subjects": [],
+                    "group": [],
+                    "id": self.teacher.id
+                }
+                for subject in self.teacher.subject:
+                    info['teacher']['subjects'].append(
+                        {
+                            "id": subject.id,
+                            "name": subject.name,
+                            "ball_number": subject.ball_number
+                        }
+                    )
+                for group in self.teacher.group:
+                    if not group.deleted and group.status:
+                        group_info = clone_group_info(group)
+                        info['teacher']['group'].append(group_info)
+            elif self.parent:
+                info['parent'] = self.parent.convert_json(entire=True)
+            return info
+        else:
+            return {
+                "id": self.id,
+                "name": self.name.title(),
+                "surname": self.surname.title(),
+                "username": self.username,
+                "user_id": self.user_id
+            }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class PhoneList(db.Model):
+    __tablename__ = "phonelist"
+    id = Column(Integer, primary_key=True)
+    phone = Column(String)
+    parent = Column(Boolean)
+    personal = Column(Boolean)
+    other = Column(Boolean)
+    user_id = Column(Integer, ForeignKey('users.id'))
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "phone": self.phone,
+            "parent": self.parent,
+            "personal": self.personal,
+            "other": self.other
+        }
+
+
+class Roles(db.Model):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True)
+    role = Column(String)
+    type_role = Column(String)
+    users_link = relationship("Users", backref="role_info", order_by="Users.id")
+    camp_staff = relationship("CampStaff", backref="role_info", order_by="CampStaff.id")
+    old_id = Column(Integer)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class Staff(db.Model):
+    __tablename__ = "staff"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    profession_id = Column(Integer, ForeignKey('professions.id'))
+    stuff_salary = relationship('StaffSalary', backref="staff", order_by="StaffSalary.id")
+    staff_given_salary = relationship("StaffSalaries", backref="staff", order_by="StaffSalaries.id")
+    staff_deleted_salary = relationship("DeletedStaffSalaries", backref="staff", order_by="DeletedStaffSalaries.id")
+    salary = Column(Integer)
+    old_id = Column(Integer)
+    deleted = Column(Boolean, default=False)
+    deleted_comment = Column(String)
+    deleted_date = Column(DateTime)
+
+
+class DeletedStaff(db.Model):
+    __tablename__ = "deleted_staff"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))  # relationship qilinmagan
+    reason = Column(String)
+    calendar_day = Column(Integer, ForeignKey("calendarday.id"))  # relationship qilinmagan
+
+
+class CourseTypes(db.Model):
+    __tablename__ = "coursetypes"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    cost = Column(Integer)
+    group = relationship("Groups", backref="course_type", order_by="Groups.id")
+    attendance = relationship("Attendance", backref="course_type", order_by="Attendance.id")
+    old_id = Column(Integer)
+
+
+student_subject = db.Table(
+    'student_subject',
+    db.Column('student_id', db.Integer, db.ForeignKey('students.id')),
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))
+)
+db.Table('teacher_subject',
+         db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id')),
+         db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'))
+         )
+
+
+class Subjects(db.Model):
+    __tablename__ = "subjects"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    ball_number = Column(Integer)
+    group = relationship("Groups", backref="subject", order_by="Groups.id")
+    attendance = relationship("Attendance", backref="subject", order_by="Attendance.id")
+    attendance_history_student = relationship("AttendanceHistoryStudent", backref="subject",
+                                              order_by="AttendanceHistoryStudent.id")
+    attendance_history_teacher = relationship("AttendanceHistoryTeacher", backref="subject",
+                                              order_by="AttendanceHistoryTeacher.id")
+    subject_level = relationship('SubjectLevels', backref="subject", order_by="SubjectLevels.id")
+    room = relationship("Rooms", secondary="room_subject", backref="subject", order_by="Rooms.id")
+    leads = relationship('Lead', secondary="lead_subject", backref="subject", order_by="Lead.id")
+    test = relationship('GroupTest', backref="subject", order_by="GroupTest.id")
+    old_id = Column(Integer)
+    disabled = Column(Boolean)
+    classroom_id = Column(Integer)
+    student_tests = relationship("StudentTest", backref="subject", order_by="StudentTest.id")
+
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "name": self.name
+        }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
+
+class SubjectLevels(db.Model):
+    __tablename__ = "subjectlevels"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    subject_id = Column(Integer, ForeignKey('subjects.id'))
+    groups = relationship("Groups", backref="level", order_by="Groups.id")
+    classroom_id = Column(Integer)
+    disabled = Column(Boolean)
+
+    def convert_json(self, entire=False):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "subject": {
+                "id": self.subject.id,
+                "name": self.subject.name,
+            }
+        }
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class Professions(db.Model):
+    __tablename__ = "professions"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    staff = db.relationship("Staff", backref="profession", order_by="Staff.id")
+    staff_salaries = db.relationship("StaffSalaries", backref="profession", order_by="StaffSalaries.id")
+    deleted_staff_salaries = relationship("DeletedStaffSalaries", backref="profession")
+    old_id = Column(Integer)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class BranchReport(db.Model):
+    """Daily branch/location report"""
+    __tablename__ = "branch_reports"
+
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
+    year_id = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
+    month_id = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
+    day_id = Column(Integer, ForeignKey('calendarday.id'), nullable=False)
+
+    # Student metrics
+    number_of_students = Column(Integer, default=0)  # New students registered
+    number_of_deleted_students = Column(Integer, default=0)  # Students removed from groups
+    number_of_deleted_registrations = Column(Integer, default=0)  # Students deleted entirely
+
+    # Staff metrics
+    number_of_teachers = Column(Integer, default=0)  # Total active teachers
+    number_of_staff = Column(Integer, default=0)  # Total active staff
+
+    # Group metrics
+    number_of_groups = Column(Integer, default=0)  # New groups created
+    number_of_deleted_groups = Column(Integer, default=0)  # Groups deleted
+
+    # Payment metrics
+    number_of_payments = Column(Integer, default=0)  # Count of payments
+    sum_of_payments = Column(Integer, default=0)  # Total payment amount
+
+    # Timestamp
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def add(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def __repr__(self):
+        return f'<BranchReport Location:{self.location_id} Date:{self.day.date if self.day else "N/A"}>'
+
+    def convert_json(self, entire=False):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'location_id': self.location_id,
+            'date': self.day.date.strftime('%Y-%m-%d') if self.day else None,
+            'students': {
+                'new': self.number_of_students,
+                'deleted_from_groups': self.number_of_deleted_students,
+                'deleted_registrations': self.number_of_deleted_registrations
+            },
+            'staff': {
+                'teachers': self.number_of_teachers,
+                'staff': self.number_of_staff
+            },
+            'groups': {
+                'new': self.number_of_groups,
+                'deleted': self.number_of_deleted_groups
+            },
+            'payments': {
+                'count': self.number_of_payments,
+                'sum': self.sum_of_payments
+            },
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    category = db.Column(db.String(255))
+    program_type = db.Column(db.String(100), default="Gennis")
+    text = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<Report {self.name}>"
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "program_type": self.program_type,
+            "text": self.text
+        }
+from backend.home_page.models import *
+from backend.account.models import *
+from backend.time_table.models import *
+from backend.group.models import *
+from backend.student.models import *
+from backend.teacher.models import *
+from backend.certificate.models import *
+from backend.book.models import *
+from backend.lead.models import *
+from backend.for_programmers.models import *
+from backend.tasks.models.models import *
+from backend.account.profile.models import *
+from backend.parent.models import *
+from backend.teacher.assistent.models import *
+from backend.chat_analyzer.models import (
+    TelegramGroup,
+    TelegramGroupMember,
+    ReportMember,
+    ChatAnalysisReport,
+)
