@@ -233,28 +233,101 @@ def delete_branch_transaction(tx_id):
 def get_deleted_branch_transactions(month, year):
     """
     Query params:
-        location_id — filter by branch (optional)
+        location_id  — filter by branch (optional)
+        payment_type — PaymentTypes.name (optional)
+        is_give      — 'true' | 'false' (optional)
+        direction    — 'give' | 'receive' (alias for is_give, optional)
+        amount_min   — int (optional)
+        amount_max   — int (optional)
+        loan_id      — int (optional); pass 'null' to filter rows without a loan
+        search       — substring in reason / person name / surname (optional)
+        limit, offset — pagination (optional)
     """
     from datetime import date
     year_obj = CalendarYear.query.filter_by(date=date(year, 1, 1)).first()
     month_obj = CalendarMonth.query.filter_by(date=date(year, month, 1)).first() if year_obj else None
 
     if not year_obj or not month_obj:
-        return jsonify({'success': True, 'data': []})
+        return jsonify({'success': True, 'total': 0, 'data': []})
 
     location_id = request.args.get('location_id', type=int)
+    payment_type_name = request.args.get('payment_type')
+    is_give_param = request.args.get('is_give')
+    direction = (request.args.get('direction') or '').strip().lower()
+    amount_min = request.args.get('amount_min', type=int)
+    amount_max = request.args.get('amount_max', type=int)
+    loan_id_raw = request.args.get('loan_id')
+    search = (request.args.get('search') or '').strip()
+    limit = request.args.get('limit', type=int)
+    offset = request.args.get('offset', default=0, type=int)
 
     query = BranchTransaction.query.filter_by(
         calendar_month=month_obj.id,
         calendar_year=year_obj.id,
         deleted=True
     )
+
     if location_id:
         query = query.filter(BranchTransaction.location_id == location_id)
 
-    transactions = query.order_by(BranchTransaction.id.desc()).all()
+    if payment_type_name:
+        pt = PaymentTypes.query.filter_by(name=payment_type_name).first()
+        if pt:
+            query = query.filter(BranchTransaction.payment_type_id == pt.id)
+        else:
+            query = query.filter(False)
+
+    is_give_val = None
+    if is_give_param is not None:
+        v = str(is_give_param).strip().lower()
+        if v in ('true', '1', 'yes'):
+            is_give_val = True
+        elif v in ('false', '0', 'no'):
+            is_give_val = False
+    if direction == 'give':
+        is_give_val = True
+    elif direction == 'receive':
+        is_give_val = False
+    if is_give_val is not None:
+        query = query.filter(BranchTransaction.is_give == is_give_val)
+
+    if amount_min is not None:
+        query = query.filter(BranchTransaction.amount >= amount_min)
+    if amount_max is not None:
+        query = query.filter(BranchTransaction.amount <= amount_max)
+
+    if loan_id_raw is not None:
+        if str(loan_id_raw).strip().lower() == 'null':
+            query = query.filter(BranchTransaction.loan_id.is_(None))
+        else:
+            try:
+                query = query.filter(BranchTransaction.loan_id == int(loan_id_raw))
+            except (TypeError, ValueError):
+                pass
+
+    if search:
+        like = f"%{search}%"
+        query = query.outerjoin(Users, Users.id == BranchTransaction.person_id).filter(
+            or_(
+                BranchTransaction.reason.ilike(like),
+                BranchTransaction.person_name.ilike(like),
+                BranchTransaction.person_surname.ilike(like),
+                Users.name.ilike(like),
+                Users.surname.ilike(like),
+            )
+        )
+
+    total = query.count()
+    query = query.order_by(BranchTransaction.id.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+
+    transactions = query.all()
     return jsonify({
         'success': True,
+        'total': total,
         'data': [tx.convert_json() for tx in transactions]
     })
 
