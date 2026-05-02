@@ -1696,6 +1696,7 @@ def account_details(location_id):
         newly_issued_loans = loan_base.filter(
             BranchLoan.issued_date >= ot,
             BranchLoan.issued_date <= do,
+            BranchLoan.status != 'cancelled',
         ).order_by(desc(BranchLoan.issued_date), desc(BranchLoan.id)).all()
 
         settled_loans = loan_base.filter(
