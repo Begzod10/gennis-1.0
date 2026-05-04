@@ -80,31 +80,6 @@ def view_table(location_id, day):
 def get_teacher_weekly_schedule(teacher_id):
     location_id = request.args.get('location_id', type=int)
 
-    # Debug uchun
-    print(f"teacher_id: {teacher_id}, location_id: {location_id}")
-
-    # Avval time_table_teacher da shu teacher bor yoqligini tekshiring
-    check = db.session.execute(
-        time_table_teacher.select().where(
-            time_table_teacher.c.teacher_id == teacher_id
-        )
-    ).fetchall()
-
-    print(f"time_table_teacher rows: {check}")
-
-    check = db.session.execute(
-        db.text("SELECT * FROM time_table_teacher LIMIT 20")
-    ).fetchall()
-
-    print(f"time_table_teacher barcha yozuvlar: {check}")
-
-    check2 = db.session.execute(
-        db.text("SELECT * FROM time_table_teacher WHERE teacher_id = :tid"),
-        {"tid": teacher_id}
-    ).fetchall()
-
-    print(f"teacher_id {teacher_id} uchun: {check2}")
-
     if not location_id:
         return jsonify({"error": "location_id is required"}), 400
 
