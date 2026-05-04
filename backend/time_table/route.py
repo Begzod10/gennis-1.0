@@ -92,6 +92,19 @@ def get_teacher_weekly_schedule(teacher_id):
 
     print(f"time_table_teacher rows: {check}")
 
+    check = db.session.execute(
+        db.text("SELECT * FROM time_table_teacher LIMIT 20")
+    ).fetchall()
+
+    print(f"time_table_teacher barcha yozuvlar: {check}")
+
+    check2 = db.session.execute(
+        db.text("SELECT * FROM time_table_teacher WHERE teacher_id = :tid"),
+        {"tid": teacher_id}
+    ).fetchall()
+
+    print(f"teacher_id {teacher_id} uchun: {check2}")
+
     if not location_id:
         return jsonify({"error": "location_id is required"}), 400
 
