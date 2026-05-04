@@ -1656,14 +1656,17 @@ def account_details(location_id):
         ).order_by(desc(ManagementDividend.id)).all()
         all_dividend = sum(d.amount for d in dividends) if dividends else 0
 
-        branch_txs = BranchTransaction.query.join(
+        branch_txs = BranchTransaction.query.outerjoin(
+            BranchLoan, BranchLoan.id == BranchTransaction.loan_id
+        ).join(
             CalendarDay, CalendarDay.id == BranchTransaction.calendar_day
         ).filter(
             CalendarDay.date >= ot,
             CalendarDay.date <= do,
             BranchTransaction.location_id == location_id,
             BranchTransaction.payment_type_id == payment_type.id,
-            BranchTransaction.deleted == False
+            BranchTransaction.deleted == False,
+            or_(BranchTransaction.loan_id.is_(None), BranchLoan.status != 'cancelled'),
         ).order_by(BranchTransaction.id).all()
 
         all_branch_given = sum(tx.amount for tx in branch_txs if tx.is_give) if branch_txs else 0
@@ -1696,6 +1699,7 @@ def account_details(location_id):
         newly_issued_loans = loan_base.filter(
             BranchLoan.issued_date >= ot,
             BranchLoan.issued_date <= do,
+            BranchLoan.status != 'cancelled',
         ).order_by(desc(BranchLoan.issued_date), desc(BranchLoan.id)).all()
 
         settled_loans = loan_base.filter(
