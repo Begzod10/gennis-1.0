@@ -9,13 +9,22 @@ class AdminRequestListResource(Resource):
     def get(self):
         branch_id = request.args.get('branch')
         user_id = request.args.get('user')
-        
+        status_raw = request.args.get('status')
+
         query = AdminRequest.query
         if branch_id:
             query = query.filter_by(branch_id=branch_id)
         if user_id:
             query = query.filter_by(user_id=user_id)
-            
+        if status_raw is not None:
+            normalized = status_raw.strip().lower()
+            if normalized in ('true', '1', 'yes', 'accepted'):
+                query = query.filter_by(status=True)
+            elif normalized in ('false', '0', 'no', 'pending'):
+                query = query.filter_by(status=False)
+            else:
+                return {"msg": "Invalid status; use true/false"}, 400
+
         requests = query.order_by(AdminRequest.created_at.desc()).all()
         schema = AdminRequestSchema(many=True)
         return schema.dump(requests), 200
