@@ -42,7 +42,7 @@ def salary_info(user_id):
         years = CalendarYear.query.filter(CalendarYear.id.in_([year.calendar_year for year in salary]))
         years_list = iterate_models(years)
     elif assistant:
-        salary = AssistentSalary.query.filter(AssistentSalary.assisten_id == assistant.id).all()
+        salary = AssistentSalary.query.filter(AssistentSalary.assisten_id == assistant.id).order_by(desc(AssistentSalary.id)).all()
         years = CalendarYear.query.filter(CalendarYear.id.in_([year.calendar_year for year in salary]))
         years_list = iterate_models(years)
     if teacher or platform_user.director:
