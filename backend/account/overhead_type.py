@@ -89,6 +89,51 @@ def get_overhead_types():
     })
 
 
+@overhead_type_bp.route('/overhead_type/<int:overhead_type_id>', methods=['PATCH'])
+@jwt_required()
+def update_overhead_type(overhead_type_id):
+    """Update `changeable` and/or `cost` on a single Gennis OverheadType row.
+
+    Only these two fields are accepted — `name` stays owned by the management
+    project and is propagated from there. Pass at least one field in the body.
+    """
+    ot = OverheadType.query.filter_by(id=overhead_type_id, deleted=False).first()
+    if not ot:
+        return jsonify({'success': False, 'message': 'Overhead type not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    updated = False
+
+    if 'changeable' in data:
+        if not isinstance(data['changeable'], bool):
+            return jsonify({'success': False, 'message': '`changeable` must be a boolean'}), 400
+        ot.changeable = data['changeable']
+        updated = True
+
+    if 'cost' in data:
+        cost = data['cost']
+        if cost is not None and not isinstance(cost, int):
+            return jsonify({'success': False, 'message': '`cost` must be an integer or null'}), 400
+        ot.cost = cost
+        updated = True
+
+    if not updated:
+        return jsonify({'success': False, 'message': 'No updatable fields provided'}), 400
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': ot.id,
+            'name': ot.name,
+            'cost': ot.cost,
+            'changeable': ot.changeable,
+            'location_id': ot.location_id,
+            'management_id': ot.management_id,
+        },
+    })
+
+
 # ---------------------------------------------------------------------------
 # OverheadTypeLog — reminders
 # ---------------------------------------------------------------------------

@@ -254,8 +254,8 @@ def teacher_salary(user_id, location_id):
             teacher_salary_list.append(info)
     elif assistant:
         assistant_salaries = AssistentSalary.query.filter(AssistentSalary.assisten_id == assistant.id,
-                                                          AssistentSalary.location_id == location_id).order_by(
-            desc(AssistentSalary.id)).all()
+                                                          AssistentSalary.location_id == location_id).join(AssistentSalary.month).order_by(
+            desc(CalendarMonth.date)).all()
 
         for salary in assistant_salaries:
             assistant_black_salaries = AssistentBlackSalary.query.filter(

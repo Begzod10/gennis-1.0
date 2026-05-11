@@ -5,7 +5,7 @@ from sqlalchemy import String, Integer, Boolean, Float, Column, ForeignKey, Date
     extract, Date, BigInteger, Enum, Text
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func, functions
+from sqlalchemy.sql import func, functions, text as sa_text
 from pprint import pprint
 import uuid
 from .utils import clone_group_info
@@ -845,6 +845,7 @@ class AdminRequest(db.Model):
     description = Column(Text)
     deadline = Column(Date)
     comment = Column(Text)
+    status = Column(Boolean, default=False, server_default=sa_text("false"), nullable=False)
     branch_id = Column(Integer, ForeignKey('locations.id'))
     user_id = Column(Integer, ForeignKey('users.id'))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -862,6 +863,7 @@ class AdminRequest(db.Model):
             "description": self.description,
             "deadline": self.deadline.strftime("%Y-%m-%d") if self.deadline else None,
             "comment": self.comment,
+            "status": self.status,
             "branch": self.location.convert_json() if self.location else None,
             "user": self.user.convert_json(entire=True) if self.user else None,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
