@@ -676,6 +676,7 @@ def my_profile(user_id):
     } if student_get else {}
     return jsonify({
         "id": user.id,
+        "teacher_id": teacher.id if teacher else None,
         "username": user.username,
         "role": role.role,
         "name": user.name.title(),
@@ -1085,7 +1086,7 @@ def profile(user_id):
             for count in group_list:
                 i += count["count"]
             assitents = Assistent.query.filter(Assistent.teacher_id == teacher_get.id,
-                                                Assistent.deleted == False).all()
+                                               Assistent.deleted == False).all()
             for assistent in assitents:
                 assistent_list.append(assistent.convert_json())
             type_role = "Teacher"
