@@ -42,6 +42,8 @@ def _generate_logs_for_month(month_id, year_id, location_id=None):
         OverheadType.cost != None,
         OverheadType.deleted == False
     )
+    if location_id is not None:
+        query = query.filter(OverheadType.location_id == location_id)
 
     for ot in query.all():
         exists = OverheadTypeLog.query.filter_by(
