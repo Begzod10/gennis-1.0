@@ -263,12 +263,14 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
             salary_location.total_salary = assistent_salary
             salary_location.status = False
 
-        old_salary = AssistentSalary.query.filter(
-            AssistentSalary.assisten_id == assistent.id,
-            AssistentSalary.location_id == group.location_id,
-            AssistentSalary.calendar_month == prev_calendar_month.id,
-            AssistentSalary.calendar_year == prev_calendar_year.id
-        ).first()
+        old_salary = None
+        if prev_calendar_year and prev_calendar_month:
+            old_salary = AssistentSalary.query.filter(
+                AssistentSalary.assisten_id == assistent.id,
+                AssistentSalary.location_id == group.location_id,
+                AssistentSalary.calendar_month == prev_calendar_month.id,
+                AssistentSalary.calendar_year == prev_calendar_year.id
+            ).first()
         if old_salary:
             remaining = old_salary.remaining_salary or 0
             salary_location.debt = remaining if remaining < 0 else 0
