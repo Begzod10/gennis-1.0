@@ -171,10 +171,13 @@ def get_overhead_type_logs(month, year):
         OverheadTypeLog.deleted == False,
     ]
     if location_id:
-        base_filters.append(OverheadTypeLog.location_id == location_id)
+        base_filters.append(OverheadType.location_id == location_id)
 
-    query = OverheadTypeLog.query.filter(*base_filters)
+    base_query = OverheadTypeLog.query.join(
+        OverheadType, OverheadType.id == OverheadTypeLog.overhead_type_id
+    ).filter(*base_filters)
 
+    query = base_query
     if status == 'paid':
         query = query.filter(OverheadTypeLog.is_paid == True)
     elif status == 'unpaid':
@@ -182,16 +185,16 @@ def get_overhead_type_logs(month, year):
 
     logs = query.order_by(OverheadTypeLog.id).all()
 
-    total_count = OverheadTypeLog.query.filter(*base_filters).count()
-    paid_count = OverheadTypeLog.query.filter(*base_filters, OverheadTypeLog.is_paid == True).count()
+    total_count = base_query.count()
+    paid_count = base_query.filter(OverheadTypeLog.is_paid == True).count()
 
-    total_sum = db.session.query(
+    total_sum = base_query.with_entities(
         func.coalesce(func.sum(OverheadTypeLog.cost), 0)
-    ).filter(*base_filters).scalar()
+    ).scalar()
 
-    paid_sum = db.session.query(
+    paid_sum = base_query.filter(OverheadTypeLog.is_paid == True).with_entities(
         func.coalesce(func.sum(OverheadTypeLog.cost), 0)
-    ).filter(*base_filters, OverheadTypeLog.is_paid == True).scalar()
+    ).scalar()
 
     return jsonify({
         'success': True,
