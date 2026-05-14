@@ -11,7 +11,7 @@ from backend.models.models import AccountingPeriod, CalendarMonth, PaymentTypes,
     StaffSalaries, TeacherSalaries, CenterBalanceOverhead, Overhead, CalendarYear, BranchPayment, AccountingInfo, \
     DeletedStudentPayments, DeletedOverhead, DeletedTeacherSalaries, DeletedStaffSalaries, Users, Teachers, Dividend, \
     CapitalExpenditure, Investment, db, Groups, StudentExcuses, DeletedCapitalExpenditure, Lead, \
-    BranchTransaction, BranchLoan, OverheadTypeLog
+    BranchTransaction, BranchLoan, OverheadTypeLog, OverheadTypeLogPayment
 from backend.account.models import ManagementDividend, ManagementInvestment
 from backend.teacher.assistent.models import AssistentSalaries, DeletedAsistentSalaries, Assistent
 from backend.models.settings import sum_money
@@ -1104,11 +1104,27 @@ def account_info_overhead():
 
     overheads = query.all()
 
+    # Bulk-resolve OverheadTypeLogPayment rows that point to these overheads
+    # so each row can surface its parent log + payment id.
+    overhead_ids = [o.id for o in overheads]
+    log_link_map = {}
+    if overhead_ids and OverheadModel is Overhead:
+        for pid, ohid, log_id in db.session.query(
+            OverheadTypeLogPayment.id,
+            OverheadTypeLogPayment.overhead_id,
+            OverheadTypeLogPayment.overhead_type_log_id,
+        ).filter(
+            OverheadTypeLogPayment.overhead_id.in_(overhead_ids),
+            OverheadTypeLogPayment.deleted == False,
+        ).all():
+            log_link_map[ohid] = (pid, log_id)
+
     payments_list = []
     for o in overheads:
         ot = getattr(o, "overhead_type", None)
         ot_id = getattr(o, "overhead_type_id", None)
         ot_name = ot.name if ot is not None else None
+        link = log_link_map.get(o.id)
         payments_list.append({
             "id": o.id,
             "name": ot_name if ot_id is not None else o.item_name,
@@ -1122,6 +1138,8 @@ def account_info_overhead():
             "type": "overhead",
             "overhead_type_id": ot_id,
             "overhead_type_name": ot_name,
+            "payment_id": link[0] if link else None,
+            "overhead_type_log_id": link[1] if link else None,
         })
 
     pagination_data = None
