@@ -520,18 +520,24 @@ def overhead():
     for overhead in all_overheads:
         item_sum = overhead.item_sum if overhead.item_sum else 0
 
-        # Categorize and sum
-        if overhead.item_name == "gaz":
+        overhead_type_name = overhead.overhead_type.name if overhead.overhead_type else None
+
+        # Bucket by overhead_type_id when present (new flow), fall back to
+        # lowercase item_name for legacy rows that pre-date OverheadType.
+        type_label = (overhead_type_name or "").strip().lower()
+        legacy_label = (overhead.item_name or "").strip().lower()
+        bucket = type_label or legacy_label
+
+        if bucket == "gaz":
             total_gaz += item_sum
-        elif overhead.item_name == "svet":
+        elif bucket == "svet":
             total_svet += item_sum
-        elif overhead.item_name == "suv":
+        elif bucket == "suv":
             total_suv += item_sum
-        elif overhead.item_name == "arenda":
+        elif bucket == "arenda":
             total_arenda += item_sum
         else:
             total_other += item_sum
-        overhead_type_name = overhead.overhead_type.name if overhead.overhead_type else None
         overhead_list.append({
             'id': overhead.id,
             'item_name': overhead_type_name if overhead.overhead_type_id is not None else overhead.item_name,

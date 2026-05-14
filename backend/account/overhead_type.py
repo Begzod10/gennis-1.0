@@ -7,7 +7,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.functions.utils import find_calendar_date, get_or_create
 from backend.models.models import (
     CalendarMonth, CalendarYear, CalendarDay,
-    Overhead, OverheadType, OverheadTypeLog, Users, db, func
+    Overhead, OverheadType, OverheadTypeLog, OverheadTypeLogPayment,
+    Users, db, func
 )
 
 overhead_type_bp = Blueprint('overhead_type_bp', __name__)
@@ -292,6 +293,11 @@ def pay_overhead_type_log():
 
         if target_log and target_log.is_paid:
             return jsonify({'success': False, 'message': 'Bu oy allaqachon to\'langan'}), 400
+        if target_log and any(not p.deleted for p in target_log.payments):
+            return jsonify({
+                'success': False,
+                'message': "Bu logga qisman to'lovlar mavjud. Prepay qilish uchun avval ularni o'chiring.",
+            }), 400
 
         if not target_log:
             target_log = OverheadTypeLog(
@@ -337,6 +343,11 @@ def pay_overhead_type_log():
         log = OverheadTypeLog.query.get_or_404(log_id)
         if log.is_paid:
             return jsonify({'success': False, 'message': 'Bu overhead allaqachon to\'langan'}), 400
+        if any(not p.deleted for p in log.payments):
+            return jsonify({
+                'success': False,
+                'message': "Bu logga qisman to'lovlar mavjud. Yangi to'lov uchun /overhead_type_logs/<id>/payments dan foydalaning.",
+            }), 400
 
         overhead = Overhead(
             item_sum=log.cost,
@@ -366,3 +377,296 @@ def pay_overhead_type_log():
             'overhead': overhead.convert_json(),
             'log': log.convert_json()
         })
+
+
+# ---------------------------------------------------------------------------
+# Partial / split payments
+# ---------------------------------------------------------------------------
+
+def _recompute_log_paid(log: OverheadTypeLog):
+    """Recompute is_paid + paid_date from active payments.
+
+    Reads payments via a direct query (not via log.payments) so the result is
+    independent of the relationship's lazy-load cache, then expires the cache
+    so any subsequent access to log.payments / log.paid_amount sees the same
+    fresh state.
+    """
+    active = db.session.query(OverheadTypeLogPayment).filter(
+        OverheadTypeLogPayment.overhead_type_log_id == log.id,
+        OverheadTypeLogPayment.deleted == False,
+    ).all()
+    paid = sum(p.amount for p in active)
+    if paid >= (log.cost or 0) and (log.cost or 0) > 0:
+        log.is_paid = True
+        latest = max(
+            (p.paid_date for p in active if p.paid_date), default=None,
+        )
+        log.paid_date = latest
+    else:
+        log.is_paid = False
+        log.paid_date = None
+    db.session.expire(log, ['payments'])
+
+
+@overhead_type_bp.route('/overhead_type_logs/<int:log_id>/payments', methods=['POST'])
+@jwt_required()
+def add_overhead_payment(log_id):
+    """
+    Add a single (partial or full) payment to an OverheadTypeLog.
+    Body:
+        payment_type_id (required) — PaymentTypes.id
+        amount          (required) — integer, must be > 0
+        date            (required) — 'YYYY-MM-DD'
+        location_id     (required) — Locations.id (used for the Overhead row)
+        note            (optional) — free-text memo
+    """
+    data = request.get_json() or {}
+    payment_type_id = data.get('payment_type_id')
+    amount = data.get('amount')
+    date_str = data.get('date')
+    location_id = data.get('location_id')
+    note = data.get('note')
+
+    if not payment_type_id or amount is None or not date_str or not location_id:
+        return jsonify({
+            'success': False,
+            'message': 'payment_type_id, amount, date, location_id majburiy',
+        }), 400
+
+    try:
+        amount = int(amount)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'amount butun son bo\'lishi kerak'}), 400
+    if amount <= 0:
+        return jsonify({'success': False, 'message': 'amount musbat bo\'lishi kerak'}), 400
+
+    log = (
+        db.session.query(OverheadTypeLog)
+        .filter(OverheadTypeLog.id == log_id)
+        .with_for_update()
+        .first()
+    )
+    if not log:
+        return jsonify({'success': False, 'message': 'Log topilmadi'}), 404
+    if log.deleted:
+        return jsonify({'success': False, 'message': 'Log o\'chirilgan'}), 400
+
+    existing_paid = db.session.query(
+        func.coalesce(func.sum(OverheadTypeLogPayment.amount), 0)
+    ).filter(
+        OverheadTypeLogPayment.overhead_type_log_id == log.id,
+        OverheadTypeLogPayment.deleted == False,
+    ).scalar() or 0
+
+    if log.overhead_id and existing_paid <= 0:
+        return jsonify({
+            'success': False,
+            'message': "Bu log avval bir martalik to'lov bilan to'langan. Avval u to'lovni bekor qiling.",
+        }), 400
+
+    cost = log.cost or 0
+    if cost <= 0:
+        return jsonify({
+            'success': False, 'message': "Log narxi belgilanmagan",
+        }), 400
+    remaining = max(0, cost - existing_paid)
+    if amount > remaining:
+        return jsonify({
+            'success': False,
+            'message': f"To'lov summasi qoldiqdan oshib ketmasligi kerak. Qoldiq: {remaining:,} so'm",
+            'remaining_amount': remaining,
+        }), 400
+
+    current_user = Users.query.filter_by(user_id=get_jwt_identity()).first()
+    current_user_id = current_user.id if current_user else None
+
+    try:
+        day_dt = datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'success': False, 'message': 'date format: YYYY-MM-DD'}), 400
+
+    month_dt = day_dt.replace(day=1)
+    year_dt = day_dt.replace(month=1, day=1)
+    calendar_year, calendar_month, calendar_day = find_calendar_date(
+        date_day=day_dt.date(),
+        date_month=month_dt.date(),
+        date_year=year_dt.date(),
+    )
+
+    overhead = Overhead(
+        item_sum=amount,
+        item_name=log.overhead_type.name,
+        overhead_type_id=log.overhead_type_id,
+        payment_type_id=payment_type_id,
+        location_id=location_id,
+        calendar_day=calendar_day.id,
+        calendar_month=calendar_month.id,
+        calendar_year=calendar_year.id,
+        paid_for_month=None,
+        paid_for_year=None,
+        by_who=current_user_id,
+    )
+    db.session.add(overhead)
+    db.session.flush()
+
+    payment = OverheadTypeLogPayment(
+        overhead_type_log_id=log.id,
+        payment_type_id=payment_type_id,
+        overhead_id=overhead.id,
+        amount=amount,
+        paid_date=day_dt,
+        note=note,
+        created_by=current_user_id,
+    )
+    db.session.add(payment)
+    db.session.flush()
+
+    _recompute_log_paid(log)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f"{amount} so'm to'lov qo'shildi",
+        'payment': payment.convert_json(),
+        'log': log.convert_json(),
+    })
+
+
+@overhead_type_bp.route('/overhead_type_logs/payments/<int:payment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_overhead_payment(payment_id):
+    """Soft-delete a payment row and its accounting Overhead, recompute log status."""
+    # Resolve log_id first (cheap), then lock the log row so this delete
+    # serializes against concurrent add/delete on the same log.
+    log_id = db.session.query(OverheadTypeLogPayment.overhead_type_log_id).filter(
+        OverheadTypeLogPayment.id == payment_id
+    ).scalar()
+    if log_id is None:
+        return jsonify({'success': False, 'message': 'Payment topilmadi'}), 404
+
+    log = (
+        db.session.query(OverheadTypeLog)
+        .filter(OverheadTypeLog.id == log_id)
+        .with_for_update()
+        .first()
+    )
+
+    # Re-read the payment under the log lock; another delete may have already
+    # soft-deleted it between the lookup above and the lock acquisition.
+    payment = (
+        db.session.query(OverheadTypeLogPayment)
+        .filter(OverheadTypeLogPayment.id == payment_id)
+        .first()
+    )
+    if not payment:
+        return jsonify({'success': False, 'message': 'Payment topilmadi'}), 404
+    if payment.deleted:
+        return jsonify({'success': False, 'message': 'Allaqachon o\'chirilgan'}), 400
+
+    payment.deleted = True
+    if payment.overhead_id:
+        overhead = Overhead.query.get(payment.overhead_id)
+        if overhead:
+            db.session.delete(overhead)
+        payment.overhead_id = None
+
+    if log:
+        _recompute_log_paid(log)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'To\'lov o\'chirildi',
+        'log': log.convert_json() if log else None,
+    })
+
+
+@overhead_type_bp.route('/overhead_type_logs/<int:log_id>/payments', methods=['GET'])
+@jwt_required()
+def list_overhead_payments(log_id):
+    """List all active payments for a single OverheadTypeLog."""
+    log = OverheadTypeLog.query.get_or_404(log_id)
+    payments = [p.convert_json() for p in log.payments if not p.deleted]
+    return jsonify({
+        'success': True,
+        'log_id': log.id,
+        'cost': log.cost,
+        'paid_amount': log.paid_amount,
+        'remaining_amount': log.remaining_amount,
+        'payment_status': log.payment_status,
+        'payments': payments,
+    })
+
+
+@overhead_type_bp.route('/overhead_type_logs/<int:log_id>/convert-to-split', methods=['POST'])
+@jwt_required()
+def convert_log_to_split(log_id):
+    """Migrate a legacy single-pay log into the split-payment model.
+
+    Creates one OverheadTypeLogPayment row reusing the legacy Overhead row's
+    amount / payment type / date, then clears log.overhead_id so subsequent
+    partial payments can be added via the split-payment endpoint.
+    """
+    log = (
+        db.session.query(OverheadTypeLog)
+        .filter(OverheadTypeLog.id == log_id)
+        .with_for_update()
+        .first()
+    )
+    if not log:
+        return jsonify({'success': False, 'message': 'Log topilmadi'}), 404
+    if log.deleted:
+        return jsonify({'success': False, 'message': "Log o'chirilgan"}), 400
+
+    has_splits = db.session.query(OverheadTypeLogPayment.id).filter(
+        OverheadTypeLogPayment.overhead_type_log_id == log.id,
+        OverheadTypeLogPayment.deleted == False,
+    ).first() is not None
+    if has_splits:
+        return jsonify({
+            'success': False,
+            'message': "Bu logda allaqachon split to'lovlar mavjud.",
+        }), 400
+    if not log.overhead_id:
+        return jsonify({
+            'success': False,
+            'message': "Bu log legacy bir martalik to'lov bilan to'lanmagan, konversiya kerak emas.",
+        }), 400
+
+    legacy = Overhead.query.get(log.overhead_id)
+    if not legacy:
+        return jsonify({
+            'success': False, 'message': "Legacy Overhead yo'q. log.overhead_id ni qo'lda tozalang.",
+        }), 400
+
+    # Resolve the legacy payment date from CalendarDay
+    paid_date = None
+    if legacy.calendar_day:
+        cd = CalendarDay.query.get(legacy.calendar_day)
+        if cd and cd.date:
+            paid_date = cd.date
+    paid_date = paid_date or log.paid_date or datetime.now()
+
+    payment = OverheadTypeLogPayment(
+        overhead_type_log_id=log.id,
+        payment_type_id=legacy.payment_type_id,
+        overhead_id=legacy.id,
+        amount=legacy.item_sum or log.cost or 0,
+        paid_date=paid_date,
+        note="Converted from legacy single payment",
+        created_by=None,
+    )
+    db.session.add(payment)
+    db.session.flush()
+
+    # Detach legacy linkage from the log so the new endpoints accept it
+    log.overhead_id = None
+    _recompute_log_paid(log)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': "Log split-payment formatiga o'tkazildi",
+        'payment': payment.convert_json(),
+        'log': log.convert_json(),
+    })

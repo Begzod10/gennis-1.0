@@ -70,6 +70,9 @@ class PaymentTypes(db.Model):
     student_payments = relationship('StudentPayments', backref="payment_type", order_by="StudentPayments.id")
     teacher_salaries = relationship('TeacherSalaries', backref="payment_type", order_by="TeacherSalaries.id")
     overhead_data = relationship('Overhead', backref="payment_type", order_by="Overhead.id")
+    overhead_type_log_payments = relationship(
+        'OverheadTypeLogPayment', backref="payment_type", order_by="OverheadTypeLogPayment.id",
+    )
     accounting = relationship("AccountingInfo", backref="payment_type", order_by="AccountingInfo.id")
     staff_salaries = relationship("StaffSalaries", backref="payment_type", order_by="StaffSalaries.id")
     capital = relationship("CapitalExpenditure", backref="payment_type", order_by="CapitalExpenditure.id")
@@ -536,6 +539,28 @@ class OverheadTypeLog(db.Model):
     calendar_month = Column(Integer, ForeignKey('calendarmonth.id'), nullable=False)
     calendar_year = Column(Integer, ForeignKey('calendaryear.id'), nullable=False)
     deleted = Column(Boolean, default=False)
+    payments = relationship(
+        'OverheadTypeLogPayment',
+        backref='overhead_type_log',
+        order_by='OverheadTypeLogPayment.id',
+    )
+
+    @property
+    def paid_amount(self) -> int:
+        return sum(p.amount for p in self.payments if not p.deleted)
+
+    @property
+    def remaining_amount(self) -> int:
+        return max(0, (self.cost or 0) - self.paid_amount)
+
+    @property
+    def payment_status(self) -> str:
+        paid = self.paid_amount
+        if paid <= 0:
+            return "unpaid"
+        if paid < (self.cost or 0):
+            return "partial"
+        return "paid"
 
     def convert_json(self):
         return {
@@ -550,6 +575,39 @@ class OverheadTypeLog(db.Model):
             "location_id": self.location_id,
             "calendar_month": self.calendar_month,
             "calendar_year": self.calendar_year,
+            "paid_amount": self.paid_amount,
+            "remaining_amount": self.remaining_amount,
+            "payment_status": self.payment_status,
+            "payments": [p.convert_json() for p in self.payments if not p.deleted],
+        }
+
+
+class OverheadTypeLogPayment(db.Model):
+    __tablename__ = "overheadtypelog_payment"
+    id = Column(Integer, primary_key=True)
+    overhead_type_log_id = Column(
+        Integer, ForeignKey('overheadtypelog.id'), nullable=False,
+    )
+    payment_type_id = Column(Integer, ForeignKey('paymenttypes.id'), nullable=True)
+    overhead_id = Column(Integer, ForeignKey('overhead.id'), nullable=True)
+    amount = Column(Integer, nullable=False)
+    paid_date = Column(DateTime, nullable=False)
+    note = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, server_default=db.func.now())
+    deleted = Column(Boolean, default=False, nullable=False)
+    management_id = Column(Integer, nullable=True, unique=True)
+
+    def convert_json(self):
+        return {
+            "id": self.id,
+            "overhead_type_log_id": self.overhead_type_log_id,
+            "payment_type_id": self.payment_type_id,
+            "payment_type_name": self.payment_type.name if self.payment_type_id and self.payment_type else None,
+            "overhead_id": self.overhead_id,
+            "amount": self.amount,
+            "paid_date": self.paid_date.strftime("%d.%m.%Y") if self.paid_date else None,
+            "note": self.note,
         }
 
 
