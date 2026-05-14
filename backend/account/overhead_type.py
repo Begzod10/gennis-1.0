@@ -750,3 +750,53 @@ def update_overhead_type_log(log_id):
         'message': 'Log yangilandi',
         'log': log.convert_json(),
     })
+
+
+@overhead_type_bp.route('/overhead_type_logs/<int:log_id>', methods=['DELETE'])
+@jwt_required()
+def delete_overhead_type_log(log_id):
+    """Soft-delete an OverheadTypeLog.
+
+    Refuses if the log carries financial records (active split payments or a
+    legacy single-pay link). The admin must clear those first:
+        - Split payments: DELETE each /payments/<id>
+        - Legacy: POST /convert-to-split, then DELETE the converted payment
+    """
+    log = (
+        db.session.query(OverheadTypeLog)
+        .filter(OverheadTypeLog.id == log_id)
+        .with_for_update()
+        .first()
+    )
+    if not log:
+        return jsonify({'success': False, 'message': 'Log topilmadi'}), 404
+    if log.deleted:
+        return jsonify({'success': False, 'message': "Log allaqachon o'chirilgan"}), 400
+
+    has_splits = db.session.query(OverheadTypeLogPayment.id).filter(
+        OverheadTypeLogPayment.overhead_type_log_id == log.id,
+        OverheadTypeLogPayment.deleted == False,
+    ).first() is not None
+
+    if has_splits:
+        return jsonify({
+            'success': False,
+            'message': "Logda faol to'lovlar bor. Avval ularni o'chiring.",
+        }), 400
+    if log.overhead_id:
+        return jsonify({
+            'success': False,
+            'message': (
+                "Log legacy bir martalik to'lov bilan to'langan. Avval "
+                "/convert-to-split qiling, so'ng to'lovni o'chiring."
+            ),
+        }), 400
+
+    log.deleted = True
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': "Log o'chirildi",
+        'log': log.convert_json(),
+    })
