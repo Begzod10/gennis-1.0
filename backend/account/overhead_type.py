@@ -670,3 +670,83 @@ def convert_log_to_split(log_id):
         'payment': payment.convert_json(),
         'log': log.convert_json(),
     })
+
+
+@overhead_type_bp.route('/overhead_type_logs/<int:log_id>', methods=['PATCH'])
+@jwt_required()
+def update_overhead_type_log(log_id):
+    """Partial update for an OverheadTypeLog. Currently editable: `cost`.
+
+    Body (JSON):
+        cost (optional) — new amount, must be > 0. Refused if it would drop
+            below the current paid_amount (would imply a retroactive refund;
+            delete payments first if that's intended).
+    """
+    data = request.get_json() or {}
+    if not data:
+        return jsonify({'success': False, 'message': 'Yangilanadigan maydonlar yo\'q'}), 400
+
+    new_cost = data.get('cost', None)
+
+    log = (
+        db.session.query(OverheadTypeLog)
+        .filter(OverheadTypeLog.id == log_id)
+        .with_for_update()
+        .first()
+    )
+    if not log:
+        return jsonify({'success': False, 'message': 'Log topilmadi'}), 404
+    if log.deleted:
+        return jsonify({'success': False, 'message': "Log o'chirilgan"}), 400
+
+    changed = False
+
+    if new_cost is not None:
+        try:
+            new_cost = int(new_cost)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': "cost butun son bo'lishi kerak"}), 400
+        if new_cost <= 0:
+            return jsonify({'success': False, 'message': "cost musbat bo'lishi kerak"}), 400
+
+        existing_paid = db.session.query(
+            func.coalesce(func.sum(OverheadTypeLogPayment.amount), 0)
+        ).filter(
+            OverheadTypeLogPayment.overhead_type_log_id == log.id,
+            OverheadTypeLogPayment.deleted == False,
+        ).scalar() or 0
+
+        if new_cost < existing_paid:
+            return jsonify({
+                'success': False,
+                'message': (
+                    f"Yangi cost to'langan summadan kichik bo'lishi mumkin emas "
+                    f"({existing_paid:,} so'm). Avval to'lovlarni o'chiring."
+                ),
+                'paid_amount': existing_paid,
+            }), 400
+
+        log.cost = new_cost
+        changed = True
+
+    if not changed:
+        return jsonify({
+            'success': False,
+            'message': "Ruxsat etilgan maydon yo'q (faqat: cost)",
+        }), 400
+
+    # If the log uses split payments, recompute is_paid/paid_date because the
+    # new cost may have flipped the threshold. Legacy single-pay logs
+    # (overhead_id set, no payment rows) keep their is_paid/paid_date as-is.
+    if not log.overhead_id or db.session.query(OverheadTypeLogPayment.id).filter(
+        OverheadTypeLogPayment.overhead_type_log_id == log.id,
+        OverheadTypeLogPayment.deleted == False,
+    ).first() is not None:
+        _recompute_log_paid(log)
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Log yangilandi',
+        'log': log.convert_json(),
+    })
