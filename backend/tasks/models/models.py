@@ -257,7 +257,7 @@ class Mission(db.Model):
     last_generated = db.Column(db.Date, nullable=True)
 
     final_sc = db.Column(db.Integer, default=0)
-    deleted = db.Column(db.Boolean, nullable=False, default=False)
+    deleted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("false"))
 
     created_at = db.Column(db.DateTime, server_default=func.now())
     updated_at = db.Column(db.DateTime, server_default=func.now(), server_onupdate=func.now())
