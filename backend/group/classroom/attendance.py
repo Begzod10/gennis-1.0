@@ -575,7 +575,8 @@ def make_attendance_classroom():
             teacher_ball=ball,
             fine=fine,
             discount=discount_status,
-            assistent_fine=assistent_fine
+            assistent_fine=assistent_fine,
+            date=datetime.now()
         )
     elif homework == 0 and dictionary == 0 and active == 0:
         # Present without scores
@@ -595,7 +596,8 @@ def make_attendance_classroom():
             discount_per_day=discount_per_day,
             fine=fine,
             assistent_salary_per_day=assistent_salary_per_day,
-            assistent_fine=assistent_fine
+            assistent_fine=assistent_fine,
+            date=datetime.now()
         )
     else:
 
@@ -620,7 +622,8 @@ def make_attendance_classroom():
             discount_per_day=discount_per_day,
             fine=fine,
             assistent_salary_per_day=assistent_salary_per_day,
-            assistent_fine=assistent_fine
+            assistent_fine=assistent_fine,
+            date=datetime.now()
         )
 
     db.session.add(attendance_add)
@@ -966,7 +969,8 @@ def make_attendance_classroom_mobile():
                 fine=fine,
                 discount=discount_status,
                 assistent_fine=assistent_fine,
-                assistent_salary_per_day=assistent_salary_per_day
+                assistent_salary_per_day=assistent_salary_per_day,
+                date=datetime.now()
             )
         elif homework == 0 and dictionary == 0 and active == 0:
             # Present without scores
@@ -986,7 +990,8 @@ def make_attendance_classroom_mobile():
                 discount_per_day=discount_per_day,
                 fine=fine,
                 assistent_fine=assistent_fine,
-                assistent_salary_per_day=assistent_salary_per_day
+                assistent_salary_per_day=assistent_salary_per_day,
+                date=datetime.now()
             )
         else:
             # Present with scores
@@ -1011,7 +1016,8 @@ def make_attendance_classroom_mobile():
                 discount_per_day=discount_per_day,
                 fine=fine,
                 assistent_fine=assistent_fine,
-                assistent_salary_per_day=assistent_salary_per_day
+                assistent_salary_per_day=assistent_salary_per_day,
+                date=datetime.now()
             )
 
         attendance_days_to_add.append((student, attendance, attendance_day))
