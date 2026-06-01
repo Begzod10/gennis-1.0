@@ -18,7 +18,8 @@ celery = Celery(
         'backend.celery.debt_calls',
         'backend.celery.new_students',
         'backend.celery.check_lesson_plan',
-        'backend.celery.overhead_logs'
+        'backend.celery.overhead_logs',
+        'backend.celery.recompute_salaries'
     ]
 )
 
@@ -52,6 +53,11 @@ celery.conf.beat_schedule = {
     'generate-monthly-overhead-logs': {
         'task': 'generate_monthly_overhead_logs',
         'schedule': crontab(day_of_month=1, hour=1, minute=0),
+        'options': {'expires': 3600}
+    },
+    'recompute-open-month-teacher-salaries-nightly': {
+        'task': 'recompute_open_month_teacher_salaries',
+        'schedule': crontab(hour=2, minute=30),
         'options': {'expires': 3600}
     },
 }
