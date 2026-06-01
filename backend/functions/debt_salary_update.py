@@ -190,13 +190,13 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
     ).all()
 
     # Calculate in memory
+    # NOTE: salary_per_day, fine, and TeacherBlackSalary are teacher-only —
+    # the assistent has separate columns (assistent_salary_per_day, assistent_fine)
+    # and a separate table (AssistentBlackSalary). Do NOT subtract assistent sums
+    # from these — that would double-count the split that the schema already encodes.
     black_salary = sum(s.total_salary for s in black_salaries)
     total_salary = sum(s.salary_per_day for s in attendance_teacher_salary)
     total_fine = sum(s.fine for s in attendance_teacher_salary if s.fine)
-
-    teacher_salary = 0
-    teacher_fine = 0
-    teacher_black_salary = 0
 
     # OPTIMIZATION: Calculate previous month calendar once
     current_month = int(attendance.month.date.strftime("%m"))
@@ -235,10 +235,6 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
             s.assistent_salary_per_day for s in attendance_teacher_salary if s.assistent_salary_per_day)
         assistent_fine = sum(s.assistent_fine for s in attendance_teacher_salary if s.assistent_fine)
         assistent_black_salary = sum(s.total_salary for s in asistent_black_salaries)
-
-        teacher_salary += assistent_salary
-        teacher_fine += assistent_fine
-        teacher_black_salary += assistent_black_salary
 
         salary_location = AssistentSalary.query.filter(
             AssistentSalary.assisten_id == assistent.id,
@@ -282,11 +278,6 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
                 salary_location.total_fine - debt
         )
         salary_location.status = taken >= salary_location.total_salary
-
-    # Calculate teacher's portion
-    total_fine = total_fine - teacher_fine
-    total_salary = total_salary - teacher_salary
-    black_salary = black_salary - teacher_black_salary
 
     # OPTIMIZATION: Single query for teacher salary with eager loading
     salary_location = db.session.query(TeacherSalary).options(
