@@ -4,8 +4,8 @@ from datetime import datetime
 import pytz
 
 from backend.celery.celery_app import celery
-from backend.functions.debt_salary_update import update_teacher_salary
-from backend.models.models import CalendarMonth, TeacherSalary, db
+from backend.functions.debt_salary_update import update_teacher_salary, update_assistent_salary
+from backend.models.models import AssistentSalary, CalendarMonth, TeacherSalary, db
 
 logger = logging.getLogger(__name__)
 
@@ -37,35 +37,61 @@ def recompute_open_month_teacher_salaries():
             )
             return {'success': True, 'processed': 0, 'failed': 0, 'month': str(month_date)}
 
-        salary_rows = TeacherSalary.query.filter(
+        teacher_rows = TeacherSalary.query.filter(
             TeacherSalary.calendar_month == calendar_month.id
         ).all()
+        assistent_rows = AssistentSalary.query.filter(
+            AssistentSalary.calendar_month == calendar_month.id
+        ).all()
 
-        processed = 0
-        failed = 0
-        for row in salary_rows:
+        t_processed = 0
+        t_failed = 0
+        for row in teacher_rows:
             try:
                 update_teacher_salary(teacher_id=row.teacher_id, salary_id=row.id)
-                processed += 1
+                t_processed += 1
             except Exception as row_exc:
                 db.session.rollback()
-                failed += 1
+                t_failed += 1
                 logger.error(
-                    f"recompute_open_month_teacher_salaries: row {row.id} "
+                    f"recompute_open_month_teacher_salaries: teacher row {row.id} "
                     f"(teacher {row.teacher_id}, loc {row.location_id}) "
+                    f"failed: {row_exc}"
+                )
+
+        a_processed = 0
+        a_failed = 0
+        for row in assistent_rows:
+            try:
+                update_assistent_salary(assistent_id=row.assisten_id, salary_id=row.id)
+                a_processed += 1
+            except Exception as row_exc:
+                db.session.rollback()
+                a_failed += 1
+                logger.error(
+                    f"recompute_open_month_teacher_salaries: assistent row {row.id} "
+                    f"(assistent {row.assisten_id}, loc {row.location_id}) "
                     f"failed: {row_exc}"
                 )
 
         logger.info(
             f"recompute_open_month_teacher_salaries: month {month_date}, "
-            f"processed={processed}, failed={failed}, total={len(salary_rows)}"
+            f"teachers processed={t_processed} failed={t_failed} total={len(teacher_rows)}, "
+            f"assistents processed={a_processed} failed={a_failed} total={len(assistent_rows)}"
         )
         return {
             'success': True,
             'month': str(month_date),
-            'total': len(salary_rows),
-            'processed': processed,
-            'failed': failed,
+            'teachers': {
+                'total': len(teacher_rows),
+                'processed': t_processed,
+                'failed': t_failed,
+            },
+            'assistents': {
+                'total': len(assistent_rows),
+                'processed': a_processed,
+                'failed': a_failed,
+            },
         }
 
     except Exception as exc:

@@ -276,13 +276,12 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
             salary_location.debt = remaining if remaining < 0 else 0
 
         debt = salary_location.debt if salary_location.debt else 0
-        if salary_location.taken_money:
-            remaining_salary = salary_location.total_salary - (
-                    salary_location.taken_money + assistent_black_salary +
-                    salary_location.total_fine - debt
-            )
-            salary_location.remaining_salary = remaining_salary
-            salary_location.status = salary_location.taken_money >= salary_location.total_salary
+        taken = salary_location.taken_money or 0
+        salary_location.remaining_salary = salary_location.total_salary - (
+                taken + assistent_black_salary +
+                salary_location.total_fine - debt
+        )
+        salary_location.status = taken >= salary_location.total_salary
 
     # Calculate teacher's portion
     total_fine = total_fine - teacher_fine
@@ -341,13 +340,12 @@ def salary_debt(student_id, group_id, attendance_id, status_attendance, type_att
                 salary_location.debt = 0
 
     debt = salary_location.debt if salary_location.debt else 0
-    if salary_location.taken_money:
-        remaining_salary = salary_location.total_salary - (
-                salary_location.taken_money + black_salary +
-                salary_location.total_fine + book_payments - debt
-        )
-        salary_location.remaining_salary = remaining_salary
-        salary_location.status = salary_location.taken_money >= salary_location.total_salary
+    taken = salary_location.taken_money or 0
+    salary_location.remaining_salary = salary_location.total_salary - (
+            taken + black_salary +
+            salary_location.total_fine + book_payments - debt
+    )
+    salary_location.status = taken >= salary_location.total_salary
 
     # OPTIMIZATION: Single commit at the end
     db.session.commit()
@@ -449,6 +447,85 @@ def update_teacher_salary(teacher_id, salary_id):
     db.session.commit()
 
     return day_salary_info
+
+
+def update_assistent_salary(assistent_id, salary_id):
+    """
+    Recompute assistent salary for a specific month/location, mirroring
+    the assistent branch of salary_debt() but in a single shot.
+    """
+    assistent = Assistent.query.filter(Assistent.id == assistent_id).first()
+    salary_location = AssistentSalary.query.filter(AssistentSalary.id == salary_id).first()
+
+    if not assistent or not salary_location:
+        return None
+
+    calendar_month = CalendarMonth.query.get(salary_location.calendar_month)
+    months = int(calendar_month.date.strftime('%m'))
+    current_year = int(calendar_month.year.date.strftime('%Y'))
+
+    # Sum assistent_salary_per_day + assistent_fine across all attendance rows
+    # in groups currently owned by this assistent for this month/location.
+    attendance_rows = db.session.query(AttendanceDays).join(
+        AttendanceDays.day
+    ).join(
+        Groups, Groups.id == AttendanceDays.group_id
+    ).options(
+        contains_eager(AttendanceDays.day)
+    ).filter(
+        extract("year", CalendarDay.date) == current_year,
+        extract("month", CalendarDay.date) == months,
+        AttendanceDays.location_id == salary_location.location_id,
+        Groups.assistent_id == assistent.id
+    ).all()
+
+    total_salary = sum(
+        r.assistent_salary_per_day for r in attendance_rows if r.assistent_salary_per_day
+    )
+    total_fine = sum(
+        r.assistent_fine for r in attendance_rows if r.assistent_fine
+    )
+
+    # Collapse duplicate AssistentSalary rows for the same key
+    duplicates = AssistentSalary.query.filter(
+        AssistentSalary.assisten_id == assistent.id,
+        AssistentSalary.location_id == salary_location.location_id,
+        AssistentSalary.calendar_year == salary_location.calendar_year,
+        AssistentSalary.calendar_month == salary_location.calendar_month
+    ).all()
+    if len(duplicates) > 1:
+        for dup in duplicates[1:]:
+            AssistentBlackSalary.query.filter(
+                AssistentBlackSalary.salary_id == dup.id
+            ).delete()
+            db.session.delete(dup)
+        db.session.commit()
+
+    salary_location.total_salary = total_salary
+    salary_location.total_fine = total_fine
+
+    black_salaries = AssistentBlackSalary.query.filter(
+        AssistentBlackSalary.assistent_id == assistent.id,
+        AssistentBlackSalary.calendar_month == salary_location.calendar_month,
+        AssistentBlackSalary.calendar_year == salary_location.calendar_year,
+        AssistentBlackSalary.location_id == salary_location.location_id,
+        or_(
+            AssistentBlackSalary.status == False,
+            AssistentBlackSalary.status == None
+        )
+    ).all()
+    unpaid_black = sum(s.total_salary for s in black_salaries if s.total_salary)
+
+    debt = salary_location.debt if salary_location.debt else 0
+    taken = salary_location.taken_money or 0
+
+    salary_location.remaining_salary = total_salary - (
+        taken + unpaid_black + total_fine - debt
+    )
+    salary_location.status = taken >= total_salary
+
+    db.session.commit()
+    return salary_location
 
 
 def staff_salary_update():
