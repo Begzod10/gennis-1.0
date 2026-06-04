@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint
 from flask import request, jsonify
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, text
 from dateutil.relativedelta import relativedelta
 from backend.models.models import Staff, Users, Teachers, TeacherSalary, StaffSalary, CalendarMonth, CalendarYear, \
     TeacherBlackSalary, db, AttendanceHistoryStudent, Students, Groups, Subjects, \
@@ -272,8 +272,12 @@ def home_screen_salaries():
             .filter(
                 TeacherSalary.calendar_month == month_id,
                 TeacherSalary.calendar_year == year_id,
-                Users.location_id == location_id,
                 TeacherSalary.location_id == location_id,
+                text(
+                    "EXISTS (SELECT 1 FROM teacher_locations tl "
+                    "WHERE tl.teacher_id = teachers.id "
+                    "AND tl.location_id = :tl_location_id)"
+                ).bindparams(tl_location_id=location_id),
                 or_(
                     DeletedTeachers.id == None,
                     CalendarMonth.date > month_date_obj
