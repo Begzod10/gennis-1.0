@@ -249,10 +249,6 @@ def group_profile(group_id):
             "name": "O'qituvchi ulushi",
             "value": group.teacher_salary
         },
-        "assistantSalary": {
-            "name": "Assistens ulushi",
-            "value": group.assistant_salary
-        },
         "teacherName": {
             "name": "O'qituvchi ismi",
             "value": teacher.user.name.title()
