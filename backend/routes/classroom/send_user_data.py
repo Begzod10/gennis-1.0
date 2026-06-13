@@ -1,4 +1,4 @@
-from backend.functions.utils import api
+from backend.functions.utils import api, update_salary
 from backend.models.models import Users, Students, Teachers, Subjects, SubjectLevels, db
 from backend.parent.models import Parent
 from flask import Blueprint, request, jsonify
@@ -31,6 +31,10 @@ def send_parent_data(user_id):
 @classroom_basic_bp.route(f'/send_student_data/<user_id>')
 def send_student_data(user_id):
     user = Users.query.filter(Users.id == user_id).first()
+    teacher_check = Teachers.query.filter(Teachers.user_id == user.id).first()
+    if teacher_check:
+        update_salary(user.id)
+        db.session.refresh(user)
 
     return jsonify({"status": "true", "user": user.convert_json()})
 

@@ -235,6 +235,10 @@ def login():
             class_status = False
             location = Locations.query.filter(Locations.id == username_sign.location_id).first()
             parent = Parent.query.filter(Parent.user_id == username_sign.id).first()
+            teacher_check = Teachers.query.filter(Teachers.user_id == username_sign.id).first()
+            if teacher_check:
+                update_salary(username_sign.id)
+                db.session.refresh(username_sign)
 
             return jsonify({
                 'class': class_status,
@@ -272,6 +276,10 @@ def get_user():
 
     user = Users.query.filter_by(user_id=identity).first()
     subjects = Subjects.query.order_by(Subjects.id).all()
+    teacher_check = Teachers.query.filter(Teachers.user_id == user.id).first()
+    if teacher_check:
+        update_salary(user.id)
+        db.session.refresh(user)
 
     return jsonify({
         "data": user.convert_json(),
