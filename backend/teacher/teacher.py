@@ -785,6 +785,7 @@ def test_model():
 
 @teachers_bp.route(f'/get_teacher_balance/<user_id>', methods=["GET", "POST"])
 def get_teacher_balance(user_id):
+    update_salary(user_id)
     user = Users.query.filter(Users.id == user_id).first()
     return jsonify({"balance": user.balance})
 
