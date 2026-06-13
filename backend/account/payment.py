@@ -120,11 +120,14 @@ def delete_payment(payment_id):
 
         black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.student_id == student.id,
                                                          TeacherBlackSalary.payment_id == payment_id).all()
+        affected_teacher_ids = set()
         for salary in black_salaries:
             salary.status = False
             salary.payment_id = None
-            db.session.commit()
-            teacher = Teachers.query.filter(Teachers.id == salary.teacher_id).first()
+            affected_teacher_ids.add(salary.teacher_id)
+        db.session.commit()
+        for teacher_id in affected_teacher_ids:
+            teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
             update_salary(teacher.user_id)
         db.session.delete(payment)
         db.session.commit()
@@ -292,11 +295,14 @@ def get_payment(user_id):
         black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.student_id == student.id,
                                                          or_(TeacherBlackSalary.status == False,
                                                              TeacherBlackSalary.status == None)).all()
+        affected_teacher_ids = set()
         for salary in black_salaries:
             salary.status = True
             salary.payment_id = exist_payment.id
-            db.session.commit()
-            teacher = Teachers.query.filter(Teachers.id == salary.teacher_id).first()
+            affected_teacher_ids.add(salary.teacher_id)
+        db.session.commit()
+        for teacher_id in affected_teacher_ids:
+            teacher = Teachers.query.filter(Teachers.id == teacher_id).first()
             update_salary(teacher.user_id)
         if student.debtor == 0:
             task_type = Tasks.query.filter(Tasks.name == 'excuses').first()
