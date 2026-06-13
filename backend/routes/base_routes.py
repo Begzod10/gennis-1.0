@@ -405,7 +405,7 @@ def register():
             "msg": "Registration was successful"
         })
     if request.method == "GET":
-        subjects = Subjects.query.all()
+        subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).all()
         locations = Locations.query.order_by('id').all()
         languages = EducationLanguage.query.order_by('id').all()
         professions = Professions.query.order_by('id').all()
