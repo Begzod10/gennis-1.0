@@ -562,6 +562,10 @@ def my_profile(user_id):
     teacher = Teachers.query.filter(Teachers.user_id == user_id).first()
     staff = Staff.query.filter(Staff.user_id == user_id).first()
 
+    if teacher:
+        update_salary(user_id)
+        db.session.refresh(user)
+
     combined_debt = student_get.combined_debt if student_get and student_get.combined_debt else 0
 
     subject_list = [{"name": sub.name} for sub in student_get.subject] if student_get and student_get.subject else []
