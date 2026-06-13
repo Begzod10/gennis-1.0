@@ -460,22 +460,11 @@ def update_account(account_id):
 
 def update_salary(teacher_id):
     teacher = Teachers.query.filter(Teachers.user_id == teacher_id).first()
-    attendance_history = TeacherSalary.query.filter(TeacherSalary.teacher_id == teacher.id).filter(
-        or_(TeacherSalary.status == False, TeacherSalary.status == None)).all()
-    black_salaries = TeacherBlackSalary.query.filter(TeacherBlackSalary.teacher_id == teacher.id).filter(
-        or_(TeacherBlackSalary.status == False, TeacherBlackSalary.status == None)).all()
-    black_salary = 0
-    for salary in black_salaries:
-        black_salary += salary.total_salary
-    taken_money = 0
-    total_salary = 0
-    for attendance in attendance_history:
-
-        if attendance.total_salary:
-            total_salary += attendance.total_salary
-        if attendance.taken_money:
-            taken_money += attendance.taken_money
-    result = total_salary - (taken_money + black_salary)
+    open_salaries = TeacherSalary.query.filter(
+        TeacherSalary.teacher_id == teacher.id,
+        or_(TeacherSalary.status == False, TeacherSalary.status == None)
+    ).all()
+    result = sum(s.remaining_salary or 0 for s in open_salaries)
     Users.query.filter(Users.id == teacher.user_id).update({'balance': result})
     db.session.commit()
 
