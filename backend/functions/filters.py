@@ -23,7 +23,7 @@ def teacher_filter():
     filter teacher by language and subject
     :return: language list, subject list
     """
-    subjects = Subjects.query.order_by('id').all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by('id').all()
     languages = EducationLanguage.query.order_by(EducationLanguage.id).all()
     subject_list = [subject.name for subject in subjects]
     language_list = [language.name for language in languages]
@@ -88,7 +88,7 @@ def new_students_filters():
     student filter
     :return: language list, subject list and form for filtering students by their age
     """
-    subjects = Subjects.query.order_by('id').all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by('id').all()
     languages = EducationLanguage.query.order_by('id').all()
     subject_list = [subject.name for subject in subjects]
     language_list = [language.name for language in languages]
@@ -139,7 +139,7 @@ def group_filter(location_id):
 
     teachers_list = [teacher.user.name.title() for teacher in teachers]
 
-    subjects = Subjects.query.order_by(Subjects.id).all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by(Subjects.id).all()
     subject_list = [sub.name.title() for sub in subjects]
     status = {
         "id": 2,

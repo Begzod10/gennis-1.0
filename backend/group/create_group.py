@@ -18,7 +18,7 @@ group_create_bp = Blueprint('group_create_bp', __name__)
 # @jwt_required()
 def create_group_tools():
     course_types = CourseTypes.query.order_by('id').all()
-    subjects = Subjects.query.order_by('id').all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by('id').all()
     subject_list = []
     course_list = []
     for subject in subjects:

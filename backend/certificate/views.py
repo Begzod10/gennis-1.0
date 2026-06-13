@@ -229,7 +229,7 @@ def certificate():
 
     :return: Subjects, Locations, CertificateLevels, CalendarDay datas
     """
-    subjects = Subjects.query.order_by(Subjects.id).all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by(Subjects.id).all()
     locations = Locations.query.order_by(Locations.id).all()
     certificate_levels = CertificateLevels.query.order_by(CertificateLevels.id).all()
     calendar_year, calendar_month, calendar_day = find_calendar_date()

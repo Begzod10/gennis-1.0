@@ -100,7 +100,7 @@ def block_information2(location_id):
     locations_list = [{'id': location.id, "name": location.name} for location in locations]
 
     # subject
-    subjects = Subjects.query.order_by(Subjects.id).all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by(Subjects.id).all()
     subject_list = [{'id': sub.id, "name": sub.name} for sub in subjects]
 
     # course types
@@ -275,7 +275,7 @@ def get_user():
     access_token = create_access_token(identity=identity)
 
     user = Users.query.filter_by(user_id=identity).first()
-    subjects = Subjects.query.order_by(Subjects.id).all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by(Subjects.id).all()
     teacher_check = Teachers.query.filter(Teachers.user_id == user.id).first()
     if teacher_check:
         update_salary(user.id)

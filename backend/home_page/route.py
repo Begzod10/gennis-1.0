@@ -12,7 +12,7 @@ from backend.functions.small_info import advantages_photo_folder, news_photo_fol
     home_design, link_img
 from backend.functions.utils import get_json_field
 from backend.models.models import Advantages, CommentLikes, HomeVideo, HomeDesign, Comments, Users, NewsLink, News, \
-    Gallery, NewsImg, StudentCertificate, Groups, Teachers, TeacherData, Subjects, Link, Locations, db
+    Gallery, NewsImg, StudentCertificate, Groups, Teachers, TeacherData, Subjects, Link, Locations, db, or_
 
 home_page_bp = Blueprint('home_page', __name__)
 
@@ -150,7 +150,7 @@ def get_home_info():
     # })
     design = HomeDesign.query.first()
     video = HomeVideo.query.first()
-    subjects = Subjects.query.order_by(Subjects.id).all()
+    subjects = Subjects.query.filter(or_(Subjects.disabled == False, Subjects.disabled == None)).order_by(Subjects.id).all()
     subject_list = []
     for subject in subjects:
         info = {
