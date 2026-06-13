@@ -456,6 +456,8 @@ def make_attendance():
 def attendance_delete(attendance_id, student_id, group_id, main_attendance):
     student = Students.query.filter(Students.user_id == student_id).first()
     attendancedays = AttendanceDays.query.filter(AttendanceDays.id == attendance_id).first()
+    if not attendancedays:
+        return jsonify({"success": False, "msg": "Davomat topilmadi"}), 404
     attendace_get = Attendance.query.filter(Attendance.id == attendancedays.attendance_id).first()
     group = Groups.query.filter(Groups.id == group_id).first()
     teacher = Teachers.query.filter(Teachers.id == group.teacher_id).first()

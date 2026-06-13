@@ -1,4 +1,4 @@
-from sqlalchemy import and_, or_, extract
+from sqlalchemy import and_, or_, extract, text
 from backend.functions.utils import remove_items_create_group
 from backend.models.models import Subjects, CourseTypes, Rooms, Week, Teachers, Group_Room_Week, Students, Users, \
     StudentHistoryGroups, Groups, RegisterDeletedStudents, Roles, Locations, DeletedStudents, GroupReason, CalendarDay, \
@@ -1180,12 +1180,14 @@ def delete_student():
             )
         )
         db.session.commit()
-        db.session.commit()
         time_table = Group_Room_Week.query.filter(Group_Room_Week.group_id == group.id).all()
-        for time in time_table:
-            if time in student.time_table:
-                student.time_table.remove(time)
-                db.session.commit()
+        grw_ids = [t.id for t in time_table]
+        if grw_ids:
+            db.session.execute(
+                text("DELETE FROM time_table_student WHERE student_id = :sid AND group_room_week = ANY(:grw_ids)"),
+                {"sid": student.id, "grw_ids": grw_ids}
+            )
+            db.session.commit()
         teacher_get = Teachers.query.filter(Teachers.id == group.teacher_id).first()
         deleted_students_total = DeletedStudents.query.filter(
             DeletedStudents.teacher_id == teacher_get.id).join(DeletedStudents.day).filter(
