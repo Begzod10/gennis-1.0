@@ -306,7 +306,7 @@ def make_attendance():
     salary_per_day = round(group.teacher_salary / group.attendance_days)
     assistent = group.assistent if group.assistent else None
     assistent_salary_per_day = 0
-    if assistent:
+    if assistent and group.assistent_salary and group.attendance_days:
         assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
     # Attendance record
     attendance = Attendance.query.filter_by(
