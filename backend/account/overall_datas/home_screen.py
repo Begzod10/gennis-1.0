@@ -560,3 +560,116 @@ def overhead():
         "total_arenda": total_arenda,
         "total_other": total_other
     })
+
+
+@home_screen_bp.route('/discounts/', methods=['GET'])
+def home_screen_discounts():
+    location_id = request.args.get('location_id')
+    month = request.args.get('month')
+    year = request.args.get('year')
+    month_date = year + '-' + month
+    year_obj = datetime.strptime(year, '%Y')
+    month_date_obj = datetime.strptime(month_date, '%Y-%m')
+
+    year_id = CalendarYear.query.filter(CalendarYear.date == year_obj).first().id
+    month_id = CalendarMonth.query.filter(
+        CalendarMonth.date == month_date_obj,
+        CalendarMonth.year_id == year_id
+    ).first().id
+
+    # AttendanceHistoryStudent — per-group discount (total_discount column)
+    attendance_records = (
+        db.session.query(
+            AttendanceHistoryStudent,
+            Students,
+            Users,
+            Groups,
+            Subjects
+        )
+        .join(Students, AttendanceHistoryStudent.student_id == Students.id)
+        .join(Users, Students.user_id == Users.id)
+        .join(Groups, AttendanceHistoryStudent.group_id == Groups.id)
+        .join(Subjects, Groups.subject_id == Subjects.id)
+        .filter(
+            AttendanceHistoryStudent.calendar_month == month_id,
+            AttendanceHistoryStudent.calendar_year == year_id,
+            Users.location_id == location_id,
+            AttendanceHistoryStudent.total_discount != None,
+            AttendanceHistoryStudent.total_discount != 0
+        )
+        .order_by(Students.id)
+        .all()
+    )
+
+    # StudentPayments with payment=False — manual discounts / charity entries
+    discount_payments = (
+        db.session.query(StudentPayments, Students, Users)
+        .join(Students, StudentPayments.student_id == Students.id)
+        .join(Users, Students.user_id == Users.id)
+        .filter(
+            StudentPayments.calendar_month == month_id,
+            StudentPayments.calendar_year == year_id,
+            StudentPayments.location_id == location_id,
+            StudentPayments.payment == False
+        )
+        .order_by(Students.id)
+        .all()
+    )
+
+    # Build attendance-based discount list grouped by student
+    students_dict = {}
+    total_attendance_discount = 0
+
+    for attendance, student, user, group, subject in attendance_records:
+        discount = attendance.total_discount if attendance.total_discount else 0
+        total_attendance_discount += discount
+
+        if student.id not in students_dict:
+            students_dict[student.id] = {
+                'id': student.id,
+                'student_name': f"{user.name} {user.surname}",
+                'month': month_date_obj.strftime("%Y-%m"),
+                'groups': []
+            }
+
+        students_dict[student.id]['groups'].append({
+            'group_id': group.id,
+            'group_name': group.name,
+            'subject_name': subject.name,
+            'total_discount': discount,
+            'scored_days': attendance.scored_days if attendance.scored_days else 0,
+            'total_debt': attendance.total_debt if attendance.total_debt else 0,
+            'payment': attendance.payment if attendance.payment else 0,
+            'remaining_debt': attendance.remaining_debt if attendance.remaining_debt else 0,
+        })
+
+    # Build manual discount/charity list grouped by student
+    manual_discounts_dict = {}
+    total_manual_discount = 0
+
+    for payment, student, user in discount_payments:
+        amount = payment.payment_sum if payment.payment_sum else 0
+        total_manual_discount += amount
+
+        if student.id not in manual_discounts_dict:
+            manual_discounts_dict[student.id] = {
+                'id': student.id,
+                'student_name': f"{user.name} {user.surname}",
+                'month': month_date_obj.strftime("%Y-%m"),
+                'discounts': []
+            }
+
+        manual_discounts_dict[student.id]['discounts'].append({
+            'payment_id': payment.id,
+            'amount': amount,
+            'payment_type_id': payment.payment_type_id,
+            'calendar_day': payment.calendar_day,
+        })
+
+    return jsonify({
+        'attendance_discounts': list(students_dict.values()),
+        'manual_discounts': list(manual_discounts_dict.values()),
+        'total_attendance_discount': total_attendance_discount,
+        'total_manual_discount': total_manual_discount,
+        'total_discount': total_attendance_discount + total_manual_discount,
+    })
