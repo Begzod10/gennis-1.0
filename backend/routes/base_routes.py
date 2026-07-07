@@ -1284,7 +1284,7 @@ def profile(user_id):
                 },
                 "teacher": {
                     "name": "O'qituvchi",
-                    "value": asistent_get.teacher.id if asistent_get is not None else None,
+                    "value": asistent_get.teacher.id if (asistent_get is not None and asistent_get.teacher is not None) else None,
                     "order": 11
                 },
 
