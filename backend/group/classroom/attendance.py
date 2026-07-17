@@ -450,7 +450,7 @@ def make_attendance_classroom():
     # Calculate financial values
     balance_per_day = round(group.price / group.attendance_days)
     salary_per_day = round(group.teacher_salary / group.attendance_days)
-    if assistent:
+    if assistent and group.assistent_salary:
         assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
 
     balance_with_discount = 0
@@ -845,7 +845,7 @@ def make_attendance_classroom_mobile():
     balance_per_day = round(group.price / group.attendance_days)
     salary_per_day = round(group.teacher_salary / group.attendance_days)
     assistent = group.assistent if group.assistent else None
-    if assistent:
+    if assistent and group.assistent_salary:
         assistent_salary_per_day = round(group.assistent_salary / group.attendance_days)
     # Calculate teacher ball based on lateness
     ball = 5
