@@ -693,45 +693,60 @@ def old_current_dates(group_id=0, observation=False):
     """
 
     :param group_id: Groups primary key
-    :return: old month days and current month days
+    :return: current month days, previous month days, and 2 months ago days
     """
     calendar_year, calendar_month, calendar_day = find_calendar_date()
-    current_month = datetime.now().month
-    old_year = datetime.now().year
-    old_month = datetime.now().month - 1
-    old_month2 = datetime.now().month - 1
-    if old_month == 0:
-        old_month = "12"
-        old_year = old_year - 1
-    if len(str(old_month)) == 1:
-        old_month = "0" + str(old_month)
-    date = str(old_year) + "-" + str(old_month)
-    date = datetime.strptime(date, "%Y-%m")
-    current_year = datetime.now().year
-    current_day = datetime.now().day
+    now = datetime.now()
+    current_month = now.month
+    current_year = now.year
+    current_day = now.day
+
+    # Previous month (1 month ago)
+    old_year = current_year
+    old_month_int = current_month - 1
+    if old_month_int == 0:
+        old_month_int = 12
+        old_year = current_year - 1
+    old_month_str = str(old_month_int).zfill(2)
+    prev_month_date = datetime.strptime(f"{old_year}-{old_month_str}", "%Y-%m")
+
+    # 2 months ago
+    old2_year = current_year
+    old2_month_int = current_month - 2
+    if old2_month_int <= 0:
+        old2_month_int += 12
+        old2_year = current_year - 1
+    old2_month_str = str(old2_month_int).zfill(2)
+    prev2_month_date = datetime.strptime(f"{old2_year}-{old2_month_str}", "%Y-%m")
+
     week_list = []
     time_table_group = Group_Room_Week.query.filter(Group_Room_Week.group_id == group_id).order_by(
         Group_Room_Week.id).all()
     for time_table in time_table_group:
         week_list.append(time_table.week.eng_name)
+
+    # Current month: days up to today
     day_list = []
-    plan_days = []
     number_days = number_of_days_in_month(current_year, current_month)
     for num in range(1, number_days + 1):
-        plan_days.append(num)
-
         if current_day >= num:
             day_list.append(num)
-    old_days = []
-    number_days = number_of_days_in_month(old_year, old_month2)
-    for num in range(1, number_days + 1):
-        old_days.append(num)
+
+    # Previous month: all days
+    old_days = list(range(1, number_of_days_in_month(old_year, old_month_int) + 1))
+
+    # 2 months ago: all days
+    old2_days = list(range(1, number_of_days_in_month(old2_year, old2_month_int) + 1))
 
     day_list.sort()
     old_days.sort()
+    old2_days.sort()
+
     if group_id != 0:
         day_list = weekday_from_date(day_list, current_month, current_year, week_list)
-        old_days = weekday_from_date(old_days, old_month, old_year, week_list)
+        old_days = weekday_from_date(old_days, old_month_int, old_year, week_list)
+        old2_days = weekday_from_date(old2_days, old2_month_int, old2_year, week_list)
+
     observation = True
     if not observation:
         data = [
@@ -749,9 +764,14 @@ def old_current_dates(group_id=0, observation=False):
                 "days": day_list
             },
             {
-                "name": date.strftime("%h"),
-                "value": date.strftime('%m'),
+                "name": prev_month_date.strftime("%h"),
+                "value": prev_month_date.strftime('%m'),
                 "days": old_days
+            },
+            {
+                "name": prev2_month_date.strftime("%h"),
+                "value": prev2_month_date.strftime('%m'),
+                "days": old2_days
             }
         ]
 
